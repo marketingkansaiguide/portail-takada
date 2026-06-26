@@ -17,7 +17,7 @@ class ProductsTable
                     ->label('Photo')
                     ->circular()
                     ->stacked()
-                    ->limit(3), // Affiche jusqu'à 3 bulles de photos empilées
+                    ->limit(3),
 
                 TextColumn::make('name')
                     ->label('Prestation')
@@ -29,9 +29,10 @@ class ProductsTable
                     ->label('Fournisseur')
                     ->sortable(),
 
-                TextColumn::make('type')
+                TextColumn::make('category.name')
                     ->label('Catégorie')
-                    ->badge(),
+                    ->badge()
+                    ->sortable(),
 
                 IconColumn::make('is_lottery')
                     ->label('Loterie')
