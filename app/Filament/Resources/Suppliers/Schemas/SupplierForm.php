@@ -4,13 +4,14 @@ namespace App\Filament\Resources\Suppliers\Schemas;
 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class SupplierForm
 {
-    public static function schema(): array
+    public static function configure(Schema $schema): Schema
     {
-        return [
+        return $schema->components([
             Section::make('Informations Fournisseur')
                 ->description('Coordonnées et paramètres de commission')
                 ->schema([
@@ -42,6 +43,6 @@ class SupplierForm
                         ->label('Champs info libre')
                         ->columnSpanFull(),
                 ])->columns(2)
-        ];
+        ]);
     }
 }
