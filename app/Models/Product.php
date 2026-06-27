@@ -12,15 +12,21 @@ class Product extends Model
         'name',
         'images',
         'description',
+        'available_days',
+        'blackout_dates',
         'cancellation_type',
         'cancellation_specifics',
         'is_lottery',
         'is_on_demand',
-        'days_before_opening'
+        'days_before_opening',
+        'custom_field_definitions'
     ];
 
     protected $casts = [
         'images' => 'array',
+        'available_days' => 'array',
+        'blackout_dates' => 'array',
+        'custom_field_definitions' => 'array',
         'is_lottery' => 'boolean',
         'is_on_demand' => 'boolean',
     ];
@@ -38,5 +44,10 @@ class Product extends Model
     public function productPeriods()
     {
         return $this->hasMany(ProductPeriod::class);
+    }
+
+    public function productOptions()
+    {
+        return $this->hasMany(ProductOption::class);
     }
 }

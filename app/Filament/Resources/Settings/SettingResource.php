@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Settings;
 use App\Filament\Resources\Settings\Pages;
 use App\Models\Setting;
 use BackedEnum;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -47,7 +48,7 @@ class SettingResource extends Resource
             ])
             ->filters([])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ]);
     }
 
