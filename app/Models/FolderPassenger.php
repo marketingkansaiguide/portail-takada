@@ -3,27 +3,41 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 class FolderPassenger extends Model
 {
-    protected $table = 'folder_passengers';
+    use LogsActivity;
 
     protected $fillable = [
-        'folder_id',
-        'first_name',
-        'last_name',
-        'birth_date',
-        'nationality',
-        'dietary_restrictions',
-        'mobility_concerns'
+        'folder_id', 'last_name', 'first_name', 'birth_date',
+        'nationality', 'dietary_restrictions', 'mobility_concerns',
     ];
 
     protected $casts = [
         'birth_date' => 'date',
     ];
 
-    public function folder()
+    public function folder(): BelongsTo
     {
         return $this->belongsTo(Folder::class);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll()
+            ->logOnlyDirty()
+            ->setDescriptionForEvent(fn(string $eventName) => "voyageur_{$eventName}");
+    }
+
+    // 🎯 REDIRECTION MAGIQUE : Les modifs voyageurs remontent au dossier parent
+    public function tapActivity(Activity $activity, string $eventName)
+    {
+        $activity->subject_id = $this->folder_id;
+        $activity->subject_type = Folder::class;
     }
 }

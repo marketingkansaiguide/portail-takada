@@ -8,29 +8,14 @@ use Spatie\Activitylog\LogOptions;
 
 class Folder extends Model
 {
-    // 🎯 ACTIVATION DU TRAIT DE SURVEILLANCE SPATIE
     use LogsActivity;
 
     protected $fillable = [
-        'agency_id',
-        'reference',
-        'folder_name',
-        'lead_traveler_name',
-        'hotel_booking_name',
-        'contact_phones',
-        'pax_adults',
-        'pax_children',
-        'start_date',
-        'end_date',
-        'status',
-        'folder_fee',
-        'total_price',
-        'flight_info',
-        'first_hotel_check_in',
-        'first_hotel_name',
-        'first_hotel_address',
-        'ticket_dispatch_method',
-        'ticket_dispatch_other'
+        'agency_id', 'reference', 'folder_name', 'lead_traveler_name',
+        'hotel_booking_name', 'contact_phones', 'pax_adults', 'pax_children',
+        'start_date', 'end_date', 'status', 'folder_fee', 'total_price',
+        'flight_info', 'first_hotel_check_in', 'first_hotel_name',
+        'first_hotel_address', 'ticket_dispatch_method', 'ticket_dispatch_other'
     ];
 
     protected $casts = [
@@ -65,13 +50,11 @@ class Folder extends Model
         return $this->hasMany(FolderPassenger::class);
     }
 
-    // 🎯 CONFIGURATION DE L'HISTORIQUE
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logAll() // Enregistre tous les champs modifiés
-            ->logOnlyDirty() // N'enregistre que ce qui a VRAIMENT changé
-            ->dontSubmitEmptyLogs() // Évite de spammer la base de données si on sauvegarde sans rien modifier
+            ->logAll()
+            ->logOnlyDirty()
             ->setDescriptionForEvent(fn(string $eventName) => "{$eventName}");
     }
 }

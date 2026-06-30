@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Folders\FolderResource\RelationManagers;
 
-use Filament\Forms;
-use Filament\Forms\Form;
+use BackedEnum;
+use Filament\Schemas\Schema;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -18,11 +18,11 @@ class ActivitiesRelationManager extends RelationManager
 
     protected static ?string $title = 'Historique des modifications';
     
-    protected static ?string $icon = 'heroicon-o-clock';
+    protected static string|BackedEnum|null $icon = 'heroicon-o-clock';
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form->schema([]); // Ce tableau est en lecture seule
+        return $schema->components([]); 
     }
 
     public function table(Table $table): Table
@@ -43,15 +43,21 @@ class ActivitiesRelationManager extends RelationManager
                     ->label(__('Action'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'created' => __('Création'),
-                        'updated' => __('Mise à jour'),
-                        'deleted' => __('Suppression'),
+                        'created' => __('Création Dossier'),
+                        'updated' => __('Mise à jour Dossier'),
+                        'deleted' => __('Suppression Dossier'),
+                        'prestation_created' => __('Ajout Prestation'),
+                        'prestation_updated' => __('Modif. Prestation'),
+                        'prestation_deleted' => __('Retrait Prestation'),
+                        'voyageur_created' => __('Ajout Voyageur'),
+                        'voyageur_updated' => __('Modif. Voyageur'),
+                        'voyageur_deleted' => __('Retrait Voyageur'),
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
-                        'created' => 'success',
-                        'updated' => 'warning',
-                        'deleted' => 'danger',
+                        'created', 'prestation_created', 'voyageur_created' => 'success',
+                        'updated', 'prestation_updated', 'voyageur_updated' => 'warning',
+                        'deleted', 'prestation_deleted', 'voyageur_deleted' => 'danger',
                         default => 'gray',
                     }),
 
@@ -61,7 +67,7 @@ class ActivitiesRelationManager extends RelationManager
                         $stateArray = is_array($state) ? $state : (is_object($state) && method_exists($state, 'toArray') ? $state->toArray() : json_decode((string) $state, true));
                         
                         if (empty($stateArray) || !isset($stateArray['attributes'])) {
-                            return new HtmlString("<span style='color: #94a3b8; font-style: italic;'>Initialisation du dossier</span>");
+                            return new HtmlString("<span style='color: #94a3b8; font-style: italic;'>Initialisation des données</span>");
                         }
                         
                         $changes = [];
@@ -69,11 +75,11 @@ class ActivitiesRelationManager extends RelationManager
                             if (in_array($key, ['updated_at', 'created_at', 'id'])) continue;
 
                             $oldValue = $stateArray['old'][$key] ?? 'Vide';
-                            $oldStr = is_array($oldValue) ? 'Tableau de données' : (string) $oldValue;
-                            $newStr = is_array($newValue) ? 'Tableau de données' : (string) $newValue;
+                            $oldStr = is_array($oldValue) ? 'Tableau' : (string) $oldValue;
+                            $newStr = is_array($newValue) ? 'Tableau' : (string) $newValue;
 
-                            $oldStr = Str::limit($oldStr, 25);
-                            $newStr = Str::limit($newStr, 25);
+                            $oldStr = Str::limit($oldStr, 35);
+                            $newStr = Str::limit($newStr, 35);
 
                             $changes[] = "<strong>{$key}</strong> : <span style='color: #ef4444; text-decoration: line-through;'>{$oldStr}</span> ➔ <span style='color: #22c55e;'>{$newStr}</span>";
                         }
@@ -86,6 +92,6 @@ class ActivitiesRelationManager extends RelationManager
             ->headerActions([])
             ->actions([])
             ->bulkActions([])
-            ->defaultSort('created_at', 'desc'); // Affiche les actions les plus récentes en haut
+            ->defaultSort('created_at', 'desc'); 
     }
 }
