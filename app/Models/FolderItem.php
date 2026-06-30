@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\Models\Concerns\LogsActivity; // 🎯 IMPORT V5
-use Spatie\Activitylog\Support\LogOptions; // 🎯 IMPORT V5
-use Spatie\Activitylog\Contracts\Activity; // 🎯 IMPORT V5
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 class FolderItem extends Model
 {
@@ -48,18 +48,15 @@ class FolderItem extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['product_id', 'product_option_id', 'item_status_id', 'service_date', 'quantity', 'unit_price', 'total_price', 'custom_values'])
+            ->logFillable() // 🎯 FIX : Enregistre tous les champs (statuts, prix, etc.)
             ->logOnlyDirty()
-            ->dontLogIfAttributesChangedOnly(['updated_at'])
-            ->dontLogEmptyChanges() // 🎯 FONCTION V5 CORRECTE
+            ->dontSubmitEmptyLogs()
             ->setDescriptionForEvent(fn(string $eventName) => "prestation_{$eventName}");
     }
 
     public function tapActivity(Activity $activity, string $eventName)
     {
-        if ($this->folder_id) {
-            $activity->subject_id = $this->folder_id;
-            $activity->subject_type = Folder::class;
-        }
+        $activity->subject_id = $this->folder_id;
+        $activity->subject_type = Folder::class;
     }
 }

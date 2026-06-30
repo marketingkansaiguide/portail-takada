@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Folders\FolderResource\RelationManagers;
 
 use BackedEnum;
-use Filament\Schemas\Schema; // 🎯 IMPORT FILAMENT V4
+use Filament\Schemas\Schema;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -12,8 +12,7 @@ use Illuminate\Support\Str;
 
 class ActivitiesRelationManager extends RelationManager
 {
-    // 🎯 NOM OFFICIEL DE LA RELATION DANS SPATIE V5
-    protected static string $relationship = 'activitiesAsSubject';
+    protected static string $relationship = 'activities';
 
     protected static ?string $title = 'Historique des modifications';
     
@@ -62,24 +61,18 @@ class ActivitiesRelationManager extends RelationManager
 
                 Tables\Columns\TextColumn::make('properties')
                     ->label(__('Détails des changements'))
-                    ->formatStateUsing(function ($state, $record) {
-                        $props = $record->properties;
-                        if ($props instanceof \Illuminate\Support\Collection) {
-                            $props = $props->toArray();
-                        } elseif (is_string($props)) {
-                            $props = json_decode($props, true);
-                        }
+                    ->formatStateUsing(function ($state) {
+                        $stateArray = is_array($state) ? $state : (is_object($state) && method_exists($state, 'toArray') ? $state->toArray() : json_decode((string) $state, true));
                         
-                        if (empty($props) || !isset($props['attributes'])) {
+                        if (empty($stateArray) || !isset($stateArray['attributes'])) {
                             return new HtmlString("<span style='color: #94a3b8; font-style: italic;'>Initialisation des données</span>");
                         }
                         
                         $changes = [];
-                        foreach ($props['attributes'] as $key => $newValue) {
+                        foreach ($stateArray['attributes'] as $key => $newValue) {
                             if (in_array($key, ['updated_at', 'created_at', 'id', 'folder_id'])) continue;
 
-                            $oldValue = $props['old'][$key] ?? 'Vide';
-                            
+                            $oldValue = $stateArray['old'][$key] ?? 'Vide';
                             $oldStr = is_array($oldValue) ? 'Tableau' : (string) $oldValue;
                             $newStr = is_array($newValue) ? 'Tableau' : (string) $newValue;
 

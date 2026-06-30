@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\Models\Concerns\LogsActivity; // 🎯 IMPORT V5
-use Spatie\Activitylog\Support\LogOptions; // 🎯 IMPORT V5
-use Spatie\Activitylog\Contracts\Activity; // 🎯 IMPORT V5
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Contracts\Activity;
 
 class FolderPassenger extends Model
 {
@@ -29,18 +29,15 @@ class FolderPassenger extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['last_name', 'first_name', 'birth_date', 'nationality', 'dietary_restrictions', 'mobility_concerns'])
+            ->logFillable() // 🎯 FIX : Enregistre tous les champs des voyageurs
             ->logOnlyDirty()
-            ->dontLogIfAttributesChangedOnly(['updated_at'])
-            ->dontLogEmptyChanges() // 🎯 FONCTION V5 CORRECTE
+            ->dontSubmitEmptyLogs()
             ->setDescriptionForEvent(fn(string $eventName) => "voyageur_{$eventName}");
     }
 
     public function tapActivity(Activity $activity, string $eventName)
     {
-        if ($this->folder_id) {
-            $activity->subject_id = $this->folder_id;
-            $activity->subject_type = Folder::class;
-        }
+        $activity->subject_id = $this->folder_id;
+        $activity->subject_type = Folder::class;
     }
 }

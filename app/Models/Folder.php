@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Models\Concerns\LogsActivity; // 🎯 IMPORT V5
-use Spatie\Activitylog\Support\LogOptions; // 🎯 IMPORT V5
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Folder extends Model
 {
@@ -53,10 +53,9 @@ class Folder extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['agency_id', 'reference', 'folder_name', 'lead_traveler_name', 'hotel_booking_name', 'contact_phones', 'pax_adults', 'pax_children', 'start_date', 'end_date', 'status', 'folder_fee', 'total_price', 'flight_info', 'first_hotel_check_in', 'first_hotel_name', 'first_hotel_address', 'ticket_dispatch_method', 'ticket_dispatch_other'])
+            ->logFillable() // 🎯 FIX : Enregistre tous les champs définis dans $fillable
             ->logOnlyDirty()
-            ->dontLogIfAttributesChangedOnly(['updated_at'])
-            ->dontLogEmptyChanges() // 🎯 FONCTION V5 CORRECTE
+            ->dontSubmitEmptyLogs()
             ->setDescriptionForEvent(fn(string $eventName) => "{$eventName}");
     }
 }
