@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Folders;
 
 use App\Filament\Resources\Folders\Pages;
+use App\Filament\Resources\Folders\FolderResource\RelationManagers; // 🎯 IMPORTATION DU GESTIONNAIRE D'HISTORIQUE
 use App\Models\Folder;
 use BackedEnum;
 use Carbon\Carbon;
@@ -44,7 +45,6 @@ class FolderResource extends Resource
         return __('Dossiers Clients');
     }
 
-    // 🔄 MOTEUR AUTOMATIQUE 1 : Recalculer le nombre d'adultes et d'enfants en temps réel
     public static function updatePassengerCount($set, $get)
     {
         $passengers = $get('folderPassengers') ?? [];
@@ -68,7 +68,6 @@ class FolderResource extends Resource
         $set('pax_children', $children);
     }
 
-    // 🔄 MOTEUR AUTOMATIQUE 2 : Charger automatiquement les tarifs officiels du catalogue
     public static function updateItemPrices($set, $get)
     {
         $productId = $get('product_id');
@@ -83,7 +82,6 @@ class FolderResource extends Resource
         $product = \App\Models\Product::find($productId);
         if (!$product) return;
 
-        // 1. Recherche de la saison correspondante à la date de la prestation
         $date = Carbon::parse($serviceDate);
         $period = \App\Models\ProductPeriod::where('product_id', $productId)
             ->whereDate('start_date', '<=', $date)
@@ -92,7 +90,6 @@ class FolderResource extends Resource
 
         $basePrice = 0;
         if ($period) {
-            // 2. Recherche du palier de prix selon le nombre de voyageurs (Pax)
             $priceRow = \App\Models\ProductPrice::where('product_period_id', $period->id)
                 ->where('min_pax', '<=', $quantity)
                 ->where('max_pax', '>=', $quantity)
@@ -102,7 +99,6 @@ class FolderResource extends Resource
             }
         }
 
-        // 3. Application du supplément de l'option choisie
         $optionModifier = 0;
         $isPerBooking = false;
         if ($optionId) {
@@ -115,11 +111,9 @@ class FolderResource extends Resource
             }
         }
 
-        // Calcul final unitaire et ligne
         $unitPrice = $basePrice + ($isPerBooking ? 0 : $optionModifier);
         $totalPrice = ($unitPrice * $quantity) + ($isPerBooking ? $optionModifier : 0);
 
-        // Remplissage automatique des champs financiers
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
     }
@@ -130,13 +124,11 @@ class FolderResource extends Resource
             ->columns(3)
             ->components([
                 
-                // 🏢 BLOC SUPÉRIEUR GAUCHE ULTRA-OPTIMISÉ (Prend 2/3 de la largeur)
                 Group::make()->schema([
                     
                     Section::make(__('Informations Générales'))
                         ->columns(4)
                         ->schema([
-                            // Ligne 1 : Les 4 identifiants majeurs
                             TextInput::make('folder_name')
                                 ->label(__('Nom du dossier'))
                                 ->placeholder('Ex: Circuit Hanami 2026')
@@ -158,7 +150,6 @@ class FolderResource extends Resource
                                 ->searchable()
                                 ->preload(),
 
-                            // Ligne 2 : Données démographiques et logistique Billetterie
                             TextInput::make('pax_adults')
                                 ->label(__('Composition : Adultes'))
                                 ->disabled()
@@ -171,7 +162,6 @@ class FolderResource extends Resource
                                 ->dehydrated()
                                 ->default(0),
 
-                            // 🎯 NOUVEAUTÉ : Choix du canal d'envoi de la billetterie
                             Select::make('ticket_dispatch_method')
                                 ->label(__('Envoi de la billetterie'))
                                 ->options([
@@ -179,17 +169,15 @@ class FolderResource extends Resource
                                     'guide' => __('Guide'),
                                     'autre' => __('Autre'),
                                 ])
-                                ->live() // Déclenche instantanément l'affichage du champ texte ci-dessous
+                                ->live() 
                                 ->required(),
 
-                            // 🎯 NOUVEAUTÉ CONDITIONNELLE : S'ouvre uniquement si "Autre" est sélectionné
                             TextInput::make('ticket_dispatch_other')
                                 ->label(__('Précisez le lieu d\'envoi'))
                                 ->placeholder('Ex: Agence locale, Aéroport...')
                                 ->required()
                                 ->visible(fn ($get) => $get('ticket_dispatch_method') === 'autre'),
 
-                            // ⚡ OPTIMISATION VISUELLE : Le repeater des téléphones passe sur sa propre ligne de manière compacte
                             Repeater::make('contact_phones')
                                 ->label(__('Numéros de téléphone de contact'))
                                 ->addActionLabel(__('Ajouter un numéro de contact'))
@@ -201,7 +189,7 @@ class FolderResource extends Resource
                                         ->placeholder('+33 6...'),
                                 ])
                                 ->defaultItems(1)
-                                ->columns(3) // Range les téléphones horizontalement 3 par 3 !
+                                ->columns(3) 
                                 ->columnSpanFull(),
                         ]),
 
@@ -225,7 +213,6 @@ class FolderResource extends Resource
                         ]),
                 ])->columnSpan(['lg' => 2]),
 
-                // 🏢 BLOC SUPÉRIEUR DROIT CONDENSÉ (Prend 1/3 de la largeur)
                 Group::make()->schema([
                     Section::make(__('Informations de Vol & Séjour au Japon'))
                         ->description(__('Renseignez les dates globales du séjour ainsi que le détail des vols.'))
@@ -290,7 +277,6 @@ class FolderResource extends Resource
                         ]),
                 ])->columnSpan(['lg' => 1]),
 
-                // 🏢 BLOC INFÉRIEUR LARGE
                 Group::make()->schema([
                     Section::make(__('Liste des Voyageurs'))
                         ->description(__('Renseignez l\'identité, l\'âge et les contraintes médicales ou alimentaires de chaque passager.'))
@@ -373,7 +359,7 @@ class FolderResource extends Resource
                                 ->collapsed()
                                 ->live()
                                 ->defaultItems(0)
-                                ->itemLabel(function (array $state): ?string {
+                                ->itemLabel(function (array $state) {
                                     if (!isset($state['product_id'])) {
                                         return __('Nouvelle ligne de prestation');
                                     }
@@ -382,7 +368,28 @@ class FolderResource extends Resource
                                     $optionName = !empty($state['product_option_id']) ? \App\Models\ProductOption::find($state['product_option_id'])?->name : __('Sans option');
                                     $quantity = $state['quantity'] ?? 1;
 
-                                    return "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity;
+                                    $statusModel = !empty($state['item_status_id']) ? \App\Models\ItemStatus::find($state['item_status_id']) : null;
+                                    $statusName = $statusModel?->name ?? __('Aucun statut');
+                                    $statusColor = $statusModel?->color ?? 'gray';
+
+                                    $hexColor = match ($statusColor) {
+                                        'success' => '#22c55e', 
+                                        'warning' => '#f59e0b', 
+                                        'danger' => '#ef4444',  
+                                        'info' => '#3b82f6',    
+                                        default => '#94a3b8',   
+                                    };
+
+                                    $mainText = "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity;
+
+                                    return new \Illuminate\Support\HtmlString("
+                                        <span style='display: flex; justify-content: space-between; align-items: center; width: 100%;'>
+                                            <span style='margin-right: 15px;'>{$mainText}</span>
+                                            <span style='background-color: {$hexColor}; color: #ffffff; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);'>
+                                                📌 {$statusName}
+                                            </span>
+                                        </span>
+                                    ");
                                 })
                                 ->schema([
                                     Group::make()->schema([
@@ -407,7 +414,19 @@ class FolderResource extends Resource
                                             ->preload()
                                             ->live()
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
-                                    ])->columns(2),
+
+                                        Select::make('item_status_id')
+                                            ->relationship('itemStatus', 'name')
+                                            ->label(__('Statut de la prestation'))
+                                            ->preload()
+                                            ->searchable()
+                                            ->live()
+                                            ->default(fn () => \App\Models\ItemStatus::firstOrCreate(
+                                                ['name' => 'En attente de validation'],
+                                                ['color' => 'warning']
+                                            )->id)
+                                            ->placeholder(__('Sélectionnez un statut opérationnel')),
+                                    ])->columns(3),
 
                                     Group::make()->schema([
                                         DatePicker::make('service_date')
@@ -513,6 +532,14 @@ class FolderResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    // 🎯 INSERTION DU TABLEAU D'HISTORIQUE EN BAS DE PAGE
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\ActivitiesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

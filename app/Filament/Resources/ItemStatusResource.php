@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\ItemStatusResource\Pages; // 🎯 COEUR DE LA CORRECTION : Liaison des pages opérationnelles
 use App\Models\ItemStatus;
 use BackedEnum;
 use Filament\Actions\EditAction;
@@ -22,7 +23,7 @@ class ItemStatusResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
     
-    protected static ?string $navigationGroup = 'Configuration'; // Aligné dans un groupe d'admin
+    protected static \UnitEnum|string|null $navigationGroup = 'Configuration';
 
     public static function getNavigationLabel(): string
     {
@@ -105,9 +106,9 @@ class ItemStatusResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ItemStatusResource\Pages\ListItemStatuses::route('/'),
-            'create' => ItemStatusResource\Pages\CreateItemStatus::route('/create'),
-            'edit' => ItemStatusResource\Pages\EditItemStatus::route('/{record}/edit'),
+            'index' => Pages\ListItemStatuses::route('/'),
+            'create' => Pages\CreateItemStatus::route('/create'),
+            'edit' => Pages\EditItemStatus::route('/{record}/edit'),
         ];
     }
 }

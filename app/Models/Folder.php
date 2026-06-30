@@ -3,9 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Folder extends Model
 {
+    // 🎯 ACTIVATION DU TRAIT DE SURVEILLANCE SPATIE
+    use LogsActivity;
+
     protected $fillable = [
         'agency_id',
         'reference',
@@ -58,5 +63,15 @@ class Folder extends Model
     public function folderPassengers()
     {
         return $this->hasMany(FolderPassenger::class);
+    }
+
+    // 🎯 CONFIGURATION DE L'HISTORIQUE
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Enregistre tous les champs modifiés
+            ->logOnlyDirty() // N'enregistre que ce qui a VRAIMENT changé
+            ->dontSubmitEmptyLogs() // Évite de spammer la base de données si on sauvegarde sans rien modifier
+            ->setDescriptionForEvent(fn(string $eventName) => "{$eventName}");
     }
 }
