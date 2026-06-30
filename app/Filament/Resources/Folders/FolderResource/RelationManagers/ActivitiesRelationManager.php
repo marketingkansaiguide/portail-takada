@@ -12,16 +12,11 @@ use Illuminate\Support\Str;
 
 class ActivitiesRelationManager extends RelationManager
 {
-    protected static string $relationship = 'activities';
-
+    protected static string $relationship = 'activitiesAsSubject';
     protected static ?string $title = 'Historique des modifications';
-    
     protected static string|BackedEnum|null $icon = 'heroicon-o-clock';
 
-    public function form(Schema $schema): Schema
-    {
-        return $schema->components([]); 
-    }
+    public function form(Schema $schema): Schema { return $schema->components([]); }
 
     public function table(Table $table): Table
     {
@@ -43,53 +38,73 @@ class ActivitiesRelationManager extends RelationManager
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'created' => __('Création Dossier'),
                         'updated' => __('Mise à jour Dossier'),
-                        'deleted' => __('Suppression Dossier'),
-                        'prestation_created' => __('Ajout Prestation'),
-                        'prestation_updated' => __('Modif. Prestation'),
-                        'prestation_deleted' => __('Retrait Prestation'),
-                        'voyageur_created' => __('Ajout Voyageur'),
-                        'voyageur_updated' => __('Modif. Voyageur'),
-                        'voyageur_deleted' => __('Retrait Voyageur'),
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
-                        'created', 'prestation_created', 'voyageur_created' => 'success',
-                        'updated', 'prestation_updated', 'voyageur_updated' => 'warning',
-                        'deleted', 'prestation_deleted', 'voyageur_deleted' => 'danger',
+                        'created' => 'success',
+                        'updated' => 'warning',
                         default => 'gray',
                     }),
 
-                Tables\Columns\TextColumn::make('properties')
+                Tables\Columns\TextColumn::make('attribute_changes')
                     ->label(__('Détails des changements'))
-                    ->formatStateUsing(function ($state) {
-                        $stateArray = is_array($state) ? $state : (is_object($state) && method_exists($state, 'toArray') ? $state->toArray() : json_decode((string) $state, true));
+                    ->formatStateUsing(function ($state, $record) {
+                        $props = $record->attribute_changes;
+                        if ($props instanceof \Illuminate\Support\Collection) $props = $props->toArray();
+                        elseif (is_string($props)) $props = json_decode($props, true);
                         
-                        if (empty($stateArray) || !isset($stateArray['attributes'])) {
-                            return new HtmlString("<span style='color: #94a3b8; font-style: italic;'>Initialisation des données</span>");
+                        if (empty($props) || !isset($props['attributes'])) {
+                            return new HtmlString("<span style='color: #94a3b8; font-style: italic;'>" . __('Initialisation des données') . "</span>");
                         }
                         
+                        // 🎯 RELAIS VERS TES TRADUCTIONS JSON
+                        $dbToTranslations = [
+                            'folder_name' => 'Nom du dossier', 'lead_traveler_name' => 'Pax Leader', 'agency_id' => 'Agence émettrice',
+                            'status' => 'Statut du dossier', 'start_date' => 'Date d\'arrivée au Japon', 'end_date' => 'Date de départ',
+                            'folder_fee' => 'Frais de dossier', 'total_price' => 'Montant total',
+                            'first_hotel_name' => 'Nom du premier hôtel', 'first_hotel_check_in' => 'Date de check-in du 1er hôtel',
+                            'ticket_dispatch_method' => 'Envoi de la billetterie', 'product_id' => 'Produit / Activité',
+                            'product_option_id' => 'Option choisie', 'item_status_id' => 'Statut',
+                            'service_date' => 'Date de la prestation', 'quantity' => 'Quantité / Voyageurs', 'unit_price' => 'Prix unitaire',
+                            'last_name' => 'Nom de famille', 'first_name' => 'Prénom', 'birth_date' => 'Date de naissance',
+                            'nationality' => 'Nationalité', 'dietary_restrictions' => 'Allergies / restrictions alimentaires', 'mobility_concerns' => 'Handicap / mobilité réduite'
+                        ];
+
                         $changes = [];
-                        foreach ($stateArray['attributes'] as $key => $newValue) {
-                            if (in_array($key, ['updated_at', 'created_at', 'id', 'folder_id'])) continue;
+                        foreach ($props['attributes'] as $key => $newValue) {
+                            if (in_array($key, ['id', 'folder_id'])) continue; // On masque les ID techniques inintéressants
 
-                            $oldValue = $stateArray['old'][$key] ?? 'Vide';
-                            $oldStr = is_array($oldValue) ? 'Tableau' : (string) $oldValue;
-                            $newStr = is_array($newValue) ? 'Tableau' : (string) $newValue;
+                            $oldValue = $props['old'][$key] ?? null;
+                            
+                            $oldStr = $oldValue === null ? 'Vide' : (is_bool($oldValue) ? ($oldValue ? 'Oui' : 'Non') : (is_array($oldValue) ? 'Tableau' : (string) $oldValue));
+                            $newStr = $newValue === null ? 'Vide' : (is_bool($newValue) ? ($newValue ? 'Oui' : 'Non') : (is_array($newValue) ? 'Tableau' : (string) $newValue));
 
-                            $oldStr = Str::limit($oldStr, 35);
-                            $newStr = Str::limit($newStr, 35);
+                            $oldStr = Str::limit($oldStr, 40);
+                            $newStr = Str::limit($newStr, 40);
 
-                            $changes[] = "<strong>{$key}</strong> : <span style='color: #ef4444; text-decoration: line-through;'>{$oldStr}</span> ➔ <span style='color: #22c55e;'>{$newStr}</span>";
+                            // 🎯 LE MOTEUR QUI DÉCODE "folderItems.0.quantity" EN "Prestation #1 - Quantité"
+                            if (preg_match('/^(folderItems|folder_items)\.(\d+)\.(.+)$/', $key, $matches)) {
+                                $index = (int)$matches[2] + 1;
+                                $field = isset($dbToTranslations[$matches[3]]) ? __($dbToTranslations[$matches[3]]) : $matches[3];
+                                $translatedKey = "Prestation #{$index} - {$field}";
+                            } elseif (preg_match('/^(folderPassengers|folder_passengers)\.(\d+)\.(.+)$/', $key, $matches)) {
+                                $index = (int)$matches[2] + 1;
+                                $field = isset($dbToTranslations[$matches[3]]) ? __($dbToTranslations[$matches[3]]) : $matches[3];
+                                $translatedKey = "Voyageur #{$index} - {$field}";
+                            } elseif (preg_match('/^contact_phones\.(\d+)\.(.+)$/', $key, $matches)) {
+                                $index = (int)$matches[2] + 1;
+                                $translatedKey = "Téléphone #{$index}";
+                            } else {
+                                $translatedKey = isset($dbToTranslations[$key]) ? __($dbToTranslations[$key]) : $key;
+                            }
+
+                            $changes[] = "<strong>{$translatedKey}</strong> : <span style='color: #ef4444; text-decoration: line-through;'>{$oldStr}</span> ➔ <span style='color: #22c55e;'>{$newStr}</span>";
                         }
                         return new HtmlString(empty($changes) ? __('Aucun détail capturé') : implode('<br>', $changes));
                     })
                     ->wrap()
                     ->size('xs'),
             ])
-            ->filters([])
-            ->headerActions([])
-            ->actions([])
-            ->bulkActions([])
             ->defaultSort('created_at', 'desc'); 
     }
 }

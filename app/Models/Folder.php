@@ -3,13 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Traits\LogsActivity;
-use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Models\Activity; // 🎯 Requis pour l'affichage
 
 class Folder extends Model
 {
-    use LogsActivity;
-
     protected $fillable = [
         'agency_id', 'reference', 'folder_name', 'lead_traveler_name',
         'hotel_booking_name', 'contact_phones', 'pax_adults', 'pax_children',
@@ -19,10 +16,8 @@ class Folder extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'first_hotel_check_in' => 'date',
-        'contact_phones' => 'array',
+        'start_date' => 'date', 'end_date' => 'date', 
+        'first_hotel_check_in' => 'date', 'contact_phones' => 'array',
     ];
 
     protected static function booted()
@@ -35,27 +30,13 @@ class Folder extends Model
         });
     }
 
-    public function agency()
-    {
-        return $this->belongsTo(Agency::class);
-    }
+    public function agency() { return $this->belongsTo(Agency::class); }
+    public function folderItems() { return $this->hasMany(FolderItem::class)->orderBy('service_date', 'asc'); }
+    public function folderPassengers() { return $this->hasMany(FolderPassenger::class); }
 
-    public function folderItems()
+    // 🎯 CONNEXION AU TABLEAU D'AFFICHAGE FILAMENT
+    public function activitiesAsSubject()
     {
-        return $this->hasMany(FolderItem::class)->orderBy('service_date', 'asc');
-    }
-
-    public function folderPassengers()
-    {
-        return $this->hasMany(FolderPassenger::class);
-    }
-
-    public function getActivitylogOptions(): LogOptions
-    {
-        return LogOptions::defaults()
-            ->logFillable() // 🎯 FIX : Enregistre tous les champs définis dans $fillable
-            ->logOnlyDirty()
-            ->dontSubmitEmptyLogs()
-            ->setDescriptionForEvent(fn(string $eventName) => "{$eventName}");
+        return $this->morphMany(Activity::class, 'subject');
     }
 }
