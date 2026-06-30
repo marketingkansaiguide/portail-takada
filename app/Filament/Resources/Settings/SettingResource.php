@@ -19,16 +19,29 @@ class SettingResource extends Resource
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
     
-    protected static ?string $navigationLabel = 'Paramètres Généraux';
+    public static function getNavigationLabel(): string
+    {
+        return __('Paramètres Généraux');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Paramètre');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Paramètres Généraux');
+    }
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Politique d\'annulation globale')
+                Section::make(__('Politique d\'annulation globale'))
                     ->schema([
                         RichEditor::make('general_cancellation_policy')
-                            ->label('Conditions Générales (Texte global)')
+                            ->label(__('Conditions Générales (Texte global)'))
                             ->columnSpanFull(),
                     ])
             ]);
@@ -39,10 +52,10 @@ class SettingResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')
-                    ->label('Configuration')
-                    ->formatStateUsing(fn () => 'Paramètres globaux du site'),
+                    ->label(__('Configuration'))
+                    ->formatStateUsing(fn () => __('Paramètres globaux du site')),
                 Tables\Columns\TextColumn::make('updated_at')
-                    ->label('Dernière modification')
+                    ->label(__('Dernière modification'))
                     ->dateTime()
                     ->sortable(),
             ])

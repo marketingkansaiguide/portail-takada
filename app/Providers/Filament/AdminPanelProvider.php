@@ -2,19 +2,22 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
+use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
+use Filament\Navigation\MenuItem;
+use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets;
+use Filament\Widgets\AccountWidget;
+use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
@@ -28,29 +31,40 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             
-            ->brandName('Takada Travel')
-            ->brandLogo(asset('images/logo.svg')) // Va chercher l'image dans public/images/logo.png
-            ->brandLogoHeight('3rem')             // Ajuste la hauteur de ton logo dans la barre latérale
-            ->favicon(asset('images/logo.svg'))   // Utilise aussi le logo comme icône d'onglet de navigateur
+            // 🎨 Identité Visuelle (Logo SVG & Config)
+            ->brandName('Portail Takada')
+            ->brandLogo(asset('images/logo.svg')) 
+            ->brandLogoHeight('3rem')             
+            ->favicon(asset('images/logo.svg'))   
             
-            ->authLocales([
-                'fr',
-                'en',
-                'ja',
+            // 🌍 Sélecteur de Langue Manuel dans le menu Utilisateur
+            ->userMenuItems([
+                MenuItem::make()
+                    ->label(fn () => app()->getLocale() === 'fr' ? '✓ Français' : 'Français')
+                    ->url(fn () => route('lang.switch', ['locale' => 'fr']))
+                    ->icon('heroicon-m-language'),
+                MenuItem::make()
+                    ->label(fn () => app()->getLocale() === 'en' ? '✓ English' : 'English')
+                    ->url(fn () => route('lang.switch', ['locale' => 'en']))
+                    ->icon('heroicon-m-language'),
+                MenuItem::make()
+                    ->label(fn () => app()->getLocale() === 'ja' ? '✓ 日本語' : '日本語')
+                    ->url(fn () => route('lang.switch', ['locale' => 'ja']))
+                    ->icon('heroicon-m-language'),
             ])
             
             ->colors([
                 'primary' => Color::Amber,
             ])
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
+            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
+            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
+            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                AccountWidget::class,
+                FilamentInfoWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -62,6 +76,7 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+                SetLocale::class, // <-- Enregistrement de notre traducteur dynamique
             ])
             ->authMiddleware([
                 Authenticate::class,

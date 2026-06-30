@@ -12,35 +12,35 @@ class SupplierForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Informations Fournisseur')
-                ->description('Coordonnées et paramètres de commission')
+            Section::make(__('Informations Fournisseur'))
+                ->description(__('Coordonnées et paramètres de commission'))
                 ->schema([
                     TextInput::make('name')
-                        ->label('Nom de l\'entreprise')
+                        ->label(__('Nom de l\'entreprise'))
                         ->required(),
 
                     TextInput::make('contact_name')
-                        ->label('Nom du contact'),
+                        ->label(__('Nom du contact')),
 
                     TextInput::make('phone')
-                        ->label('Téléphone')
+                        ->label(__('Téléphone'))
                         ->tel(),
 
                     TextInput::make('fax')
-                        ->label('Fax'),
+                        ->label(__('Fax')),
 
                     TextInput::make('commission')
-                        ->label('Commission')
+                        ->label(__('Commission'))
                         ->numeric()
                         ->prefix('%')
                         ->default(0.00),
 
                     Textarea::make('address')
-                        ->label('Adresse')
+                        ->label(__('Adresse'))
                         ->columnSpanFull(),
 
                     Textarea::make('notes')
-                        ->label('Champs info libre')
+                        ->label(__('Champs info libre'))
                         ->columnSpanFull(),
                 ])->columns(2)
         ]);

@@ -21,14 +21,27 @@ class CategoryResource extends Resource
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
     
-    protected static ?string $navigationLabel = 'Catégories';
+    public static function getNavigationLabel(): string
+    {
+        return __('Catégories');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Catégorie');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Catégories');
+    }
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 TextInput::make('name')
-                    ->label('Nom de la catégorie')
+                    ->label(__('Nom de la catégorie'))
                     ->required()
                     ->maxLength(255)
                     ->columnSpanFull(),
@@ -40,10 +53,11 @@ class CategoryResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Catégorie')
+                    ->label(__('Catégorie'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
+                    ->label(__('Date de création'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),

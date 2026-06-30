@@ -24,23 +24,23 @@ class ProductForm
                 
                 // 🏢 COLONNE PRINCIPALE (À GAUCHE : 2/3 de l'écran)
                 Group::make()->schema([
-                    Section::make('Présentation de la prestation')
-                        ->description('Renseignez le titre, la description détaillée et ajoutez les visuels.')
+                    Section::make(__('Présentation de la prestation'))
+                        ->description(__('Renseignez le titre, la description détaillée et ajoutez les visuels.'))
                         ->schema([
                             TextInput::make('name')
-                                ->label('Nom du produit / Prestation')
-                                ->placeholder('Ex: Location de Kimono à Kyoto / Billet Shinkansen')
+                                ->label(__('Nom du produit / Prestation'))
+                                ->placeholder(__('Ex: Location de Kimono à Kyoto / Billet Shinkansen'))
                                 ->required()
                                 ->columnSpanFull(),
 
                             Textarea::make('description')
-                                ->label('Description commerciale')
-                                ->placeholder('Décrivez précisément l\'activité ou les spécificités du produit...')
+                                ->label(__('Description commerciale'))
+                                ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
                                 ->rows(5)
                                 ->columnSpanFull(),
 
                             FileUpload::make('images')
-                                ->label('Galerie de photos d\'illustration')
+                                ->label(__('Galerie de photos d\'illustration'))
                                 ->multiple()
                                 ->image()
                                 ->reorderable()
@@ -48,71 +48,70 @@ class ProductForm
                                 ->columnSpanFull(),
                         ]),
 
-                    Section::make('Informations requises lors de l\'achat')
-                        ->description('Configurez les questions spécifiques que l\'agence devra remplir pour valider la réservation.')
+                    Section::make(__('Informations requises lors de l\'achat'))
+                        ->description(__('Configurez les questions spécifiques que l\'agence devra remplir pour valider la réservation.'))
                         ->schema([
                             Repeater::make('custom_field_definitions')
                                 ->label('')
-                                ->addActionLabel('Demander une information spécifique')
-                                ->itemLabel(fn (array $state): ?string => $state['name'] ?? 'Nouveau champ requis')
+                                ->addActionLabel(__('Demander une information spécifique'))
+                                ->itemLabel(fn (array $state): ?string => $state['name'] ?? __('Nouveau champ requis'))
                                 ->collapsible()
                                 ->schema([
                                     Group::make()->schema([
                                         TextInput::make('name')
-                                            ->label('Nom du champ (Ce qui sera demandé)')
-                                            ->placeholder('Ex: Taille en cm, Numéro de passeport...')
+                                            ->label(__('Nom du champ (Ce qui sera demandé)'))
+                                            ->placeholder(__('Ex: Taille en cm, Numéro de passeport...'))
                                             ->required(),
 
                                         Select::make('type')
-                                            ->label('Format de la réponse')
+                                            ->label(__('Format de la réponse'))
                                             ->options([
-                                                'text' => 'Texte court',
-                                                'textarea' => 'Texte long',
-                                                'number' => 'Nombre entier',
-                                                'date' => 'Date',
-                                                'toggle' => 'Case à cocher (Oui/Non)',
+                                                'text' => __('Texte court'),
+                                                'textarea' => __('Texte long'),
+                                                'number' => __('Nombre entier'),
+                                                'date' => __('Date'),
+                                                'toggle' => __('Case à cocher (Oui/Non)'),
                                             ])
                                             ->required(),
                                     ])->columns(2),
 
                                     Group::make()->schema([
                                         TextInput::make('placeholder')
-                                            ->label('Exemple d\'aide (Placeholder)')
-                                            ->placeholder('Ex: M, L, XL ou 175cm...'),
+                                            ->label(__('Exemple d\'aide (Placeholder)'))
+                                            ->placeholder(__('Ex: M, L, XL ou 175cm...')),
 
                                         Toggle::make('is_required')
-                                            ->label('Rendre obligatoire')
+                                            ->label(__('Rendre obligatoire'))
                                             ->default(true)
                                             ->inline(false),
                                     ])->columns(2),
 
                                     Toggle::make('is_per_passenger')
-                                        ->label('Multiplier cette question par le nombre de voyageurs / quantité')
-                                        ->helperText('Si coché, et que l\'agence achète 4 unités, le système générera automatiquement 4 lignes de saisie distinctes en Front-Office.')
+                                        ->label(__('Multiplier cette question par le nombre de voyageurs / quantité'))
+                                        ->helperText(__('Si coché, et que l\'agence achète 4 unités, le système générera automatiquement 4 lignes de saisie distinctes en Front-Office.'))
                                         ->default(false)
                                         ->columnSpanFull(),
                                 ])
                         ]),
 
-                    // 🎯 NOUVELLE SECTION : LES OPTIONS ET DÉCLINAISONS DU PRODUIT
-                    Section::make('Options & Déclinaisons tarifaires')
-                        ->description('Ajoutez des variantes ou des services optionnels payants applicables à ce produit.')
+                    Section::make(__('Options & Déclinaisons tarifaires'))
+                        ->description(__('Ajoutez des variantes ou des services optionnels payants applicables à ce produit.'))
                         ->schema([
                             Repeater::make('productOptions')
-                                ->relationship() // Liaison magique Filament avec la table product_options
+                                ->relationship()
                                 ->label('')
-                                ->addActionLabel('Ajouter une option / déclinaison')
-                                ->itemLabel(fn (array $state): ?string => isset($state['name']) ? $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)' : 'Nouvelle option')
+                                ->addActionLabel(__('Ajouter une option / déclinaison'))
+                                ->itemLabel(fn (array $state): ?string => isset($state['name']) ? $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)' : __('Nouvelle option'))
                                 ->collapsible()
                                 ->schema([
                                     Group::make()->schema([
                                         TextInput::make('name')
-                                            ->label('Nom de l\'option / variante')
-                                            ->placeholder('Ex: Tissu Soie Premium, Option Guide Privé, Classe Supérieure')
+                                            ->label(__('Nom de l\'option / variante'))
+                                            ->placeholder(__('Ex: Tissu Soie Premium, Option Guide Privé, Classe Supérieure'))
                                             ->required(),
 
                                         TextInput::make('price_modifier')
-                                            ->label('Supplément Prix Net (¥)')
+                                            ->label(__('Supplément Prix Net (¥)'))
                                             ->numeric()
                                             ->default(0)
                                             ->required()
@@ -120,57 +119,57 @@ class ProductForm
                                     ])->columns(2),
 
                                     Select::make('billing_type')
-                                        ->label('Mode d\'application du supplément tarifaire')
+                                        ->label(__('Mode d\'application du supplément tarifaire'))
                                         ->options([
-                                            'per_pax' => 'Par voyageur (Multiplié par le nombre de pax/quantité)',
-                                            'per_booking' => 'Frais fixes (Appliqué une seule fois pour tout le dossier)',
+                                            'per_pax' => __('Par voyageur (Multiplié par le nombre de pax/quantité)'),
+                                            'per_booking' => __('Frais fixes (Appliqué une seule fois pour tout le dossier)'),
                                         ])
                                         ->default('per_pax')
                                         ->required(),
                                 ])
                         ]),
 
-                    Section::make('Calendrier & Grilles Tarifaires (Prix NETS)')
-                        ->description('Définissez vos saisons de validité, puis ajoutez les grilles dynamiques à l\'intérieur.')
+                    Section::make(__('Calendrier & Grilles Tarifaires (Prix NETS)'))
+                        ->description(__('Définissez vos saisons de validité, puis ajoutez les grilles dynamiques à l\'intérieur.'))
                         ->schema([
                             Repeater::make('productPeriods')
                                 ->relationship()
                                 ->label('')
                                 ->collapsible()
                                 ->cloneable()
-                                ->addActionLabel('Créer une nouvelle période / saison')
-                                ->itemLabel(fn (array $state): ?string => $state['name'] ?? 'Nouvelle Saison')
+                                ->addActionLabel(__('Créer une nouvelle période / saison'))
+                                ->itemLabel(fn (array $state): ?string => $state['name'] ?? __('Nouvelle Saison'))
                                 ->schema([
                                     TextInput::make('name')
-                                        ->label('Nom de la saison (ex: Haute saison)')
-                                        ->placeholder('Ex: Golden Week')
+                                        ->label(__('Nom de la saison (ex: Haute saison)'))
+                                        ->placeholder(__('Ex: Golden Week'))
                                         ->columnSpanFull()
                                         ->required(),
                                         
                                     Group::make()->schema([
-                                        DatePicker::make('start_date')->label('Date de début')->required(),
-                                        DatePicker::make('end_date')->label('Date de fin')->required(),
+                                        DatePicker::make('start_date')->label(__('Date de début'))->required(),
+                                        DatePicker::make('end_date')->label(__('Date de fin'))->required(),
                                     ])->columns(2),
                                     
                                     Repeater::make('productPrices')
                                         ->relationship()
-                                        ->label('Grille tarifaire (Pax & Âges)')
+                                        ->label(__('Grille tarifaire (Pax & Âges)'))
                                         ->collapsible()
-                                        ->addActionLabel('Ajouter un palier de prix')
-                                        ->itemLabel(fn (array $state): ?string => isset($state['price']) ? 'Tarif : ' . $state['price'] . ' ¥' : 'Nouveau tarif')
+                                        ->addActionLabel(__('Ajouter un palier de prix'))
+                                        ->itemLabel(fn (array $state): ?string => isset($state['price']) ? __('Tarif : ') . $state['price'] . ' ¥' : __('Nouveau tarif'))
                                         ->schema([
                                             Group::make()->schema([
-                                                TextInput::make('min_pax')->label('Pax Min')->numeric()->default(1),
-                                                TextInput::make('max_pax')->label('Pax Max')->numeric()->default(99),
+                                                TextInput::make('min_pax')->label(__('Pax Min'))->numeric()->default(1),
+                                                TextInput::make('max_pax')->label(__('Pax Max'))->numeric()->default(99),
                                             ])->columns(2),
                                             
                                             Group::make()->schema([
-                                                TextInput::make('min_age')->label('Âge Min')->numeric()->default(0),
-                                                TextInput::make('max_age')->label('Âge Max')->numeric()->default(99),
+                                                TextInput::make('min_age')->label(__('Âge Min'))->numeric()->default(0),
+                                                TextInput::make('max_age')->label(__('Âge Max'))->numeric()->default(99),
                                             ])->columns(2),
 
                                             TextInput::make('price')
-                                                ->label('Prix net (¥)')
+                                                ->label(__('Prix net (¥)'))
                                                 ->placeholder('0')
                                                 ->numeric()
                                                 ->required(),
@@ -181,87 +180,87 @@ class ProductForm
 
                 // 🛠️ BARRE LATÉRALE (À DROITE : 1/3 de l'écran)
                 Group::make()->schema([
-                    Section::make('Classification')
+                    Section::make(__('Classification'))
                         ->schema([
                             Select::make('category_id')
                                 ->relationship('category', 'name')
-                                ->label('Catégorie de produit')
+                                ->label(__('Catégorie de produit'))
                                 ->required()
                                 ->searchable()
                                 ->preload()
                                 ->createOptionForm([
                                     TextInput::make('name')
-                                        ->label('Nouvelle catégorie')
+                                        ->label(__('Nouvelle catégorie'))
                                         ->required(),
                                 ]),
 
                             Select::make('supplier_id')
                                 ->relationship('supplier', 'name')
-                                ->label('Fournisseur rattaché')
+                                ->label(__('Fournisseur rattaché'))
                                 ->required()
                                 ->searchable()
                                 ->preload(),
                         ]),
 
-                    Section::make('Planning & Fermetures')
-                        ->description('Gérez les jours d\'exploitation hebdomadaires et les dates d\'exclusion.')
+                    Section::make(__('Planning & Fermetures'))
+                        ->description(__('Gérez les jours d\'exploitation hebdomadaires et les dates d\'exclusion.'))
                         ->schema([
                             CheckboxList::make('available_days')
-                                ->label('Jours d\'ouverture de l\'activité')
+                                ->label(__('Jours d\'ouverture de l\'activité'))
                                 ->options([
-                                    'mon' => 'Lun',
-                                    'tue' => 'Mar',
-                                    'wed' => 'Mer',
-                                    'thu' => 'Jeu',
-                                    'fri' => 'Ven',
-                                    'sat' => 'Sam',
-                                    'sun' => 'Dim',
+                                    'mon' => __('Lun'),
+                                    'tue' => __('Mar'),
+                                    'wed' => __('Mer'),
+                                    'thu' => __('Jeu'),
+                                    'fri' => __('Ven'),
+                                    'sat' => __('Sam'),
+                                    'sun' => __('Dim'),
                                 ])
                                 ->columns(4),
 
                             Repeater::make('blackout_dates')
-                                ->label('Dates de fermeture exceptionnelle')
-                                ->addActionLabel('Bloquer une date spécifique')
+                                ->label(__('Dates de fermeture exceptionnelle'))
+                                ->addActionLabel(__('Bloquer une date spécifique'))
                                 ->schema([
                                     DatePicker::make('date')
-                                        ->label('Date exclue')
+                                        ->label(__('Date exclue'))
                                         ->required(),
                                 ])
                                 ->collapsible()
                                 ->defaultItems(0),
                         ]),
 
-                    Section::make('Paramètres de Vente')
+                    Section::make(__('Paramètres de Vente'))
                         ->schema([
                             Toggle::make('is_on_demand')
-                                ->label('Sur devis uniquement')
-                                ->helperText('L\'agence devra faire une demande manuelle.'),
+                                ->label(__('Sur devis uniquement'))
+                                ->helperText(__('L\'agence devra faire une demande manuelle.')),
 
                             Toggle::make('is_lottery')
-                                ->label('Soumis à loterie')
-                                ->helperText('Pour les produits à places très limitées.'),
+                                ->label(__('Soumis à loterie'))
+                                ->helperText(__('Pour les produits à places très limitées.')),
 
                             TextInput::make('days_before_opening')
-                                ->label('Ouverture des ventes (J-)')
-                                ->placeholder('Ex: 30')
+                                ->label(__('Ouverture des ventes (J-)'))
+                                ->placeholder(__('Ex: 30'))
                                 ->numeric()
-                                ->suffix('jours'),
+                                ->suffix(__('jours')),
                         ]),
 
-                    Section::make('Politique d\'annulation')
+                    Section::make(__('Politique d\'annulation'))
                         ->schema([
                             Select::make('cancellation_type')
-                                ->label('Réglementation')
+                                ->label(__('Réglementation'))
                                 ->options([
-                                    'general' => 'Barème général',
-                                    'specific' => 'Barème spécifique',
+                                    'general' => __('Barème général'),
+                                    'specific' => __('Barème spécifique'),
                                 ])
                                 ->default('general')
                                 ->live(),
 
                             Textarea::make('cancellation_specifics')
-                                ->label('Détails des frais')
-                                ->placeholder('Ex: Non remboursable à partir de J-7...')
+                                ->label(__('Détails des frais'))
+                                ->placeholder(__('Ex: Non remboursable à partir de J-7...'))
                                 ->visible(fn ($get) => $get('cancellation_type') === 'specific')
                                 ->columnSpanFull(),
                         ]),

@@ -14,32 +14,32 @@ class ProductsTable
         return $table
             ->columns([
                 ImageColumn::make('images')
-                    ->label('Photo')
+                    ->label(__('Photo'))
                     ->circular()
                     ->stacked()
                     ->limit(3),
 
                 TextColumn::make('name')
-                    ->label('Prestation')
+                    ->label(__('Prestation'))
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
 
                 TextColumn::make('supplier.name')
-                    ->label('Fournisseur')
+                    ->label(__('Fournisseur'))
                     ->sortable(),
 
                 TextColumn::make('category.name')
-                    ->label('Catégorie')
+                    ->label(__('Catégorie'))
                     ->badge()
                     ->sortable(),
 
                 IconColumn::make('is_lottery')
-                    ->label('Loterie')
+                    ->label(__('Loterie'))
                     ->boolean(),
 
                 IconColumn::make('is_on_demand')
-                    ->label('Devis')
+                    ->label(__('Devis'))
                     ->boolean(),
             ]);
     }

@@ -2,25 +2,35 @@
 
 namespace App\Filament\Resources\Agencies;
 
-use App\Filament\Resources\Agencies\Pages\CreateAgency;
-use App\Filament\Resources\Agencies\Pages\EditAgency;
-use App\Filament\Resources\Agencies\Pages\ListAgencies;
+use App\Filament\Resources\Agencies\Pages;
 use App\Filament\Resources\Agencies\Schemas\AgencyForm;
 use App\Filament\Resources\Agencies\Tables\AgenciesTable;
 use App\Models\Agency;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class AgencyResource extends Resource
 {
     protected static ?string $model = Agency::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static ?string $recordTitleAttribute = 'name';
+    public static function getNavigationLabel(): string
+    {
+        return __('Agences');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Agence');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Agences');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -42,9 +52,9 @@ class AgencyResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListAgencies::route('/'),
-            'create' => CreateAgency::route('/create'),
-            'edit' => EditAgency::route('/{record}/edit'),
+            'index' => Pages\ListAgencies::route('/'),
+            'create' => Pages\CreateAgency::route('/create'),
+            'edit' => Pages\EditAgency::route('/{record}/edit'),
         ];
     }
 }

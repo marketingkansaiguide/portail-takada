@@ -2,25 +2,35 @@
 
 namespace App\Filament\Resources\ClientGroups;
 
-use App\Filament\Resources\ClientGroups\Pages\CreateClientGroup;
-use App\Filament\Resources\ClientGroups\Pages\EditClientGroup;
-use App\Filament\Resources\ClientGroups\Pages\ListClientGroups;
+use App\Filament\Resources\ClientGroups\Pages;
 use App\Filament\Resources\ClientGroups\Schemas\ClientGroupForm;
 use App\Filament\Resources\ClientGroups\Tables\ClientGroupsTable;
 use App\Models\ClientGroup;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class ClientGroupResource extends Resource
 {
     protected static ?string $model = ClientGroup::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    protected static ?string $recordTitleAttribute = 'name';
+    public static function getNavigationLabel(): string
+    {
+        return __('Groupes Clients');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('Groupe Client');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('Groupes Clients');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -42,9 +52,9 @@ class ClientGroupResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListClientGroups::route('/'),
-            'create' => CreateClientGroup::route('/create'),
-            'edit' => EditClientGroup::route('/{record}/edit'),
+            'index' => Pages\ListClientGroups::route('/'),
+            'create' => Pages\CreateClientGroup::route('/create'),
+            'edit' => Pages\EditClientGroup::route('/{record}/edit'),
         ];
     }
 }

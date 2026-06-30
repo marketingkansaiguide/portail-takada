@@ -14,40 +14,39 @@ class AgencyForm
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Informations de l\'Agence')
+            Section::make(__('Informations de l\'Agence'))
                 ->schema([
                     TextInput::make('name')
-                        ->label('Nom de l\'agence')
+                        ->label(__('Nom de l\'agence'))
                         ->required(),
 
-                    // Ce champ va automatiquement chercher les groupes dans ta base !
                     Select::make('client_group_id')
                         ->relationship('clientGroup', 'name')
-                        ->label('Groupe Client (Tarification)')
+                        ->label(__('Groupe Client (Tarification)'))
                         ->required()
                         ->searchable()
                         ->preload(),
 
                     TextInput::make('contact_name')
-                        ->label('Nom du contact'),
+                        ->label(__('Nom du contact')),
 
                     TextInput::make('email')
-                        ->label('Email')
+                        ->label(__('Email'))
                         ->email()
                         ->required()
                         ->unique(ignoreRecord: true),
 
                     TextInput::make('phone')
-                        ->label('Téléphone')
+                        ->label(__('Téléphone'))
                         ->tel(),
 
                     Toggle::make('is_approved')
-                        ->label('Compte approuvé')
-                        ->helperText('Activez pour autoriser cette agence à se connecter.')
+                        ->label(__('Compte approuvé'))
+                        ->helperText(__('Activez pour autoriser cette agence à se connecter.'))
                         ->default(false),
 
                     Textarea::make('address')
-                        ->label('Adresse postale complète')
+                        ->label(__('Adresse postale complète'))
                         ->columnSpanFull(),
                 ])->columns(2)
         ]);
