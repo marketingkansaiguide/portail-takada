@@ -538,7 +538,7 @@ class FolderResource extends Resource
     public static function getRelations(): array
     {
         return [
-            RelationManagers\ActivitiesRelationManager::class,
+            RelationManagers\HistoriesRelationManager::class, // 👈 Le nouveau nom !
         ];
     }
 

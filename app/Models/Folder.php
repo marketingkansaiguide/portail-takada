@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Activitylog\Models\Activity; // 🎯 Requis pour l'affichage
 
 class Folder extends Model
 {
@@ -16,7 +15,7 @@ class Folder extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date', 'end_date' => 'date', 
+        'start_date' => 'date', 'end_date' => 'date',
         'first_hotel_check_in' => 'date', 'contact_phones' => 'array',
     ];
 
@@ -37,6 +36,12 @@ class Folder extends Model
     // 🎯 CONNEXION AU TABLEAU D'AFFICHAGE FILAMENT
     public function activitiesAsSubject()
     {
-        return $this->morphMany(Activity::class, 'subject');
+        return $this->morphMany(\Spatie\Activitylog\Models\Activity::class, 'subject');
     }
+
+    public function histories()
+    {
+        return $this->hasMany(FolderHistory::class)->latest();
+    }
+
 }

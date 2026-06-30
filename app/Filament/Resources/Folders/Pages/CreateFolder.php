@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Folders\Pages;
 use App\Filament\Resources\Folders\FolderResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Arr;
-use App\Models\Folder;
+use App\Models\FolderHistory;
 
 class CreateFolder extends CreateRecord
 {
@@ -13,25 +13,26 @@ class CreateFolder extends CreateRecord
 
     protected function afterCreate(): void
     {
-        // 📸 On enregistre l'état initial complet du dossier fraîchement créé
-        $newData = Folder::with(['folderItems', 'folderPassengers'])
-            ->find($this->record->id)
-            ->toArray();
+        $newData = $this->form->getState();
+        foreach (['folderItems', 'folderPassengers', 'contact_phones'] as $repeater) {
+            if (isset($newData[$repeater])) $newData[$repeater] = array_values($newData[$repeater]);
+        }
 
         $flatNew = Arr::dot($newData);
-        
+        $changes = [];
         foreach ($flatNew as $key => $val) {
-            if (str_contains($key, 'updated_at') || str_contains($key, 'created_at')) {
-                unset($flatNew[$key]);
+            if (!empty($val)) {
+                $changes[$key] = ['old' => 'Vide', 'new' => $val];
             }
         }
 
-        $activity = activity()
-            ->performedOn($this->record)
-            ->causedBy(auth()->user())
-            ->log('created');
-        
-        $activity->attribute_changes = ['attributes' => $flatNew, 'old' => []];
-        $activity->save();
+        if (!empty($changes)) {
+            FolderHistory::create([
+                'folder_id' => $this->record->id,
+                'user_id' => auth()->id(),
+                'action' => 'Création',
+                'changes_payload' => $changes,
+            ]);
+        }
     }
 }
