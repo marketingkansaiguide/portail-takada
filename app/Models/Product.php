@@ -19,7 +19,8 @@ class Product extends Model
         'is_lottery',
         'is_on_demand',
         'days_before_opening',
-        'custom_field_definitions'
+        'custom_field_definitions',
+        'supplier_email_template' // 💡 Autorisé ici
     ];
 
     protected $casts = [
