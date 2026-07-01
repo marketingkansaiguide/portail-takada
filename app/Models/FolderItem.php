@@ -19,6 +19,74 @@ class FolderItem extends Model
     ];
 
     /**
+     * Moteur de parsing des Shortcodes : Génère l'e-mail formaté pour le fournisseur
+     */
+    public function parseSupplierEmail(): string
+    {
+        $product = $this->product;
+        if (!$product || empty($product->supplier_email_template)) {
+            return "Aucun modèle d'e-mail n'a été configuré pour ce produit.";
+        }
+
+        $template = $product->supplier_email_template;
+        $folder = $this->folder;
+
+        // 1. Préparation des variables générales avec les dates
+        $dossierRef = $folder ? $folder->reference : 'N/A';
+        $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
+        
+        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
+        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie'; // 🇯🇵 Date au format japonais
+        
+        $quantite = $this->quantity ?? 1;
+        $optionName = $this->productOption ? $this->productOption->name : 'Aucune option';
+
+        $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
+        $supplierContact = ($product->supplier && $product->supplier->contact_name) 
+            ? $product->supplier->contact_name 
+            : 'Partenaire';
+
+        // 2. Construction de la liste des passagers
+        $passagersText = "";
+        if ($folder && $folder->folderPassengers && $folder->folderPassengers->isNotEmpty()) {
+            foreach ($folder->folderPassengers as $index => $passenger) {
+                $num = $index + 1;
+                $birth = $passenger->birth_date ? Carbon::parse($passenger->birth_date)->format('d/m/Y') : 'Inconnue';
+                $age = $passenger->birth_date ? Carbon::parse($passenger->birth_date)->age . ' ans' : '';
+                
+                $passagersText .= "{$num}. {$passenger->last_name} {$passenger->first_name} ({$passenger->nationality}) - Né(e) le {$birth} [{$age}]\n";
+            }
+        } else {
+            $passagersText = "Aucun passager enregistré.";
+        }
+
+        // 3. Remplacement des shortcodes fixes principaux
+        $replacements = [
+            '[DOSSIER_REF]' => $dossierRef,
+            '[LEAD_NAME]' => $leadName,
+            '[DATE_PRESTA]' => $datePresta,
+            '[DATE_PRESTA_JP]' => $datePrestaJp, // 💡 Nouveau shortcode
+            '[QUANTITE]' => $quantite,
+            '[OPTION_NAME]' => $optionName,
+            '[LISTE_PASSAGERS]' => trim($passagersText),
+            '[NOM_AGENT]' => $writerName,
+            '[CONTACT_FOURNISSEUR]' => $supplierContact,
+        ];
+
+        $emailRendered = str_replace(array_keys($replacements), array_values($replacements), $template);
+
+        // 4. Remplacement dynamique des Custom Fields du Produit [CUSTOM:cle_technique]
+        if (is_array($this->custom_values)) {
+            foreach ($this->custom_values as $key => $val) {
+                $userValue = is_array($val) ? implode(', ', $val) : $val;
+                $emailRendered = str_replace("[CUSTOM:{$key}]", $userValue, $emailRendered);
+            }
+        }
+
+        return $emailRendered;
+    }
+
+    /**
      * Écoute des événements du modèle pour forcer l'historique du dossier
      */
     protected static function booted()
@@ -36,7 +104,6 @@ class FolderItem extends Model
                     // Création d'une empreinte unique pour cette modification
                     $fingerprint = $item->id . '_' . md5(json_encode($changes));
                     
-                    // Si on a déjà loggué cette exacte modification il y a une milliseconde, on ignore
                     if (isset($processedUpdates[$fingerprint])) {
                         return;
                     }

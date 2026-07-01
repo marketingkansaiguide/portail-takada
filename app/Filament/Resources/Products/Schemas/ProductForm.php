@@ -175,7 +175,36 @@ class ProductForm
                                                 ->required(),
                                         ])->columns(3)
                                 ])
-                        ])
+                        ]),
+
+                    Section::make(__('Modèle d\'E-mail pour le Fournisseur'))
+                        ->description(__('Rédigez le texte par défaut qui sera généré dans le dossier client pour commander cette prestation.'))
+                        ->schema([
+                            Textarea::make('supplier_email_template')
+                                ->label(__('Corps du message'))
+                                ->placeholder("Bonjour [CONTACT_FOURNISSEUR],\n\nJe souhaite réserver la prestation suivante pour M/Mme [LEAD_NAME]...\n\nCordialement,\n[NOM_AGENT]")
+                                ->rows(10)
+                                ->columnSpanFull()
+                                ->helperText(fn () => new \Illuminate\Support\HtmlString('
+                                    <div class="mt-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                        <strong class="text-primary-600 block mb-1">📋 Shortcodes généraux disponibles :</strong>
+                                        <ul class="list-disc pl-5 space-y-1">
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DOSSIER_REF]</code> : Référence unique du dossier</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[LEAD_NAME]</code> : Nom du voyageur principal</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DATE_PRESTA]</code> : Date de la prestation (Classique : JJ/MM/AAAA)</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DATE_PRESTA_JP]</code> : Date de la prestation (Japonais : AAAA年MM月DD日)</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[QUANTITE]</code> : Quantité / Nombre de pax</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[OPTION_NAME]</code> : Option choisie</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[LISTE_PASSAGERS]</code> : Liste des participants (Nom, Nationalité, Âge)</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[NOM_AGENT]</code> : Votre nom d\'agent (utilisateur connecté)</li>
+                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[CONTACT_FOURNISSEUR]</code> : Nom du contact défini dans la fiche du fournisseur</li>
+                                        </ul>
+                                        <strong class="text-primary-600 block mt-3 mb-1">🎯 Vos champs personnalisés dynamiques :</strong>
+                                        <p class="text-xs">Tapez <code class="font-mono bg-white px-1 rounded border border-gray-300">[CUSTOM:Nom de la clé]</code> (ex: <code class="font-mono bg-white px-1 rounded border border-gray-300">[CUSTOM:Taille Chaussure]</code> correspondant au "Critère requis" tapé dans le dossier client).</p>
+                                    </div>
+                                ')),
+                        ]),
+
                 ])->columnSpan(['lg' => 2]),
 
                 // 🛠️ BARRE LATÉRALE (À DROITE : 1/3 de l'écran)

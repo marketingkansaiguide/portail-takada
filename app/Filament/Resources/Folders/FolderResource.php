@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Folders;
 
 use App\Filament\Resources\Folders\Pages;
-use App\Filament\Resources\Folders\FolderResource\RelationManagers; // 🎯 IMPORTATION DU GESTIONNAIRE D'HISTORIQUE
+use App\Filament\Resources\Folders\FolderResource\RelationManagers; 
 use App\Models\Folder;
 use BackedEnum;
 use Carbon\Carbon;
@@ -17,6 +17,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\KeyValue;
+use Filament\Actions\Action; // 💡 Import CORRIGÉ (Namespace unifié Filament v5)
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -391,6 +392,35 @@ class FolderResource extends Resource
                                         </span>
                                     ");
                                 })
+                                // 💡 UTILISATION DE EXTRAITEMACTIONS AU LIEU DE ITEMACTIONS
+                                ->extraItemActions([
+                                    Action::make('generateSupplierEmail')
+                                        ->icon('heroicon-o-envelope')
+                                        ->color('info')
+                                        ->tooltip(__('Aperçu de l\'email fournisseur'))
+                                        ->modalHeading(__('Mail Fournisseur'))
+                                        ->modalSubmitActionLabel(__('Fermer'))
+                                        ->modalCancelAction(false) // On retire le bouton annuler inutile
+                                        ->form([
+                                            Textarea::make('email_preview')
+                                                ->hiddenLabel()
+                                                ->rows(15)
+                                                ->readOnly() // Permet la copie facile
+                                        ])
+                                        // 💡 RÉCUPÉRATION SÉCURISÉE DES DONNÉES DU FORMULAIRE
+                                        ->fillForm(function (array $arguments, \Filament\Forms\Components\Repeater $component): array {
+                                            $state = $component->getState();
+                                            $itemData = $state[$arguments['item']] ?? [];
+                                            
+                                            // Sécurité : la prestation doit être sauvegardée une première fois en base pour parser les relations
+                                            if (empty($itemData['id'])) {
+                                                return ['email_preview' => __('Veuillez sauvegarder le dossier (Bouton "Enregistrer") avant de pouvoir générer le mail fournisseur pour cette nouvelle ligne.')];
+                                            }
+                                            
+                                            $item = \App\Models\FolderItem::with(['product', 'folder.folderPassengers', 'productOption'])->find($itemData['id']);
+                                            return ['email_preview' => $item ? $item->parseSupplierEmail() : __('Erreur lors du chargement de la prestation.')];
+                                        })
+                                ])
                                 ->schema([
                                     Group::make()->schema([
                                         Select::make('product_id')
@@ -534,11 +564,10 @@ class FolderResource extends Resource
             ]);
     }
 
-    // 🎯 INSERTION DU TABLEAU D'HISTORIQUE EN BAS DE PAGE
     public static function getRelations(): array
     {
         return [
-            RelationManagers\HistoriesRelationManager::class, // 👈 Le nouveau nom !
+            RelationManagers\HistoriesRelationManager::class,
         ];
     }
 
