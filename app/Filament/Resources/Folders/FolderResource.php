@@ -7,23 +7,28 @@ use App\Filament\Resources\Folders\FolderResource\RelationManagers;
 use App\Models\Folder;
 use BackedEnum;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\Action; 
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\KeyValue;
-use Filament\Actions\Action; // 💡 Import CORRIGÉ (Namespace unifié Filament v5)
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Hidden; 
+use Filament\Forms\Components\Placeholder; 
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 
 class FolderResource extends Resource
 {
@@ -46,7 +51,7 @@ class FolderResource extends Resource
         return __('Dossiers Clients');
     }
 
-    public static function updatePassengerCount($set, $get)
+    public static function updatePassengerCount(Set $set, Get $get)
     {
         $passengers = $get('folderPassengers') ?? [];
         $startDate = $get('start_date');
@@ -69,54 +74,94 @@ class FolderResource extends Resource
         $set('pax_children', $children);
     }
 
-    public static function updateItemPrices($set, $get)
+    public static function updateFolderTotal(Set $set, Get $get)
+    {
+        $items = $get('folderItems') ?? [];
+        $total = 0;
+        foreach ($items as $item) {
+            $total += (float) ($item['total_price'] ?? 0);
+        }
+        $fee = (float) ($get('folder_fee') ?? 0);
+        $set('total_price', $total + $fee);
+    }
+
+    public static function updateItemPrices(Set $set, Get $get)
     {
         $productId = $get('product_id');
         $serviceDate = $get('service_date');
-        $quantity = (int) ($get('quantity') ?? 1);
-        $optionId = $get('product_option_id');
+        $itemQuantity = (int) ($get('quantity') ?? 1);
+        $selectedOptions = $get('selected_options') ?? [];
 
-        if (!$productId || !$serviceDate) {
+        if (!$productId) {
             return;
         }
 
         $product = \App\Models\Product::find($productId);
         if (!$product) return;
 
-        $date = Carbon::parse($serviceDate);
-        $period = \App\Models\ProductPeriod::where('product_id', $productId)
-            ->whereDate('start_date', '<=', $date)
-            ->whereDate('end_date', '>=', $date)
-            ->first();
-
         $basePrice = 0;
-        if ($period) {
-            $priceRow = \App\Models\ProductPrice::where('product_period_id', $period->id)
-                ->where('min_pax', '<=', $quantity)
-                ->where('max_pax', '>=', $quantity)
+        if ($serviceDate) {
+            $date = Carbon::parse($serviceDate);
+            $period = \App\Models\ProductPeriod::where('product_id', $productId)
+                ->whereDate('start_date', '<=', $date)
+                ->whereDate('end_date', '>=', $date)
                 ->first();
-            if ($priceRow) {
-                $basePrice = $priceRow->price;
-            }
-        }
 
-        $optionModifier = 0;
-        $isPerBooking = false;
-        if ($optionId) {
-            $option = \App\Models\ProductOption::find($optionId);
-            if ($option) {
-                $optionModifier = $option->price_modifier;
-                if ($option->billing_type === 'per_booking') {
-                    $isPerBooking = true;
+            if ($period) {
+                $priceRow = \App\Models\ProductPrice::where('product_period_id', $period->id)
+                    ->where('min_pax', '<=', $itemQuantity)
+                    ->where('max_pax', '>=', $itemQuantity)
+                    ->first();
+                if ($priceRow) {
+                    $basePrice = (float) $priceRow->price;
                 }
             }
         }
 
-        $unitPrice = $basePrice + ($isPerBooking ? 0 : $optionModifier);
-        $totalPrice = ($unitPrice * $quantity) + ($isPerBooking ? $optionModifier : 0);
+        $perPaxOptionsTotal = 0;
+        $fixedOptionsTotal = 0;
+
+        if (is_array($selectedOptions)) {
+            foreach ($selectedOptions as $optData) {
+                if (empty($optData['product_option_id'])) continue;
+                $option = \App\Models\ProductOption::find($optData['product_option_id']);
+                if ($option) {
+                    $mod = (float) $option->price_modifier;
+                    if ($option->billing_type === 'per_pax') {
+                        $perPaxOptionsTotal += $mod;
+                    } elseif ($option->billing_type === 'per_booking') {
+                        $fixedOptionsTotal += $mod;
+                    } elseif ($option->billing_type === 'manual') {
+                        $optQty = isset($optData['quantity']) && $optData['quantity'] !== '' ? (int) $optData['quantity'] : 1;
+                        $fixedOptionsTotal += ($mod * $optQty);
+                    }
+                }
+            }
+        }
+
+        $legacyOptionId = $get('product_option_id');
+        if ($legacyOptionId && empty($selectedOptions)) {
+            $option = \App\Models\ProductOption::find($legacyOptionId);
+            if ($option) {
+                $mod = (float) $option->price_modifier;
+                if ($option->billing_type === 'per_pax') $perPaxOptionsTotal += $mod;
+                elseif ($option->billing_type === 'per_booking') $fixedOptionsTotal += $mod;
+            }
+        }
+
+        $unitPrice = $basePrice + $perPaxOptionsTotal;
+        $totalPrice = ($unitPrice * $itemQuantity) + $fixedOptionsTotal;
 
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
+
+        $folderItems = $get('../../folderItems') ?? [];
+        $globalTotal = 0;
+        foreach ($folderItems as $item) {
+            $globalTotal += (float) ($item['total_price'] ?? 0);
+        }
+        $fee = (float) ($get('../../folder_fee') ?? 0);
+        $set('../../total_price', $globalTotal + $fee);
     }
 
     public static function form(Schema $schema): Schema
@@ -124,9 +169,7 @@ class FolderResource extends Resource
         return $schema
             ->columns(3)
             ->components([
-                
                 Group::make()->schema([
-                    
                     Section::make(__('Informations Générales'))
                         ->columns(4)
                         ->schema([
@@ -153,13 +196,13 @@ class FolderResource extends Resource
 
                             TextInput::make('pax_adults')
                                 ->label(__('Composition : Adultes'))
-                                ->disabled()
+                                ->readOnly()
                                 ->dehydrated()
                                 ->default(0),
 
                             TextInput::make('pax_children')
                                 ->label(__('Composition : Enfants'))
-                                ->disabled()
+                                ->readOnly()
                                 ->dehydrated()
                                 ->default(0),
 
@@ -177,7 +220,7 @@ class FolderResource extends Resource
                                 ->label(__('Précisez le lieu d\'envoi'))
                                 ->placeholder('Ex: Agence locale, Aéroport...')
                                 ->required()
-                                ->visible(fn ($get) => $get('ticket_dispatch_method') === 'autre'),
+                                ->visible(fn (Get $get) => $get('ticket_dispatch_method') === 'autre'),
 
                             Repeater::make('contact_phones')
                                 ->label(__('Numéros de téléphone de contact'))
@@ -204,8 +247,8 @@ class FolderResource extends Resource
                             DatePicker::make('first_hotel_check_in')
                                 ->label(__('Date de check-in du 1er hôtel'))
                                 ->live()
-                                ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
-                                ->maxDate(fn ($get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null),
+                                ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                                ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null),
 
                             Textarea::make('first_hotel_address')
                                 ->label(__('Adresse du premier hôtel'))
@@ -223,13 +266,13 @@ class FolderResource extends Resource
                                     ->label(__('Date d\'arrivée au Japon'))
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get)),
 
                                 DatePicker::make('end_date')
                                     ->label(__('Date de départ'))
                                     ->required()
                                     ->live()
-                                    ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
+                                    ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
                             ])->columns(2),
 
                             Textarea::make('flight_info')
@@ -258,21 +301,26 @@ class FolderResource extends Resource
                                     ->label(__('Frais de dossier (¥)'))
                                     ->numeric()
                                     ->live()
+                                    ->default(0)
+                                    ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get)),
+
+                                Hidden::make('total_price')
                                     ->default(0),
 
-                                TextInput::make('total_price')
+                                Placeholder::make('total_price_display')
                                     ->label(__('Montant total (¥)'))
-                                    ->numeric()
-                                    ->disabled()
-                                    ->dehydrated()
-                                    ->formatStateUsing(function ($get) {
+                                    ->content(function (Get $get, Set $set) {
                                         $items = $get('folderItems') ?? [];
-                                        $itemsTotal = 0;
+                                        $total = 0;
                                         foreach ($items as $item) {
-                                            $itemsTotal += (int) ($item['total_price'] ?? 0);
+                                            $total += (float) ($item['total_price'] ?? 0);
                                         }
-                                        $fee = (int) ($get('folder_fee') ?? 0);
-                                        return $itemsTotal + $fee;
+                                        $fee = (float) ($get('folder_fee') ?? 0);
+                                        $finalTotal = $total + $fee;
+                                        
+                                        $set('total_price', $finalTotal);
+                                        
+                                        return number_format($finalTotal, 0, '.', ' ') . ' ¥';
                                     }),
                             ])->columns(2),
                         ]),
@@ -290,7 +338,7 @@ class FolderResource extends Resource
                                 ->collapsed()
                                 ->live()
                                 ->defaultItems(0)
-                                ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get))
+                                ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get))
                                 ->itemLabel(function (array $state): ?string {
                                     if (empty($state['last_name']) && empty($state['first_name'])) {
                                         return __('Nouveau voyageur');
@@ -326,8 +374,8 @@ class FolderResource extends Resource
                                             ->label(__('Date de naissance'))
                                             ->required()
                                             ->live()
-                                            ->maxDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : now()->endOfDay())
-                                            ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
+                                            ->maxDate(fn (Get $get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : now()->endOfDay())
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get)),
 
                                         TextInput::make('nationality')
                                             ->label(__('Nationalité'))
@@ -343,7 +391,7 @@ class FolderResource extends Resource
 
                                     Textarea::make('mobility_concerns')
                                         ->label(__('Handicap / mobilité réduite'))
-                                        ->placeholder('Ex: Fauteuil roulant, difficulté marches... Laissez vide si RAS.')
+                                        ->placeholder('Ex: Fauteuil roulant, difficulty marches... Laissez vide si RAS.')
                                         ->rows(2)
                                         ->columnSpanFull(),
                                 ])
@@ -360,14 +408,27 @@ class FolderResource extends Resource
                                 ->collapsed()
                                 ->live()
                                 ->defaultItems(0)
+                                ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get))
                                 ->itemLabel(function (array $state) {
-                                    if (!isset($state['product_id'])) {
-                                        return __('Nouvelle ligne de prestation');
-                                    }
+                                    if (!isset($state['product_id'])) return __('Nouvelle ligne de prestation');
+                                    
                                     $productName = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
                                     $date = !empty($state['service_date']) ? Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
-                                    $optionName = !empty($state['product_option_id']) ? \App\Models\ProductOption::find($state['product_option_id'])?->name : __('Sans option');
                                     $quantity = $state['quantity'] ?? 1;
+
+                                    $optionName = __('Sans option');
+                                    if (!empty($state['selected_options']) && is_array($state['selected_options'])) {
+                                        $names = [];
+                                        foreach ($state['selected_options'] as $opt) {
+                                            if (!empty($opt['product_option_id'])) {
+                                                $names[] = \App\Models\ProductOption::find($opt['product_option_id'])?->name;
+                                            }
+                                        }
+                                        $names = array_filter($names);
+                                        if (count($names) > 0) $optionName = implode(', ', $names);
+                                    } elseif (!empty($state['product_option_id'])) {
+                                        $optionName = \App\Models\ProductOption::find($state['product_option_id'])?->name ?? __('Sans option');
+                                    }
 
                                     $statusModel = !empty($state['item_status_id']) ? \App\Models\ItemStatus::find($state['item_status_id']) : null;
                                     $statusName = $statusModel?->name ?? __('Aucun statut');
@@ -392,36 +453,80 @@ class FolderResource extends Resource
                                         </span>
                                     ");
                                 })
-                                // 💡 UTILISATION DE EXTRAITEMACTIONS AU LIEU DE ITEMACTIONS
                                 ->extraItemActions([
                                     Action::make('generateSupplierEmail')
                                         ->icon('heroicon-o-envelope')
                                         ->color('info')
                                         ->tooltip(__('Aperçu de l\'email fournisseur'))
                                         ->modalHeading(__('Mail Fournisseur'))
-                                        ->modalSubmitActionLabel(__('Fermer'))
-                                        ->modalCancelAction(false) // On retire le bouton annuler inutile
+                                        ->modalSubmitActionLabel(__('Ouvrir dans Gmail'))
+                                        ->modalCancelAction(false)
                                         ->form([
+                                            TextInput::make('email_subject_preview')
+                                                ->label(__('Objet de l\'e-mail'))
+                                                ->readOnly(),
+                                                
                                             Textarea::make('email_preview')
-                                                ->hiddenLabel()
+                                                ->label(__('Corps du message'))
                                                 ->rows(15)
-                                                ->readOnly() // Permet la copie facile
+                                                ->readOnly()
                                         ])
-                                        // 💡 RÉCUPÉRATION SÉCURISÉE DES DONNÉES DU FORMULAIRE
                                         ->fillForm(function (array $arguments, \Filament\Forms\Components\Repeater $component): array {
                                             $state = $component->getState();
                                             $itemData = $state[$arguments['item']] ?? [];
                                             
-                                            // Sécurité : la prestation doit être sauvegardée une première fois en base pour parser les relations
                                             if (empty($itemData['id'])) {
-                                                return ['email_preview' => __('Veuillez sauvegarder le dossier (Bouton "Enregistrer") avant de pouvoir générer le mail fournisseur pour cette nouvelle ligne.')];
+                                                return [
+                                                    'email_subject_preview' => '',
+                                                    'email_preview' => __('Veuillez sauvegarder le dossier (Bouton "Enregistrer") au moins une fois pour cette ligne.')
+                                                ];
                                             }
                                             
                                             $item = \App\Models\FolderItem::with(['product', 'folder.folderPassengers', 'productOption'])->find($itemData['id']);
-                                            return ['email_preview' => $item ? $item->parseSupplierEmail() : __('Erreur lors du chargement de la prestation.')];
+                                            
+                                            if ($item) {
+                                                $item->quantity = $itemData['quantity'] ?? $item->quantity;
+                                                if (!empty($itemData['service_date'])) {
+                                                    $item->service_date = Carbon::parse($itemData['service_date']);
+                                                }
+                                                $item->selected_options = $itemData['selected_options'] ?? $item->selected_options ?? [];
+                                                $item->custom_values = $itemData['custom_values'] ?? $item->custom_values ?? [];
+                                                
+                                                return [
+                                                    'email_subject_preview' => $item->parseSupplierEmailSubject(),
+                                                    'email_preview' => $item->parseSupplierEmail()
+                                                ];
+                                            }
+                                            
+                                            return [
+                                                'email_subject_preview' => '',
+                                                'email_preview' => __('Erreur lors du chargement de la prestation.')
+                                            ];
+                                        })
+                                        ->action(function (array $data, array $arguments, \Filament\Forms\Components\Repeater $component) {
+                                            $state = $component->getState();
+                                            $itemData = $state[$arguments['item']] ?? [];
+                                            
+                                            $item = \App\Models\FolderItem::with(['product.supplier', 'folder'])->find($itemData['id']);
+                                            if (!$item) return;
+
+                                            $supplierEmail = ($item->product && $item->product->supplier) 
+                                                ? $item->product->supplier->email 
+                                                : '';
+
+                                            $subject = $data['email_subject_preview'] ?? 'ご予約依頼';
+                                            $body = $data['email_preview'] ?? '';
+
+                                            $gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1"
+                                                . "&to=" . urlencode($supplierEmail)
+                                                . "&su=" . urlencode($subject)
+                                                . "&body=" . urlencode($body);
+
+                                            $component->getLivewire()->js("window.open('{$gmailUrl}', '_blank')");
                                         })
                                 ])
                                 ->schema([
+                                    
                                     Group::make()->schema([
                                         Select::make('product_id')
                                             ->relationship('product', 'name')
@@ -430,24 +535,18 @@ class FolderResource extends Resource
                                             ->searchable()
                                             ->preload()
                                             ->live()
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
-
-                                        Select::make('product_option_id')
-                                            ->label(__('Option choisie'))
-                                            ->options(function ($get) {
-                                                $productId = $get('product_id');
-                                                if (! $productId) return [];
-                                                return \App\Models\ProductOption::where('product_id', $productId)
-                                                    ->pluck('name', 'id');
+                                            ->afterStateUpdated(function (Set $set, Get $get, $state, $old) {
+                                                if ($state !== $old) {
+                                                    $set('selected_options', []); 
+                                                    $set('custom_values', []); 
+                                                }
+                                                self::updateItemPrices($set, $get);
                                             })
-                                            ->searchable()
-                                            ->preload()
-                                            ->live()
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                            ->columnSpan(4),
 
                                         Select::make('item_status_id')
                                             ->relationship('itemStatus', 'name')
-                                            ->label(__('Statut de la prestation'))
+                                            ->label(__('Statut'))
                                             ->preload()
                                             ->searchable()
                                             ->live()
@@ -455,62 +554,172 @@ class FolderResource extends Resource
                                                 ['name' => 'En attente de validation'],
                                                 ['color' => 'warning']
                                             )->id)
-                                            ->placeholder(__('Sélectionnez un statut opérationnel')),
-                                    ])->columns(3),
+                                            ->columnSpan(2),
+                                    ])->columns(6),
 
                                     Group::make()->schema([
                                         DatePicker::make('service_date')
-                                            ->label(__('Date de la prestation'))
+                                            ->label(__('Date'))
                                             ->required()
                                             ->live()
-                                            ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
-                                            ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                            ->minDate(fn (Get $get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
+                                            ->maxDate(fn (Get $get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updateItemPrices($set, $get)),
 
                                         TextInput::make('quantity')
-                                            ->label(__('Quantité / Voyageurs'))
+                                            ->label(__('Total Pax'))
                                             ->numeric()
                                             ->default(1)
                                             ->required()
                                             ->live()
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
-                                    ])->columns(2),
+                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updateItemPrices($set, $get)),
 
-                                    Group::make()->schema([
                                         TextInput::make('unit_price')
-                                            ->label(__('Prix unitaire (¥)'))
+                                            ->label(__('Prix Unit. (¥)'))
                                             ->numeric()
                                             ->required()
                                             ->live()
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $quantity = (int) ($get('quantity') ?? 1);
-                                                $optionId = $get('product_option_id');
-                                                $optionModifier = 0;
-                                                $isPerBooking = false;
-                                                if ($optionId) {
-                                                    $option = \App\Models\ProductOption::find($optionId);
-                                                    if ($option && $option->billing_type === 'per_booking') {
-                                                        $optionModifier = $option->price_modifier;
-                                                        $isPerBooking = true;
+                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                $itemQuantity = (int) ($get('quantity') ?? 1);
+                                                $selectedOptions = $get('selected_options') ?? [];
+                                                $fixedOptionsTotal = 0;
+
+                                                if (is_array($selectedOptions)) {
+                                                    foreach ($selectedOptions as $optData) {
+                                                        if (empty($optData['product_option_id'])) continue;
+                                                        $option = \App\Models\ProductOption::find($optData['product_option_id']);
+                                                        if ($option) {
+                                                            $mod = (float) $option->price_modifier;
+                                                            if ($option->billing_type === 'per_booking') {
+                                                                $fixedOptionsTotal += $mod;
+                                                            } elseif ($option->billing_type === 'manual') {
+                                                                $optQty = (int) ($optData['quantity'] ?? 1);
+                                                                $fixedOptionsTotal += ($mod * $optQty);
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                                $totalPrice = (((int) $state) * $quantity) + ($isPerBooking ? $optionModifier : 0);
+                                                $totalPrice = (((float) $state) * $itemQuantity) + $fixedOptionsTotal;
                                                 $set('total_price', $totalPrice);
+
+                                                $folderItems = $get('../../folderItems') ?? [];
+                                                $globalTotal = 0;
+                                                foreach ($folderItems as $item) {
+                                                    $globalTotal += (float) ($item['total_price'] ?? 0);
+                                                }
+                                                $fee = (float) ($get('../../folder_fee') ?? 0);
+                                                $set('../../total_price', $globalTotal + $fee);
                                             }),
 
                                         TextInput::make('total_price')
-                                            ->label(__('Prix total de la ligne (¥)'))
+                                            ->label(__('Total Net (¥)'))
                                             ->numeric()
-                                            ->disabled()
+                                            ->readOnly() 
                                             ->dehydrated()
                                             ->required(),
-                                    ])->columns(2),
+                                    ])->columns(4),
 
-                                    KeyValue::make('custom_values')
-                                        ->label(__('Informations spécifiques récoltées'))
-                                        ->keyLabel(__('Critère requis'))
-                                        ->valueLabel(__('Donnée voyageur'))
-                                        ->addButtonLabel(__('Ajouter un détail')),
+                                    Repeater::make('selected_options')
+                                        ->label(__('Options Sélectionnées'))
+                                        ->addActionLabel(__('Ajouter une option tarifaire'))
+                                        ->defaultItems(0)
+                                        ->live()
+                                        ->afterStateUpdated(function (Set $set, Get $get) {
+                                            self::updateItemPrices($set, $get);
+                                        })
+                                        ->schema([
+                                            Select::make('product_option_id')
+                                                ->label(__('Option proposée'))
+                                                ->options(function (Get $get) {
+                                                    $productId = $get('../../product_id');
+                                                    if (!$productId) return [];
+                                                    return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
+                                                })
+                                                ->searchable()
+                                                ->preload()
+                                                ->live()
+                                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                    $set('product_option_id', $state);
+                                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                    self::updateItemPrices($parentSet, $parentGet);
+                                                }),
+
+                                            TextInput::make('quantity')
+                                                ->label(__('Qté option'))
+                                                ->numeric()
+                                                ->default(1)
+                                                ->live()
+                                                ->visible(function (Get $get) {
+                                                    $optionId = $get('product_option_id');
+                                                    if (!$optionId) return false;
+                                                    $opt = \App\Models\ProductOption::find($optionId);
+                                                    return $opt && $opt->billing_type === 'manual';
+                                                })
+                                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                    $set('quantity', $state);
+                                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                    self::updateItemPrices($parentSet, $parentGet);
+                                                }),
+                                        ])
+                                        ->columns(2),
+
+                                    // 💡 GÉNÉRATEUR DYNAMIQUE AVEC LA DATALIST POUR LES "SELECTS"
+                                    Group::make()
+                                        ->statePath('custom_values')
+                                        ->schema(function (Get $get) {
+                                            $productId = $get('product_id');
+                                            if (!$productId) return [];
+
+                                            $product = \App\Models\Product::find($productId);
+                                            if (!$product || empty($product->custom_field_definitions)) return [];
+
+                                            $fields = [];
+                                            foreach ($product->custom_field_definitions as $def) {
+                                                $type = $def['type'] ?? 'text';
+                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                                $label = $def['name'] ?? 'Information';
+                                                $placeholder = $def['placeholder'] ?? '';
+                                                $isRequired = $def['is_required'] ?? false;
+                                                $perPax = $def['is_per_passenger'] ?? false;
+
+                                                if ($perPax) {
+                                                    $label .= ' (' . __('Par passager') . ')';
+                                                }
+
+                                                $field = match ($type) {
+                                                    'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
+                                                    'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
+                                                    'date' => DatePicker::make($key)->label($label),
+                                                    'toggle' => Toggle::make($key)->label($label)->inline(false),
+                                                    
+                                                    // 💡 NOUVEAU COMPORTEMENT: Un TextInput + une Datalist HTML. 
+                                                    // Il agit comme un menu déroulant, MAIS l'agent peut taper du texte libre !
+                                                    'select' => TextInput::make($key)
+                                                        ->label($label)
+                                                        ->placeholder($placeholder ?: __('Sélectionnez ou tapez librement...'))
+                                                        ->datalist(function() use ($def) {
+                                                            return $def['choices'] ?? [];
+                                                        }),
+                                                        
+                                                    default => TextInput::make($key)->label($label)->placeholder($placeholder),
+                                                };
+
+                                                if ($isRequired && $type !== 'toggle') {
+                                                    $field->required();
+                                                }
+
+                                                $fields[] = $field;
+                                            }
+
+                                            return [
+                                                Section::make(__('Informations spécifiques (Réponses)'))
+                                                    ->description(__('Remplissez les critères requis pour cette prestation. Vous pouvez ignorer les suggestions et taper un texte libre.'))
+                                                    ->schema($fields)
+                                                    ->columns(2)
+                                            ];
+                                        }),
                                 ])
                         ])
                 ])->columnSpanFull(),

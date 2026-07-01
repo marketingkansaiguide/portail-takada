@@ -12,6 +12,7 @@ class Product extends Model
         'name',
         'images',
         'description',
+        'child_age_limit',
         'available_days',
         'blackout_dates',
         'cancellation_type',
@@ -20,11 +21,13 @@ class Product extends Model
         'is_on_demand',
         'days_before_opening',
         'custom_field_definitions',
-        'supplier_email_template' // 💡 Autorisé ici
+        'supplier_email_subject', // 💡 NOUVEAU CHAMP
+        'supplier_email_template'
     ];
 
     protected $casts = [
         'images' => 'array',
+        'child_age_limit' => 'integer',
         'available_days' => 'array',
         'blackout_dates' => 'array',
         'custom_field_definitions' => 'array',

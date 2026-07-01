@@ -10,9 +10,12 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\TagsInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Get;
 
 class ProductForm
 {
@@ -21,8 +24,6 @@ class ProductForm
         return $schema
             ->columns(3)
             ->components([
-                
-                // 🏢 COLONNE PRINCIPALE (À GAUCHE : 2/3 de l'écran)
                 Group::make()->schema([
                     Section::make(__('Présentation de la prestation'))
                         ->description(__('Renseignez le titre, la description détaillée et ajoutez les visuels.'))
@@ -57,10 +58,18 @@ class ProductForm
                                 ->itemLabel(fn (array $state): ?string => $state['name'] ?? __('Nouveau champ requis'))
                                 ->collapsible()
                                 ->schema([
+                                    // 💡 PASSAGE À 3 COLONNES POUR INTÉGRER LA CLÉ
                                     Group::make()->schema([
                                         TextInput::make('name')
-                                            ->label(__('Nom du champ (Ce qui sera demandé)'))
-                                            ->placeholder(__('Ex: Taille en cm, Numéro de passeport...'))
+                                            ->label(__('Question affichée'))
+                                            ->placeholder(__('Ex: Taille en cm'))
+                                            ->required(),
+
+                                        TextInput::make('key')
+                                            ->label(__('Clé (Shortcode)'))
+                                            ->placeholder(__('Ex: taille'))
+                                            ->regex('/^[a-zA-Z0-9_-]+$/')
+                                            ->helperText(__('Sans espace (ex: [CUSTOM:taille])'))
                                             ->required(),
 
                                         Select::make('type')
@@ -71,9 +80,18 @@ class ProductForm
                                                 'number' => __('Nombre entier'),
                                                 'date' => __('Date'),
                                                 'toggle' => __('Case à cocher (Oui/Non)'),
+                                                'select' => __('Liste de choix (Menu déroulant)'),
                                             ])
+                                            ->live()
                                             ->required(),
-                                    ])->columns(2),
+                                    ])->columns(3),
+
+                                    TagsInput::make('choices')
+                                        ->label(__('Options proposées (Appuyez sur Entrée après chaque choix)'))
+                                        ->placeholder(__('Ex: S, M, L, XL'))
+                                        ->visible(fn (Get $get) => $get('type') === 'select')
+                                        ->required(fn (Get $get) => $get('type') === 'select')
+                                        ->columnSpanFull(),
 
                                     Group::make()->schema([
                                         TextInput::make('placeholder')
@@ -107,8 +125,13 @@ class ProductForm
                                     Group::make()->schema([
                                         TextInput::make('name')
                                             ->label(__('Nom de l\'option / variante'))
-                                            ->placeholder(__('Ex: Tissu Soie Premium, Option Guide Privé, Classe Supérieure'))
+                                            ->placeholder(__('Ex: Tissu Soie Premium...'))
                                             ->required(),
+
+                                        TextInput::make('code')
+                                            ->label(__('Clé (pour shortcode email)'))
+                                            ->placeholder(__('Ex: dressing, guide...'))
+                                            ->nullable(),
 
                                         TextInput::make('price_modifier')
                                             ->label(__('Supplément Prix Net (¥)'))
@@ -116,13 +139,14 @@ class ProductForm
                                             ->default(0)
                                             ->required()
                                             ->placeholder('0'),
-                                    ])->columns(2),
+                                    ])->columns(3),
 
                                     Select::make('billing_type')
                                         ->label(__('Mode d\'application du supplément tarifaire'))
                                         ->options([
                                             'per_pax' => __('Par voyageur (Multiplié par le nombre de pax/quantité)'),
                                             'per_booking' => __('Frais fixes (Appliqué une seule fois pour tout le dossier)'),
+                                            'manual' => __('Quantité au choix (Saisie manuelle dans le dossier)'),
                                         ])
                                         ->default('per_pax')
                                         ->required(),
@@ -130,8 +154,15 @@ class ProductForm
                         ]),
 
                     Section::make(__('Calendrier & Grilles Tarifaires (Prix NETS)'))
-                        ->description(__('Définissez vos saisons de validité, puis ajoutez les grilles dynamiques à l\'intérieur.'))
+                        ->description(__('Définissez vos saisons de validité, l\'âge limite des enfants et vos prix.'))
                         ->schema([
+                            TextInput::make('child_age_limit')
+                                ->label(__('Âge maximum pour être considéré enfant (Inclus)'))
+                                ->helperText(__('Ex: Si 11, un enfant de 11 ans (au jour de l\'activité) comptera comme enfant. À 12 ans, il comptera comme adulte.'))
+                                ->numeric()
+                                ->default(11)
+                                ->required(),
+
                             Repeater::make('productPeriods')
                                 ->relationship()
                                 ->label('')
@@ -178,36 +209,64 @@ class ProductForm
                         ]),
 
                     Section::make(__('Modèle d\'E-mail pour le Fournisseur'))
-                        ->description(__('Rédigez le texte par défaut qui sera généré dans le dossier client pour commander cette prestation.'))
+                        ->description(__('Rédigez l\'objet et le texte par défaut qui seront générés dans le dossier client.'))
                         ->schema([
+                            TextInput::make('supplier_email_subject')
+                                ->label(__('Objet de l\'e-mail'))
+                                ->placeholder("Ex: ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]")
+                                ->columnSpanFull(),
+
                             Textarea::make('supplier_email_template')
                                 ->label(__('Corps du message'))
-                                ->placeholder("Bonjour [CONTACT_FOURNISSEUR],\n\nJe souhaite réserver la prestation suivante pour M/Mme [LEAD_NAME]...\n\nCordialement,\n[NOM_AGENT]")
+                                ->placeholder("Bonjour [CONTACT_FOURNISSEUR],\n\nJe souhaite réserver la prestation suivante...\n\n[IF_QUANTITY>=10]Attention c'est un grand groupe ![/IF_QUANTITY]\n\n[IF_PAX_CHILDREN>0]Parmi eux, il y a [PAX_CHILDREN] enfants ![/IF_PAX_CHILDREN]\n\n[IF_OPTION:dressing]Options incluses : Habillage pour [OPTION:dressing] personnes.[/IF_OPTION]\n\nCordialement,\n[NOM_AGENT]")
                                 ->rows(10)
-                                ->columnSpanFull()
-                                ->helperText(fn () => new \Illuminate\Support\HtmlString('
-                                    <div class="mt-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                        <strong class="text-primary-600 block mb-1">📋 Shortcodes généraux disponibles :</strong>
-                                        <ul class="list-disc pl-5 space-y-1">
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DOSSIER_REF]</code> : Référence unique du dossier</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[LEAD_NAME]</code> : Nom du voyageur principal</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DATE_PRESTA]</code> : Date de la prestation (Classique : JJ/MM/AAAA)</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[DATE_PRESTA_JP]</code> : Date de la prestation (Japonais : AAAA年MM月DD日)</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[QUANTITE]</code> : Quantité / Nombre de pax</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[OPTION_NAME]</code> : Option choisie</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[LISTE_PASSAGERS]</code> : Liste des participants (Nom, Nationalité, Âge)</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[NOM_AGENT]</code> : Votre nom d\'agent (utilisateur connecté)</li>
-                                            <li><code class="font-mono text-xs bg-white px-1 py-0.5 rounded border border-gray-300">[CONTACT_FOURNISSEUR]</code> : Nom du contact défini dans la fiche du fournisseur</li>
-                                        </ul>
-                                        <strong class="text-primary-600 block mt-3 mb-1">🎯 Vos champs personnalisés dynamiques :</strong>
-                                        <p class="text-xs">Tapez <code class="font-mono bg-white px-1 rounded border border-gray-300">[CUSTOM:Nom de la clé]</code> (ex: <code class="font-mono bg-white px-1 rounded border border-gray-300">[CUSTOM:Taille Chaussure]</code> correspondant au "Critère requis" tapé dans le dossier client).</p>
-                                    </div>
-                                ')),
+                                ->columnSpanFull(),
+
+                            Section::make(__('Aide : Liste des Shortcodes & Moteur Logique'))
+                                ->icon('heroicon-o-information-circle')
+                                ->collapsed() 
+                                ->compact()
+                                ->schema([
+                                    Placeholder::make('shortcodes_help')
+                                        ->hiddenLabel()
+                                        ->content(new \Illuminate\Support\HtmlString('
+                                            <div class="text-sm text-gray-600">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div>
+                                                        <strong class="text-primary-600 block mb-2">📋 Variables Générales</strong>
+                                                        <ul class="list-disc pl-5 space-y-1">
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[DOSSIER_REF]</code> : Réf du dossier</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[LEAD_NAME]</code> : Nom du voyageur</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[DATE_PRESTA]</code> : Date (12/04/2026)</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[DATE_PRESTA_JP]</code> : Date (2026年04月12日)</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[QUANTITE]</code> : Quantité totale de pax</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[PAX_ADULTS]</code> : Nombre d\'adultes calculé</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[PAX_CHILDREN]</code> : Nombre d\'enfants calculé</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[OPTION_NAME]</code> : Options choisies</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[LISTE_PASSAGERS]</code> : Tableau (Nom, Age)</li>
+                                                        </ul>
+                                                    </div>
+                                                    <div>
+                                                        <strong class="text-primary-600 block mb-2">🎯 Valeurs ciblées & Logiques</strong>
+                                                        <ul class="list-disc pl-5 space-y-1">
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[CUSTOM:Clé]</code> : Affiche la réponse du client.</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[OPTION:Clé]</code> : Quantité exacte de l\'option.</li>
+                                                        </ul>
+                                                        <strong class="text-primary-600 block mt-4 mb-2">🔀 Affichage Conditionnel</strong>
+                                                        <ul class="list-disc pl-5 space-y-1 text-xs">
+                                                            <li><code class="font-mono bg-gray-100 px-1 rounded border border-gray-200">[IF_OPTION:clé] texte [/IF_OPTION]</code> : S\'affiche si l\'option est prise.</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 rounded border border-gray-200">[IF_QUANTITY>=3] texte [/IF_QUANTITY]</code> : Opérateurs >=, <=, >, <, ==</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 rounded border border-gray-200">[IF_PAX_CHILDREN>0] texte [/IF_PAX_CHILDREN]</code> : (Marche aussi avec IF_PAX_ADULTS)</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ')),
+                                ])
                         ]),
 
                 ])->columnSpan(['lg' => 2]),
 
-                // 🛠️ BARRE LATÉRALE (À DROITE : 1/3 de l'écran)
                 Group::make()->schema([
                     Section::make(__('Classification'))
                         ->schema([
@@ -290,7 +349,7 @@ class ProductForm
                             Textarea::make('cancellation_specifics')
                                 ->label(__('Détails des frais'))
                                 ->placeholder(__('Ex: Non remboursable à partir de J-7...'))
-                                ->visible(fn ($get) => $get('cancellation_type') === 'specific')
+                                ->visible(fn (Get $get) => $get('cancellation_type') === 'specific')
                                 ->columnSpanFull(),
                         ]),
                 ])->columnSpan(['lg' => 1]),

@@ -9,6 +9,7 @@ class ProductOption extends Model
     protected $fillable = [
         'product_id',
         'name',
+        'code', // 💡 Nouvelle colonne autorisée
         'price_modifier',
         'billing_type'
     ];

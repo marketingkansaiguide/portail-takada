@@ -12,9 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            // On vérifie que la colonne n'existe pas déjà pour éviter le crash
-            if (!Schema::hasColumn('products', 'supplier_email_template')) {
-                $table->text('supplier_email_template')->nullable();
+            // On vérifie que la colonne n'existe pas déjà par sécurité
+            if (!Schema::hasColumn('products', 'available_days')) {
+                $table->json('available_days')->nullable()->after('description');
+            }
+            if (!Schema::hasColumn('products', 'blackout_dates')) {
+                $table->json('blackout_dates')->nullable()->after('available_days');
             }
         });
     }
@@ -25,9 +28,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            if (Schema::hasColumn('products', 'supplier_email_template')) {
-                $table->dropColumn('supplier_email_template');
-            }
+            $table->dropColumn(['available_days', 'blackout_dates']);
         });
     }
 };
