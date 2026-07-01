@@ -51,7 +51,8 @@ class FolderResource extends Resource
         return __('Dossiers Clients');
     }
 
-    public static function updatePassengerCount(Set $set, Get $get)
+    // 💡 Retrait du typage strict ici
+    public static function updatePassengerCount($set, $get)
     {
         $passengers = $get('folderPassengers') ?? [];
         $startDate = $get('start_date');
@@ -74,7 +75,8 @@ class FolderResource extends Resource
         $set('pax_children', $children);
     }
 
-    public static function updateFolderTotal(Set $set, Get $get)
+    // 💡 Retrait du typage strict ici
+    public static function updateFolderTotal($set, $get)
     {
         $items = $get('folderItems') ?? [];
         $total = 0;
@@ -85,7 +87,8 @@ class FolderResource extends Resource
         $set('total_price', $total + $fee);
     }
 
-    public static function updateItemPrices(Set $set, Get $get)
+    // 💡 Retrait du typage strict ici pour accepter la Closure de notre répéteur d'options
+    public static function updateItemPrices($set, $get)
     {
         $productId = $get('product_id');
         $serviceDate = $get('service_date');
@@ -132,7 +135,7 @@ class FolderResource extends Resource
                     } elseif ($option->billing_type === 'per_booking') {
                         $fixedOptionsTotal += $mod;
                     } elseif ($option->billing_type === 'manual') {
-                        $optQty = isset($optData['quantity']) && $optData['quantity'] !== '' ? (int) $optData['quantity'] : 1;
+                        $optQty = (int) ($optData['quantity'] ?? 1);
                         $fixedOptionsTotal += ($mod * $optQty);
                     }
                 }
@@ -266,7 +269,7 @@ class FolderResource extends Resource
                                     ->label(__('Date d\'arrivée au Japon'))
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get)),
+                                    ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
 
                                 DatePicker::make('end_date')
                                     ->label(__('Date de départ'))
@@ -338,7 +341,7 @@ class FolderResource extends Resource
                                 ->collapsed()
                                 ->live()
                                 ->defaultItems(0)
-                                ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get))
+                                ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get))
                                 ->itemLabel(function (array $state): ?string {
                                     if (empty($state['last_name']) && empty($state['first_name'])) {
                                         return __('Nouveau voyageur');
@@ -375,7 +378,7 @@ class FolderResource extends Resource
                                             ->required()
                                             ->live()
                                             ->maxDate(fn (Get $get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : now()->endOfDay())
-                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updatePassengerCount($set, $get)),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
 
                                         TextInput::make('nationality')
                                             ->label(__('Nationalité'))
@@ -535,7 +538,7 @@ class FolderResource extends Resource
                                             ->searchable()
                                             ->preload()
                                             ->live()
-                                            ->afterStateUpdated(function (Set $set, Get $get, $state, $old) {
+                                            ->afterStateUpdated(function ($set, $get, $state, $old) {
                                                 if ($state !== $old) {
                                                     $set('selected_options', []); 
                                                     $set('custom_values', []); 
@@ -562,9 +565,9 @@ class FolderResource extends Resource
                                             ->label(__('Date'))
                                             ->required()
                                             ->live()
-                                            ->minDate(fn (Get $get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
-                                            ->maxDate(fn (Get $get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
-                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updateItemPrices($set, $get)),
+                                            ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
+                                            ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
 
                                         TextInput::make('quantity')
                                             ->label(__('Total Pax'))
@@ -572,14 +575,14 @@ class FolderResource extends Resource
                                             ->default(1)
                                             ->required()
                                             ->live()
-                                            ->afterStateUpdated(fn (Set $set, Get $get) => self::updateItemPrices($set, $get)),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
 
                                         TextInput::make('unit_price')
                                             ->label(__('Prix Unit. (¥)'))
                                             ->numeric()
                                             ->required()
                                             ->live()
-                                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                            ->afterStateUpdated(function ($state, $set, $get) {
                                                 $itemQuantity = (int) ($get('quantity') ?? 1);
                                                 $selectedOptions = $get('selected_options') ?? [];
                                                 $fixedOptionsTotal = 0;
@@ -601,14 +604,6 @@ class FolderResource extends Resource
                                                 }
                                                 $totalPrice = (((float) $state) * $itemQuantity) + $fixedOptionsTotal;
                                                 $set('total_price', $totalPrice);
-
-                                                $folderItems = $get('../../folderItems') ?? [];
-                                                $globalTotal = 0;
-                                                foreach ($folderItems as $item) {
-                                                    $globalTotal += (float) ($item['total_price'] ?? 0);
-                                                }
-                                                $fee = (float) ($get('../../folder_fee') ?? 0);
-                                                $set('../../total_price', $globalTotal + $fee);
                                             }),
 
                                         TextInput::make('total_price')
@@ -624,13 +619,13 @@ class FolderResource extends Resource
                                         ->addActionLabel(__('Ajouter une option tarifaire'))
                                         ->defaultItems(0)
                                         ->live()
-                                        ->afterStateUpdated(function (Set $set, Get $get) {
+                                        ->afterStateUpdated(function ($set, $get) {
                                             self::updateItemPrices($set, $get);
                                         })
                                         ->schema([
                                             Select::make('product_option_id')
                                                 ->label(__('Option proposée'))
-                                                ->options(function (Get $get) {
+                                                ->options(function ($get) {
                                                     $productId = $get('../../product_id');
                                                     if (!$productId) return [];
                                                     return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
@@ -638,7 +633,7 @@ class FolderResource extends Resource
                                                 ->searchable()
                                                 ->preload()
                                                 ->live()
-                                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                ->afterStateUpdated(function ($state, $set, $get) {
                                                     $set('product_option_id', $state);
                                                     $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
                                                     $parentGet = function($k) use ($get) { return $get('../../'.$k); };
@@ -650,13 +645,13 @@ class FolderResource extends Resource
                                                 ->numeric()
                                                 ->default(1)
                                                 ->live()
-                                                ->visible(function (Get $get) {
+                                                ->visible(function ($get) {
                                                     $optionId = $get('product_option_id');
                                                     if (!$optionId) return false;
                                                     $opt = \App\Models\ProductOption::find($optionId);
                                                     return $opt && $opt->billing_type === 'manual';
                                                 })
-                                                ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                                ->afterStateUpdated(function ($state, $set, $get) {
                                                     $set('quantity', $state);
                                                     $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
                                                     $parentGet = function($k) use ($get) { return $get('../../'.$k); };
@@ -665,10 +660,9 @@ class FolderResource extends Resource
                                         ])
                                         ->columns(2),
 
-                                    // 💡 GÉNÉRATEUR DYNAMIQUE AVEC LA DATALIST POUR LES "SELECTS"
                                     Group::make()
                                         ->statePath('custom_values')
-                                        ->schema(function (Get $get) {
+                                        ->schema(function ($get) {
                                             $productId = $get('product_id');
                                             if (!$productId) return [];
 
@@ -693,16 +687,12 @@ class FolderResource extends Resource
                                                     'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
                                                     'date' => DatePicker::make($key)->label($label),
                                                     'toggle' => Toggle::make($key)->label($label)->inline(false),
-                                                    
-                                                    // 💡 NOUVEAU COMPORTEMENT: Un TextInput + une Datalist HTML. 
-                                                    // Il agit comme un menu déroulant, MAIS l'agent peut taper du texte libre !
                                                     'select' => TextInput::make($key)
                                                         ->label($label)
                                                         ->placeholder($placeholder ?: __('Sélectionnez ou tapez librement...'))
                                                         ->datalist(function() use ($def) {
                                                             return $def['choices'] ?? [];
                                                         }),
-                                                        
                                                     default => TextInput::make($key)->label($label)->placeholder($placeholder),
                                                 };
 
