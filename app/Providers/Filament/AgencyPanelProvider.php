@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Agency\Pages\Catalogue;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -24,31 +25,27 @@ class AgencyPanelProvider extends PanelProvider
     {
         return $panel
             ->id('agency')
-            ->path('') // CLÉ : Une chaîne vide indique à Filament de s'installer directement sur la racine (/)
-            ->login() // L'écran de connexion devient automatiquement accessible sur la route /login
+            ->path('') // Page d'accueil racine
+            ->login()
             ->colors([
-                // Configuration de votre charte graphique personnalisée
-                'primary' => Color::hex('#096a61'),   // Couleur principale
-                'secondary' => Color::hex('#dde8b9'), // Touches de rappel
-                'gray' => Color::Slate,               // Teinte de gris neutre
+                'primary' => Color::hex('#096a61'),
+                'secondary' => Color::hex('#dde8b9'),
+                'gray' => Color::Slate,
             ])
-            
-            // --- CONFIGURATION LOOK & FEEL FRONT-OFFICE ---
-            ->topNavigation() // Active la navigation horizontale haute, supprime la sidebar "admin"
-            ->breadcrumbs(false) // Masque les fils d'Ariane
+            ->topNavigation()
+            ->breadcrumbs(false)
             ->brandName('Portail Agences Takada')
-            ->brandLogo(asset('images/logo.svg')) // Votre logo d'entreprise
+            ->brandLogo(asset('images/logo.svg'))
             ->brandLogoHeight('3rem')
             
-            // Configuration des dossiers de stockage pour le panel agence
             ->discoverResources(in: app_path('Filament/Agency/Resources'), for: 'App\\Filament\\Agency\\Resources')
             ->discoverPages(in: app_path('Filament/Agency/Pages'), for: 'App\\Filament\\Agency\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                Catalogue::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Agency/Widgets'), for: 'App\\Filament\\Agency\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
+                // CORRECTION ICI : On vide les widgets pour empêcher AccountWidget de crasher la page publique
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -62,7 +59,7 @@ class AgencyPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class, // Gestion de la sécurité et de la session active
+                // La page reste bien publique
             ]);
     }
 }
