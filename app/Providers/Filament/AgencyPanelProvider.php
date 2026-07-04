@@ -3,7 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Agency\Pages\Catalogue;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\FilamentAgencyB2BAccess;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
@@ -11,6 +11,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use Filament\View\PanelsRenderHook; // 💡 Importation indispensable pour les hooks de rendu
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -25,8 +26,9 @@ class AgencyPanelProvider extends PanelProvider
     {
         return $panel
             ->id('agency')
-            ->path('') // Page d'accueil racine
+            ->path('') // Racine du site
             ->login()
+            ->authGuard('agency') // Guard de session isolé pour les agences
             ->colors([
                 'primary' => Color::hex('#096a61'),
                 'secondary' => Color::hex('#dde8b9'),
@@ -44,9 +46,19 @@ class AgencyPanelProvider extends PanelProvider
                 Catalogue::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Agency/Widgets'), for: 'App\\Filament\\Agency\\Widgets')
-            ->widgets([
-                // CORRECTION ICI : On vide les widgets pour empêcher AccountWidget de crasher la page publique
-            ])
+            ->widgets([])
+            
+            // 💡 DESIGN & UX : Injection dynamique du bouton de connexion en haut à droite
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_END,
+                fn (): string => auth('agency')->guest()
+                    ? '<a href="' . route('filament.agency.auth.login') . '" class="inline-flex items-center justify-center gap-1.5 font-semibold shrink-0 transition duration-75 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-white/5 fi-btn fi-btn-size-md fi-btn-color-primary fi-color-custom bg-primary-600 text-white shadow-sm hover:bg-primary-500 focus-visible:outline-primary-600 rounded-lg px-4 py-2 text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                        Connexion Agence
+                       </a>'
+                    : ''
+            )
+            
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -59,7 +71,7 @@ class AgencyPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                // La page reste bien publique
+                FilamentAgencyB2BAccess::class,
             ]);
     }
 }

@@ -45,7 +45,8 @@ class AgencyResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            // 💡 RATTACHEMENT : Affiche la liste des utilisateurs sous l'agence dans le Backoffice
+            RelationManagers\UsersRelationManager::class,
         ];
     }
 

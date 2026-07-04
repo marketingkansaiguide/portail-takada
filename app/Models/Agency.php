@@ -24,4 +24,12 @@ class Agency extends Model
     {
         return $this->belongsTo(ClientGroup::class);
     }
+    
+    /**
+     * Un profil agence possède plusieurs comptes utilisateurs (vendeurs).
+     */
+    public function users()
+    {
+        return $this->hasMany(User::class);
+    }
 }

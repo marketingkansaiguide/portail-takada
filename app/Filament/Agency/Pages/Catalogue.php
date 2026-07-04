@@ -4,38 +4,44 @@ namespace App\Filament\Agency\Pages;
 
 use App\Models\Product;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Collection;
+use BackedEnum; // 💡 Importation indispensable pour le typage strict PHP 8
 
 class Catalogue extends Page
 {
-    // Typage strict pour correspondre à la classe parente
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-shopping-bag';
-    
-    // Le nom dans le menu
-    protected static ?string $navigationLabel = 'Catalogue des offres';
-    
-    // CORRECTION ICI : La classe parente exige exactement le type ?string
-    protected static ?string $title = 'Catalogue Billetterie, Transports & Activités';
-    
-    // Un slug vide indique que c'est la page d'accueil de ce panel (/)
-    protected static ?string $slug = ''; 
+    // 💡 CORRECTION DU TYPE : Utilisation de la signature stricte demandée par votre version
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    // La propriété $view ne doit PAS être statique
+    // 💡 CORRECTION : Suppression du mot-clé "static" pour correspondre au typage de votre framework
     protected string $view = 'filament.agency.pages.catalogue';
 
-    /**
-     * Récupère tous les produits pour les envoyer à la vue.
-     */
-    public function getProductsProperty()
-    {
-        return Product::with('category')->get();
-    }
+    protected static ?string $title = 'Catalogue des Activités';
+
+    public string $search = '';
 
     /**
-     * Vérifie si l'utilisateur actuel est connecté (une agence) ou non.
+     * Récupération dynamique des produits pour le front.
+     * SÉCURITÉ : On ne montre que les produits publics aux visiteurs non-connectés.
      */
-    public function getIsAuthenticatedProperty()
+    public function getProductsProperty(): Collection
     {
-        return Auth::check();
+        $query = Product::query();
+
+        // Filtre de recherche
+        if (!empty($this->search)) {
+            $query->where('name', 'like', '%' . $this->search . '%');
+        }
+
+        // Si non connecté, on cache les produits "privés" (is_public = false)
+        if (!auth('agency')->check()) {
+            $query->where('is_public', true);
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('Catalogue');
     }
 }

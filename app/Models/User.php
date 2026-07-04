@@ -13,7 +13,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Support\Facades\DB;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
+#[Fillable(['name', 'email', 'password', 'role', 'agency_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -39,6 +39,14 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Relation avec l'agence pour les comptes partenaires B2B.
+     */
+    public function agency()
+    {
+        return $this->belongsTo(Agency::class);
     }
 
     /**
@@ -73,14 +81,25 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Le "Vigile" de Filament : Détermine qui a le droit de voir la page de connexion /admin
+     * Le "Vigile" de Filament : Détermine qui a le droit d'accéder à chaque panel.
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return in_array($this->role, [
-            self::ROLE_SUPER_ADMIN,
-            self::ROLE_ADMIN,
-            self::ROLE_AGENT,
-        ]);
+        // 💡 Panel d'administration interne (Takada) : réservé exclusivement au staff
+        if ($panel->getId() === 'admin') {
+            return in_array($this->role, [
+                self::ROLE_SUPER_ADMIN,
+                self::ROLE_ADMIN,
+                self::ROLE_AGENT,
+            ]);
+        }
+        
+        // 💡 CLOISONNEMENT STRICT : Le panel agence rejette désormais les admins.
+        // Seuls les comptes "agency" authentiques peuvent y entrer.
+        if ($panel->getId() === 'agency') {
+            return $this->role === self::ROLE_AGENCY;
+        }
+
+        return false;
     }
 }

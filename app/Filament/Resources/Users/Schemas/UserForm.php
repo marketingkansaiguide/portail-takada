@@ -2,54 +2,61 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
-use App\Models\User;
+use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Utilities\Get;
 
 class UserForm
 {
     public static function configure(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make(__('Gestion du Profil & Rôle'))
-                ->description(__('Configurez l\'identité de l\'utilisateur et ses droits d\'accès au système.'))
+            Section::make(__('Gestion du compte utilisateur'))
+                ->description(__('Configurez l\'identité, le rôle et le rattachement de l\'utilisateur.'))
+                ->columns(2)
                 ->schema([
                     TextInput::make('name')
                         ->label(__('Nom complet'))
                         ->required()
-                        ->maxLength(255),
+                        ->placeholder('Ex: Jean Vendeur'),
 
                     TextInput::make('email')
-                        ->label(__('Adresse Email'))
+                        ->label(__('Adresse e-mail'))
                         ->email()
                         ->required()
-                        ->maxLength(255)
-                        ->unique(ignoreRecord: true),
-
-                    Select::make('role')
-                        ->label(__('Rôle / Niveau d\'accès'))
-                        ->required()
-                        ->options([
-                            User::ROLE_SUPER_ADMIN => 'Super Administrateur (Takada)',
-                            User::ROLE_ADMIN => 'Administrateur Interne (Takada)',
-                            User::ROLE_AGENT => 'Agent de Réservation (Takada)',
-                            User::ROLE_AGENCY => 'Client Externe (Agence)',
-                        ])
-                        ->default(User::ROLE_AGENT)
-                        ->searchable()
-                        ->preload(),
+                        ->unique(ignoreRecord: true)
+                        ->placeholder('Ex: vendeur@monagence.com'),
 
                     TextInput::make('password')
                         ->label(__('Mot de passe'))
                         ->password()
-                        ->revealable()
-                        ->maxLength(255)
-                        ->dehydrated(fn (?string $state): bool => filled($state))
-                        ->required(fn (string $context): bool => $context === 'create')
-                        ->placeholder(fn (string $context): ?string => $context === 'edit' ? 'Laissez vide pour ne pas modifier' : null),
-                ])->columns(2)
+                        ->dehydrated(fn ($state) => filled($state))
+                        ->required(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\CreateRecord)
+                        ->placeholder(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord ? __('Laissez vide pour inchangé') : '********'),
+
+                    Select::make('role')
+                        ->label(__('Rôle / Profil applicatif'))
+                        ->options([
+                            'super_admin' => __('Super Administrateur'),
+                            'admin' => __('Administrateur Takada'),
+                            'agent' => __('Agent interne Takada'),
+                            'agency' => __('Agence Partenaire (B2B)'),
+                        ])
+                        ->required()
+                        ->live(), // Rend le champ réactif pour l'affichage de l'agence
+
+                    // 💡 MAILLON CLÉ : Apparaît uniquement si le profil sélectionné est une agence B2B
+                    Select::make('agency_id')
+                        ->relationship('agency', 'name')
+                        ->label(__('Agence de rattachement'))
+                        ->placeholder(__('Sélectionnez l\'agence parente'))
+                        ->searchable()
+                        ->preload()
+                        ->required(fn (Get $get) => $get('role') === 'agency')
+                        ->visible(fn (Get $get) => $get('role') === 'agency'),
+                ])
         ]);
     }
 }

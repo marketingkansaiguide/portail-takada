@@ -6,9 +6,12 @@ use App\Filament\Resources\Folders\FolderResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Carbon\Carbon;
+use Illuminate\Support\HtmlString;
 
 class EditFolder extends EditRecord
 {
@@ -41,44 +44,37 @@ class EditFolder extends EditRecord
     {
         $components = parent::form($schema)->getComponents();
         
-        // 💡 NOUVEAU : Création d'une grille à 2 colonnes pour l'affichage côte à côte
-        $components[] = \Filament\Forms\Components\Grid::make(2)->schema([
-            
-            // 1. BLOC SUIVI DE MODIFICATION (À GAUCHE)
-            Section::make(__('Suivi de modification'))
-                ->description(__('Ajoutez une note contextuelle pour expliquer vos changements dans l\'historique du dossier.'))
-                ->columnSpan(1)
-                ->collapsible()
-                ->compact()
-                ->schema([
-                    Textarea::make('history_note')
-                        ->label(__('Note de modification'))
-                        ->placeholder(__('Ex: Changement de statut suite au mail de confirmation du client...'))
-                        ->rows(5)
-                        ->maxLength(1000)
-                        ->dehydrated(false),
-                ]),
+        // 💡 CORRECTION DÉFINITIVE : On utilise un Group sur 2 colonnes qui prend toute la largeur
+        $components[] = Group::make()
+            ->columns(['default' => 1, 'xl' => 2])
+            ->columnSpanFull() // Force la prise de 100% de la largeur disponible
+            ->schema([
+                
+                // 1. BLOC SUIVI DE MODIFICATION (À GAUCHE)
+                Section::make(__('Suivi de modification'))
+                    ->description(__('Ajoutez une note contextuelle pour l\'historique du dossier.'))
+                    ->columnSpan(1)
+                    ->schema([
+                        Textarea::make('history_note')
+                            ->hiddenLabel()
+                            ->placeholder(__('Ex: Changement de statut suite au mail de confirmation...'))
+                            ->rows(17) // Hauteur pour s'aligner avec le composant de chat
+                            ->maxLength(1000)
+                            ->dehydrated(false),
+                    ]),
 
-            // 2. BLOC MESSAGERIE (À DROITE)
-            Section::make(__('Messagerie Agence'))
-                ->description(__('Échangez directement avec l\'agence (Espace Chat).'))
-                ->columnSpan(1)
-                ->collapsible()
-                ->compact()
-                ->schema([
-                    \Filament\Forms\Components\Placeholder::make('chat_placeholder')
-                        ->hiddenLabel()
-                        ->content(new \Illuminate\Support\HtmlString('
-                            <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 0.5rem; padding: 2rem; text-align: center; color: #64748b; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                <svg style="width: 2.5rem; height: 2.5rem; margin-bottom: 0.5rem; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                <p style="font-size: 0.875rem; font-weight: 600;">Espace de Chat réservé</p>
-                                <p style="font-size: 0.75rem; margin-top: 0.25rem;">L\'interface est prête à être branchée au moteur de messagerie.</p>
-                            </div>
-                        ')),
-                ]),
-        ]);
+                // 2. BLOC MESSAGERIE (À DROITE)
+                Section::make(__('Messagerie Agence'))
+                    ->description(__('Échangez directement avec l\'agence en temps réel.'))
+                    ->columnSpan(1)
+                    ->schema([
+                        Placeholder::make('chat_placeholder')
+                            ->hiddenLabel()
+                            ->content(fn ($record) => new HtmlString(
+                                \Illuminate\Support\Facades\Blade::render('@livewire("folder-chat", ["folder" => $folder])', ['folder' => $record])
+                            )),
+                    ]),
+            ]);
 
         return $schema->components($components);
     }
@@ -94,7 +90,6 @@ class EditFolder extends EditRecord
         $newData = $this->form->getState();
         unset($newData['history_note']);
 
-        // Recalcul exact du total du dossier pour la BDD et l'historique
         $totalItems = 0;
         if (isset($formState['folderItems']) && is_array($formState['folderItems'])) {
             foreach ($formState['folderItems'] as $item) {
