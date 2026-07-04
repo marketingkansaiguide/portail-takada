@@ -45,6 +45,7 @@ class ProductForm
                                 ->multiple()
                                 ->image()
                                 ->reorderable()
+                                ->disk('public') // 💡 LA CORRECTION EST ICI : On force l'upload et la lecture sur le disque public
                                 ->directory('products')
                                 ->columnSpanFull(),
                         ]),
@@ -58,7 +59,6 @@ class ProductForm
                                 ->itemLabel(fn (array $state): ?string => $state['name'] ?? __('Nouveau champ requis'))
                                 ->collapsible()
                                 ->schema([
-                                    // 💡 PASSAGE À 3 COLONNES POUR INTÉGRER LA CLÉ
                                     Group::make()->schema([
                                         TextInput::make('name')
                                             ->label(__('Question affichée'))

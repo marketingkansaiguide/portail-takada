@@ -51,7 +51,6 @@ class FolderResource extends Resource
         return __('Dossiers Clients');
     }
 
-    // 💡 Retrait du typage strict ici
     public static function updatePassengerCount($set, $get)
     {
         $passengers = $get('folderPassengers') ?? [];
@@ -75,7 +74,6 @@ class FolderResource extends Resource
         $set('pax_children', $children);
     }
 
-    // 💡 Retrait du typage strict ici
     public static function updateFolderTotal($set, $get)
     {
         $items = $get('folderItems') ?? [];
@@ -87,7 +85,6 @@ class FolderResource extends Resource
         $set('total_price', $total + $fee);
     }
 
-    // 💡 Retrait du typage strict ici pour accepter la Closure de notre répéteur d'options
     public static function updateItemPrices($set, $get)
     {
         $productId = $get('product_id');
@@ -135,7 +132,7 @@ class FolderResource extends Resource
                     } elseif ($option->billing_type === 'per_booking') {
                         $fixedOptionsTotal += $mod;
                     } elseif ($option->billing_type === 'manual') {
-                        $optQty = (int) ($optData['quantity'] ?? 1);
+                        $optQty = (float) ($optData['quantity'] ?? 1);
                         $fixedOptionsTotal += ($mod * $optQty);
                     }
                 }
@@ -152,19 +149,13 @@ class FolderResource extends Resource
             }
         }
 
-        $unitPrice = $basePrice + $perPaxOptionsTotal;
-        $totalPrice = ($unitPrice * $itemQuantity) + $fixedOptionsTotal;
+        // 💡 Calculs stricts
+        $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
+        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
 
+        // 💡 On n'écrit que dans la ligne, pour éviter la boucle Livewire sur le total du dossier
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
-
-        $folderItems = $get('../../folderItems') ?? [];
-        $globalTotal = 0;
-        foreach ($folderItems as $item) {
-            $globalTotal += (float) ($item['total_price'] ?? 0);
-        }
-        $fee = (float) ($get('../../folder_fee') ?? 0);
-        $set('../../total_price', $globalTotal + $fee);
     }
 
     public static function form(Schema $schema): Schema
@@ -310,9 +301,10 @@ class FolderResource extends Resource
                                 Hidden::make('total_price')
                                     ->default(0),
 
+                                // 💡 PlaceHolder passif, uniquement pour l'affichage visuel
                                 Placeholder::make('total_price_display')
                                     ->label(__('Montant total (¥)'))
-                                    ->content(function (Get $get, Set $set) {
+                                    ->content(function (Get $get) {
                                         $items = $get('folderItems') ?? [];
                                         $total = 0;
                                         foreach ($items as $item) {
@@ -320,8 +312,6 @@ class FolderResource extends Resource
                                         }
                                         $fee = (float) ($get('folder_fee') ?? 0);
                                         $finalTotal = $total + $fee;
-                                        
-                                        $set('total_price', $finalTotal);
                                         
                                         return number_format($finalTotal, 0, '.', ' ') . ' ¥';
                                     }),
@@ -411,7 +401,6 @@ class FolderResource extends Resource
                                 ->collapsed()
                                 ->live()
                                 ->defaultItems(0)
-                                ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get))
                                 ->itemLabel(function (array $state) {
                                     if (!isset($state['product_id'])) return __('Nouvelle ligne de prestation');
                                     
@@ -456,6 +445,7 @@ class FolderResource extends Resource
                                         </span>
                                     ");
                                 })
+                                // 💡 RÉINTÉGRATION DE VOTRE FONCTION D'E-MAIL
                                 ->extraItemActions([
                                     Action::make('generateSupplierEmail')
                                         ->icon('heroicon-o-envelope')
@@ -577,34 +567,13 @@ class FolderResource extends Resource
                                             ->live()
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
 
+                                        // 💡 BLOCAGE DU PRIX : En lecture seule, le système calcule seul, adieu la boucle !
                                         TextInput::make('unit_price')
                                             ->label(__('Prix Unit. (¥)'))
                                             ->numeric()
-                                            ->required()
-                                            ->live()
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $itemQuantity = (int) ($get('quantity') ?? 1);
-                                                $selectedOptions = $get('selected_options') ?? [];
-                                                $fixedOptionsTotal = 0;
-
-                                                if (is_array($selectedOptions)) {
-                                                    foreach ($selectedOptions as $optData) {
-                                                        if (empty($optData['product_option_id'])) continue;
-                                                        $option = \App\Models\ProductOption::find($optData['product_option_id']);
-                                                        if ($option) {
-                                                            $mod = (float) $option->price_modifier;
-                                                            if ($option->billing_type === 'per_booking') {
-                                                                $fixedOptionsTotal += $mod;
-                                                            } elseif ($option->billing_type === 'manual') {
-                                                                $optQty = (int) ($optData['quantity'] ?? 1);
-                                                                $fixedOptionsTotal += ($mod * $optQty);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                $totalPrice = (((float) $state) * $itemQuantity) + $fixedOptionsTotal;
-                                                $set('total_price', $totalPrice);
-                                            }),
+                                            ->readOnly() 
+                                            ->dehydrated()
+                                            ->required(),
 
                                         TextInput::make('total_price')
                                             ->label(__('Total Net (¥)'))
@@ -753,6 +722,13 @@ class FolderResource extends Resource
             ])
             ->filters([])
             ->recordActions([
+                // 💡 RÉINTÉGRATION DU BOUTON PRÉ-FACTURE DANS LE TABLEAU
+                Tables\Actions\Action::make('download_pdf')
+                    ->label(__('Pré-facture'))
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->url(fn ($record) => route('pdf.recapitulatif', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make(),
                 DeleteAction::make(),
             ])
