@@ -77,6 +77,7 @@ class ViewProduct extends Page
             ->get();
     }
 
+    // Moteur pour générer les pastilles du calendrier
     public function getCalendarMapProperty(): array
     {
         $map = [];
@@ -84,7 +85,6 @@ class ViewProduct extends Page
 
         $availableDays = $this->product->available_days ?? ['mon','tue','wed','thu','fri','sat','sun'];
         $blackoutDates = collect($this->product->blackout_dates ?? [])->pluck('date')->toArray();
-        $defaultPrice = $this->product->price;
         $isOnDemand = $this->product->is_on_demand;
 
         $date = Carbon::today();
@@ -103,7 +103,7 @@ class ViewProduct extends Page
                 $isAvailable = false;
             }
 
-            $price = $defaultPrice;
+            $price = 0;
             if (!$isOnDemand && $isAvailable) {
                 $matchedPrice = null;
                 foreach ($this->product->productPeriods as $period) {
@@ -141,6 +141,98 @@ class ViewProduct extends Page
         return $map;
     }
 
+    /**
+     * 💡 NOUVEAU MOTEUR : Simulateur de devis en temps réel
+     */
+    public function getEstimatedPrice(): array
+    {
+        if (!$this->product) return [];
+
+        $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
+        $basePricePerUnit = 0;
+        $hasDate = !empty($this->serviceDate);
+        $isOnDemand = $this->product->is_on_demand ?? false;
+
+        // 1. Calcul du prix de base selon la date et la dégressivité du Pax
+        if ($hasDate && !$isOnDemand) {
+            $mdStr = Carbon::parse($this->serviceDate)->format('m-d');
+            $matchedPrice = null;
+            
+            if ($this->product->productPeriods) {
+                foreach ($this->product->productPeriods as $period) {
+                    if (!$period->start_date || !$period->end_date) continue;
+                    $inPeriod = false;
+                    if ($period->start_date <= $period->end_date) {
+                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
+                    } else {
+                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    }
+
+                    if ($inPeriod && $period->productPrices) {
+                        // Cherche le prix qui correspond exactement à la quantité de Pax !
+                        $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
+                        if ($validPrices->isNotEmpty()) {
+                            $matchedPrice = $validPrices->first()->price;
+                            break;
+                        } else {
+                            // Sécurité : Si le pax dépasse les grilles, on prend le palier le plus haut
+                            $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            $basePricePerUnit = $matchedPrice ?? 0;
+        } else {
+            // S'il n'y a pas de date sélectionnée, on affiche le prix minimum de l'année pour CE pax
+            $minPrice = null;
+            if ($this->product->productPeriods) {
+                foreach($this->product->productPeriods as $period) {
+                    if ($period->productPrices) {
+                        $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
+                        foreach($validPrices as $price) {
+                            if ($minPrice === null || $price->price < $minPrice) {
+                                $minPrice = $price->price;
+                            }
+                        }
+                    }
+                }
+            }
+            $basePricePerUnit = $minPrice ?? 0;
+        }
+
+        $totalBase = $basePricePerUnit * $qty;
+        
+        // 2. Calcul du surcoût des options
+        $optionsPrice = 0;
+        if ($this->product->productOptions) {
+            foreach ($this->product->productOptions as $option) {
+                $optData = $this->selectedOptions[$option->id] ?? [];
+                if (!empty($optData['enabled'])) {
+                    $mod = $option->price_modifier ?? 0;
+                    if ($option->billing_type === 'per_pax') {
+                        $optionsPrice += $mod * $qty;
+                    } elseif ($option->billing_type === 'per_booking') {
+                        $optionsPrice += $mod;
+                    } elseif ($option->billing_type === 'manual') {
+                        $optQty = (int)($optData['quantity'] ?? 1);
+                        $optionsPrice += $mod * $optQty;
+                    }
+                }
+            }
+        }
+
+        return [
+            'is_on_demand' => $isOnDemand,
+            'has_date' => $hasDate,
+            'unit_base' => $basePricePerUnit,
+            'total_base' => $totalBase,
+            'total_options' => $optionsPrice,
+            'grand_total' => $totalBase + $optionsPrice,
+            'qty' => $qty
+        ];
+    }
+
     public function addToFolder(): void
     {
         if (!auth('agency')->check()) {
@@ -171,7 +263,6 @@ class ViewProduct extends Page
                     if ($isPerPax) {
                         for ($i = 0; $i < $qty; $i++) {
                             $rules["customValues.{$key}.{$i}"] = 'required';
-                            // 💡 CORRECTION : Utilisation de "Pax" dans le message d'erreur
                             $messages["customValues.{$key}.{$i}.required"] = "Le champ '{$def['name']}' (Pax " . ($i + 1) . ") est requis.";
                         }
                     } else {
