@@ -10,23 +10,22 @@ use Filament\Notifications\Notification;
 use Filament\Panel;
 use BackedEnum;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class ViewProduct extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = null; 
 
     protected string $view = 'filament.agency.pages.view-product';
-
     protected static ?string $title = 'Détails du Produit';
+    protected ?string $heading = ''; 
 
     public ?Product $product = null;
     
-    // Données principales de réservation
     public ?string $selectedFolderId = null;
     public ?string $serviceDate = null;
     public ?int $quantity = 1;
 
-    // 💡 RÉINTÉGRATION : Stockage des options et des champs personnalisés requis
     public array $selectedOptions = []; 
     public array $customValues = [];
 
@@ -37,18 +36,16 @@ class ViewProduct extends Page
 
     public function mount($record): void
     {
-        $this->product = Product::with('options')->findOrFail($record);
+        $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
 
-        // Sécurité produit privé
         if (isset($this->product->is_public) && !$this->product->is_public) {
             if (!auth('agency')->check()) {
                 abort(403, 'Cette activité requiert un compte partenaire privilégié.');
             }
         }
 
-        // Pré-remplir le tableau des options et des champs personnalisés pour éviter les erreurs d'index undefined
-        if ($this->product->options) {
-            foreach ($this->product->options as $option) {
+        if ($this->product->productOptions) {
+            foreach ($this->product->productOptions as $option) {
                 $this->selectedOptions[$option->id] = [
                     'enabled' => false,
                     'quantity' => 1
@@ -59,7 +56,13 @@ class ViewProduct extends Page
         if (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                $this->customValues[$key] = $def['type'] === 'toggle' ? false : '';
+                $isPerPax = $def['is_per_passenger'] ?? false;
+                
+                if ($isPerPax) {
+                    $this->customValues[$key] = [];
+                } else {
+                    $this->customValues[$key] = $def['type'] === 'toggle' ? false : '';
+                }
             }
         }
     }
@@ -74,9 +77,70 @@ class ViewProduct extends Page
             ->get();
     }
 
-    /**
-     * Traitement de la commande avec réintégration de toutes les métadonnées
-     */
+    public function getCalendarMapProperty(): array
+    {
+        $map = [];
+        if (!$this->product) return $map;
+
+        $availableDays = $this->product->available_days ?? ['mon','tue','wed','thu','fri','sat','sun'];
+        $blackoutDates = collect($this->product->blackout_dates ?? [])->pluck('date')->toArray();
+        $defaultPrice = $this->product->price;
+        $isOnDemand = $this->product->is_on_demand;
+
+        $date = Carbon::today();
+        $endDate = Carbon::today()->addYears(2);
+
+        while ($date <= $endDate) {
+            $dateStr = $date->format('Y-m-d');
+            $mdStr = $date->format('m-d');
+            $dayOfWeek = strtolower($date->format('D'));
+
+            $isAvailable = true;
+            if (!empty($availableDays) && !in_array($dayOfWeek, $availableDays)) {
+                $isAvailable = false;
+            }
+            if (in_array($dateStr, $blackoutDates)) {
+                $isAvailable = false;
+            }
+
+            $price = $defaultPrice;
+            if (!$isOnDemand && $isAvailable) {
+                $matchedPrice = null;
+                foreach ($this->product->productPeriods as $period) {
+                    if (!$period->start_date || !$period->end_date) continue;
+                    
+                    $inPeriod = false;
+                    if ($period->start_date <= $period->end_date) {
+                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
+                    } else {
+                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    }
+
+                    if ($inPeriod) {
+                        $minP = $period->productPrices->min('price');
+                        if ($minP !== null) {
+                            $matchedPrice = $minP;
+                            break;
+                        }
+                    }
+                }
+                if ($matchedPrice !== null) {
+                    $price = $matchedPrice;
+                }
+            }
+
+            $map[$dateStr] = [
+                'available' => $isAvailable,
+                'price' => $price ? number_format($price, 0, '.', ' ') : null,
+                'is_on_demand' => $isOnDemand
+            ];
+
+            $date->addDay();
+        }
+
+        return $map;
+    }
+
     public function addToFolder(): void
     {
         if (!auth('agency')->check()) {
@@ -84,7 +148,6 @@ class ViewProduct extends Page
             return;
         }
 
-        // 1. Validation des champs de base
         $rules = [
             'selectedFolderId' => 'required|exists:folders,id',
             'serviceDate' => 'required|date',
@@ -96,20 +159,35 @@ class ViewProduct extends Page
             'serviceDate.required' => 'La date de la prestation est obligatoire.',
         ];
 
-        // 2. 💡 RÉINTÉGRATION : Validation dynamique des champs personnalisés requis par le fournisseur
+        $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
+
         if (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                if (($def['is_required'] ?? false) && $def['type'] !== 'toggle') {
-                    $rules["customValues.{$key}"] = 'required';
-                    $messages["customValues.{$key}.required"] = "Le champ '{$def['name']}' est requis par le prestataire.";
+                $isRequired = $def['is_required'] ?? false;
+                $isPerPax = $def['is_per_passenger'] ?? false;
+
+                if ($isRequired && $def['type'] !== 'toggle') {
+                    if ($isPerPax) {
+                        for ($i = 0; $i < $qty; $i++) {
+                            $rules["customValues.{$key}.{$i}"] = 'required';
+                            // 💡 CORRECTION : Utilisation de "Pax" dans le message d'erreur
+                            $messages["customValues.{$key}.{$i}.required"] = "Le champ '{$def['name']}' (Pax " . ($i + 1) . ") est requis.";
+                        }
+                    } else {
+                        $rules["customValues.{$key}"] = 'required';
+                        $messages["customValues.{$key}.required"] = "Le champ '{$def['name']}' est requis.";
+                    }
+                }
+
+                if ($isPerPax && isset($this->customValues[$key]) && is_array($this->customValues[$key])) {
+                    $this->customValues[$key] = array_slice($this->customValues[$key], 0, $qty);
                 }
             }
         }
 
         $this->validate($rules, $messages);
 
-        // 3. Formatage des options sélectionnées pour correspondre à ton schéma de données
         $formattedOptions = [];
         foreach ($this->selectedOptions as $optionId => $data) {
             if ($data['enabled']) {
@@ -120,20 +198,18 @@ class ViewProduct extends Page
             }
         }
 
-        // 4. Création complète de la prestation dans le dossier
         $folderItem = FolderItem::create([
             'folder_id' => $this->selectedFolderId,
             'product_id' => $this->product->id,
             'service_date' => $this->serviceDate,
             'quantity' => $this->quantity,
-            'selected_options' => $formattedOptions, // Enregistré en BDD
-            'custom_values' => $this->customValues,       // Enregistré en BDD
-            'item_status_id' => 1,                        // En attente
-            'unit_price' => 0,                            // Calculé dynamiquement au prochain step
+            'selected_options' => $formattedOptions, 
+            'custom_values' => $this->customValues,       
+            'item_status_id' => 1,                        
+            'unit_price' => 0,                            
             'total_price' => 0,
         ]);
 
-        // 5. Recalcul automatique des grilles tarifaires et saisons
         $folder = Folder::find($this->selectedFolderId);
         if ($folder) {
             \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
@@ -148,7 +224,6 @@ class ViewProduct extends Page
             ->success()
             ->send();
 
-        // Reset partiel
         $this->reset(['serviceDate', 'quantity', 'selectedFolderId']);
         $this->mount($this->product->id);
     }

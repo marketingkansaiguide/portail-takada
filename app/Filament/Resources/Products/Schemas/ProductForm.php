@@ -24,6 +24,9 @@ class ProductForm
         return $schema
             ->columns(3)
             ->components([
+                // =========================================================================
+                // --- COLONNE GAUCHE (LARGEUR : 2 PANELS) ---
+                // =========================================================================
                 Group::make()->schema([
                     Section::make(__('Présentation de la prestation'))
                         ->description(__('Renseignez le titre, la description détaillée et ajoutez les visuels.'))
@@ -36,7 +39,7 @@ class ProductForm
 
                             Textarea::make('description')
                                 ->label(__('Description commerciale'))
-                                ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
+                                ->placeholder(__('Décrivez précisément l\'activity ou les spécificités du produit...'))
                                 ->rows(5)
                                 ->columnSpanFull(),
 
@@ -45,7 +48,7 @@ class ProductForm
                                 ->multiple()
                                 ->image()
                                 ->reorderable()
-                                ->disk('public') // 💡 LA CORRECTION EST ICI : On force l'upload et la lecture sur le disque public
+                                ->disk('public')
                                 ->directory('products')
                                 ->columnSpanFull(),
                         ]),
@@ -154,7 +157,7 @@ class ProductForm
                         ]),
 
                     Section::make(__('Calendrier & Grilles Tarifaires (Prix NETS)'))
-                        ->description(__('Définissez vos saisons de validité, l\'âge limite des enfants et vos prix.'))
+                        ->description(__('Définissez vos saisons annuelles de validité, l\'âge limite des enfants et vos prix.'))
                         ->schema([
                             TextInput::make('child_age_limit')
                                 ->label(__('Âge maximum pour être considéré enfant (Inclus)'))
@@ -178,8 +181,59 @@ class ProductForm
                                         ->required(),
                                         
                                     Group::make()->schema([
-                                        DatePicker::make('start_date')->label(__('Date de début'))->required(),
-                                        DatePicker::make('end_date')->label(__('Date de fin'))->required(),
+                                        // 💡 Saisie textuelle réutilisable JJ/MM (Indépendante de l'année)
+                                        TextInput::make('start_date')
+                                            ->label(__('Date de début (JJ/MM)'))
+                                            ->placeholder('Ex: 01/04')
+                                            ->mask('99/99')
+                                            ->rules([
+                                                function () {
+                                                    return function (string $attribute, $value, \Closure $fail) {
+                                                        $parts = explode('/', $value);
+                                                        // Test sur l'année bissextile 2024 pour valider le 29/02 de façon transparente
+                                                        if (count($parts) !== 2 || !checkdate((int)($parts[1] ?? 0), (int)($parts[0] ?? 0), 2024)) {
+                                                            $fail('Date de début invalide (Format JJ/MM attendu).');
+                                                        }
+                                                    };
+                                                },
+                                            ])
+                                            ->formatStateUsing(function (?string $state) {
+                                                if (!$state) return null;
+                                                $parts = explode('-', $state);
+                                                return count($parts) === 2 ? $parts[1] . '/' . $parts[0] : $state;
+                                            })
+                                            ->dehydrateStateUsing(function (?string $state) {
+                                                if (!$state) return null;
+                                                $parts = explode('/', $state);
+                                                return count($parts) === 2 ? $parts[1] . '-' . $parts[0] : $state;
+                                            })
+                                            ->required(),
+
+                                        TextInput::make('end_date')
+                                            ->label(__('Date de fin (JJ/MM)'))
+                                            ->placeholder('Ex: 31/10')
+                                            ->mask('99/99')
+                                            ->rules([
+                                                function () {
+                                                    return function (string $attribute, $value, \Closure $fail) {
+                                                        $parts = explode('/', $value);
+                                                        if (count($parts) !== 2 || !checkdate((int)($parts[1] ?? 0), (int)($parts[0] ?? 0), 2024)) {
+                                                            $fail('Date de fin invalide (Format JJ/MM attendu).');
+                                                        }
+                                                    };
+                                                },
+                                            ])
+                                            ->formatStateUsing(function (?string $state) {
+                                                if (!$state) return null;
+                                                $parts = explode('-', $state);
+                                                return count($parts) === 2 ? $parts[1] . '/' . $parts[0] : $state;
+                                            })
+                                            ->dehydrateStateUsing(function (?string $state) {
+                                                if (!$state) return null;
+                                                $parts = explode('/', $state);
+                                                return count($parts) === 2 ? $parts[1] . '-' . $parts[0] : $state;
+                                            })
+                                            ->required(),
                                     ])->columns(2),
                                     
                                     Repeater::make('productPrices')
@@ -267,6 +321,9 @@ class ProductForm
 
                 ])->columnSpan(['lg' => 2]),
 
+                // =========================================================================
+                // --- COLONNE DROITE (LARGEUR : 1 PANEL) ---
+                // =========================================================================
                 Group::make()->schema([
                     Section::make(__('Classification'))
                         ->schema([
@@ -320,6 +377,12 @@ class ProductForm
 
                     Section::make(__('Paramètres de Vente'))
                         ->schema([
+                            // 💡 INTERRUPTEUR DE VISIBILITÉ : helperText() utilisé pour compatibilité ascendante
+                            Toggle::make('is_public')
+                                ->label(__('Produit public (Vitrine)'))
+                                ->helperText(__('Si activé, l\'activité s\'affiche sur le catalogue sans authentification (prix masqué).'))
+                                ->default(true),
+
                             Toggle::make('is_on_demand')
                                 ->label(__('Sur devis uniquement'))
                                 ->helperText(__('L\'agence devra faire une demande manuelle.')),
