@@ -8,11 +8,14 @@ use App\Models\Folder;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+
+// 💡 UNIFICATION FILAMENT V5 : Toutes les actions sont désormais globales !
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Action; 
+
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
@@ -25,8 +28,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
-use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\TextColumn; // 💡 Import explicite des colonnes
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 
@@ -149,11 +152,9 @@ class FolderResource extends Resource
             }
         }
 
-        // 💡 Calculs stricts
         $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
         $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
 
-        // 💡 On n'écrit que dans la ligne, pour éviter la boucle Livewire sur le total du dossier
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
     }
@@ -301,7 +302,6 @@ class FolderResource extends Resource
                                 Hidden::make('total_price')
                                     ->default(0),
 
-                                // 💡 PlaceHolder passif, uniquement pour l'affichage visuel
                                 Placeholder::make('total_price_display')
                                     ->label(__('Montant total (¥)'))
                                     ->content(function (Get $get) {
@@ -445,7 +445,6 @@ class FolderResource extends Resource
                                         </span>
                                     ");
                                 })
-                                // 💡 RÉINTÉGRATION DE VOTRE FONCTION D'E-MAIL
                                 ->extraItemActions([
                                     Action::make('generateSupplierEmail')
                                         ->icon('heroicon-o-envelope')
@@ -519,7 +518,6 @@ class FolderResource extends Resource
                                         })
                                 ])
                                 ->schema([
-                                    
                                     Group::make()->schema([
                                         Select::make('product_id')
                                             ->relationship('product', 'name')
@@ -567,7 +565,6 @@ class FolderResource extends Resource
                                             ->live()
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
 
-                                        // 💡 BLOCAGE DU PRIX : En lecture seule, le système calcule seul, adieu la boucle !
                                         TextInput::make('unit_price')
                                             ->label(__('Prix Unit. (¥)'))
                                             ->numeric()
@@ -689,21 +686,21 @@ class FolderResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('reference')
+                TextColumn::make('reference')
                     ->label(__('Référence'))
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
 
-                Tables\Columns\TextColumn::make('agency.name')
+                TextColumn::make('agency.name')
                     ->label(__('Agence'))
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('folder_name')
+                TextColumn::make('folder_name')
                     ->label(__('Nom du dossier'))
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('status')
+                TextColumn::make('status')
                     ->label(__('Statut'))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -715,15 +712,15 @@ class FolderResource extends Resource
                     })
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('total_price')
+                TextColumn::make('total_price')
                     ->label(__('Montant total'))
                     ->money('JPY')
                     ->sortable(),
             ])
             ->filters([])
             ->recordActions([
-                // 💡 RÉINTÉGRATION DU BOUTON PRÉ-FACTURE DANS LE TABLEAU
-                Tables\Actions\Action::make('download_pdf')
+                // 💡 L'ACTION UTILISE DÉSORMAIS L'ESPACE GLOBAL !
+                Action::make('download_pdf')
                     ->label(__('Pré-facture'))
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
@@ -732,7 +729,7 @@ class FolderResource extends Resource
                 EditAction::make(),
                 DeleteAction::make(),
             ])
-            ->toolbarActions([
+            ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

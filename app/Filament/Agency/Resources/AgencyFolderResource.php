@@ -7,11 +7,12 @@ use App\Models\Folder;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Schema; 
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables;
-use Filament\Actions\EditAction; // 💡 L'import correct et unifié pour votre version de Filament !
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
@@ -20,6 +21,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,6 +32,31 @@ class AgencyFolderResource extends Resource
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-briefcase';
     
+    public static function canViewAny(): bool
+    {
+        return auth()->check();
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->check();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->check() && $record->agency_id === auth()->user()->agency_id;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return auth()->check() && $record->agency_id === auth()->user()->agency_id;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('Mes Dossiers');
@@ -47,11 +74,9 @@ class AgencyFolderResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // SÉCURITÉ : L'agence ne voit que ses propres dossiers
         return parent::getEloquentQuery()->where('agency_id', auth()->user()->agency_id);
     }
 
-    // Réutilisation des fonctions de calcul parfaites de l'Admin
     public static function updatePassengerCount($set, $get) {
         \App\Filament\Resources\Folders\FolderResource::updatePassengerCount($set, $get);
     }
@@ -64,12 +89,10 @@ class AgencyFolderResource extends Resource
         return $schema->components([
             Group::make()->schema([
                 Section::make('Informations Principales')
-                    ->description('Renseignez les informations de base du groupe ou du voyageur.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('folder_name')
                             ->label('Nom du dossier / Réf. Groupe')
-                            ->placeholder('Ex: Groupe Dupont')
                             ->required(),
 
                         TextInput::make('lead_traveler_name')
@@ -89,8 +112,8 @@ class AgencyFolderResource extends Resource
                             ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
                     ]),
 
+                // 💡 RESTAURATION DES PASSAGERS
                 Section::make('Liste des Voyageurs')
-                    ->description('Détaillez les participants pour calculer les tarifs (enfants/adultes) et alerter sur les allergies.')
                     ->schema([
                         Repeater::make('folderPassengers')
                             ->relationship()
@@ -117,7 +140,6 @@ class AgencyFolderResource extends Resource
                     ]),
 
                 Section::make('Prestations souhaitées')
-                    ->description('Ajoutez des prestations depuis notre catalogue.')
                     ->schema([
                         Repeater::make('folderItems')
                             ->relationship()
@@ -129,7 +151,17 @@ class AgencyFolderResource extends Resource
                                 if (!isset($state['product_id'])) return 'Nouvelle demande';
                                 $productName = \App\Models\Product::find($state['product_id'])?->name ?? 'Produit inconnu';
                                 $date = !empty($state['service_date']) ? Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
-                                return $productName . ' - ' . $date;
+                                
+                                // 💡 AJOUT DU STATUT VISUEL DANS L'ENTÊTE DE LA PRESTATION
+                                $statusModel = !empty($state['item_status_id']) ? \App\Models\ItemStatus::find($state['item_status_id']) : null;
+                                $statusName = $statusModel?->name ?? 'Nouveau';
+                                
+                                return new \Illuminate\Support\HtmlString("
+                                    <div style='display:flex; justify-content:space-between; width:100%;'>
+                                        <span>{$productName} - {$date}</span>
+                                        <span style='font-size:0.75rem; background:#f3f4f6; padding:2px 8px; border-radius:99px; font-weight:bold;'>📌 {$statusName}</span>
+                                    </div>
+                                ");
                             })
                             ->schema([
                                 Select::make('product_id')
@@ -145,16 +177,16 @@ class AgencyFolderResource extends Resource
                                             $set('custom_values', []);
                                         }
                                         self::updateItemPrices($set, $get);
-                                    }),
+                                    })
+                                    ->disabled(fn ($get) => !empty($get('id'))), 
                                     
                                 Group::make()->schema([
                                     DatePicker::make('service_date')
                                         ->label('Date souhaitée')
                                         ->required()
                                         ->live()
-                                        ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
-                                        ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
-                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->disabled(fn ($get) => !empty($get('id'))),
 
                                     TextInput::make('quantity')
                                         ->label('Participants')
@@ -162,7 +194,8 @@ class AgencyFolderResource extends Resource
                                         ->default(1)
                                         ->required()
                                         ->live()
-                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->disabled(fn ($get) => !empty($get('id'))),
 
                                     Placeholder::make('price_preview')
                                         ->label('Sous-total net estimé')
@@ -173,11 +206,13 @@ class AgencyFolderResource extends Resource
                                     Hidden::make('item_status_id')->default(1), 
                                 ])->columns(3),
 
+                                // 💡 RESTAURATION DES OPTIONS
                                 Repeater::make('selected_options')
                                     ->label('Options')
                                     ->addActionLabel('Ajouter une option')
                                     ->live()
                                     ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                    ->disabled(fn ($get) => !empty($get('id')))
                                     ->schema([
                                         Select::make('product_option_id')
                                             ->label('Option')
@@ -207,8 +242,10 @@ class AgencyFolderResource extends Resource
                                             }),
                                     ])->columns(2),
 
+                                // 💡 RESTAURATION DES CHAMPS PERSONNALISÉS
                                 Group::make()
                                     ->statePath('custom_values')
+                                    ->disabled(fn ($get) => !empty($get('id')))
                                     ->schema(function ($get) {
                                         $productId = $get('product_id');
                                         if (!$productId) return [];
@@ -240,7 +277,17 @@ class AgencyFolderResource extends Resource
                                         ];
                                     }),
                             ])
+                            ->deleteAction(fn ($action) => $action->hidden(fn ($get) => !empty($get('id')))),
+                    ]),
+                    
+                // 💡 CHAT INTÉGRÉ EN PLEINE LARGEUR (En bas du formulaire principal)
+                Section::make('')
+                    ->schema([
+                        Livewire::make(\App\Livewire\FolderChat::class, fn (Model $record) => ['folder' => $record])
+                            ->key('folder-chat')
                     ])
+                    ->hidden(fn (?Model $record) => $record === null)
+                    ->columnSpanFull()
             ])->columnSpan(['lg' => 2]),
 
             Group::make()->schema([
@@ -271,13 +318,7 @@ class AgencyFolderResource extends Resource
                         Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
                         TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
                         DatePicker::make('first_hotel_check_in')->label('Date Check-in 1er Hôtel'),
-                        Select::make('ticket_dispatch_method')
-                            ->label('Envoi de la billetterie')
-                            ->options(['hotel' => 'Hôtel', 'guide' => 'Guide', 'autre' => 'Autre'])
-                            ->live(),
-                        TextInput::make('ticket_dispatch_other')
-                            ->label('Lieu d\'envoi (si Autre)')
-                            ->visible(fn ($get) => $get('ticket_dispatch_method') === 'autre'),
+                        // 💡 Les champs d'envoi de billetterie ont été strictement retirés ici.
                     ])
             ])->columnSpan(['lg' => 1]),
         ])->columns(3);
@@ -305,7 +346,6 @@ class AgencyFolderResource extends Resource
                 Tables\Columns\TextColumn::make('total_price')->label('Total Estimé')->money('JPY'),
             ])
             ->filters([])
-            // 💡 SYNTAXE CORRIGÉE : Utilisation de recordActions() au lieu de actions()
             ->recordActions([
                 EditAction::make()->label('Suivi / Modifier'),
             ]);
