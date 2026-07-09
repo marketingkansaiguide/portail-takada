@@ -23,12 +23,14 @@ use Filament\Actions\DeleteBulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Filament\Notifications\Notification;
+use BackedEnum; // 💡 IMPORT NÉCESSAIRE POUR LE TYPAGE
 
 class AgencyUserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-users';
+    // 💡 CORRECTION DU TYPAGE STRICT ICI
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
     public static function getNavigationLabel(): string
     {
@@ -47,7 +49,7 @@ class AgencyUserResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // 💡 SÉCURITÉ : L'agence ne voit que les comptes liés à son ID
+        // SÉCURITÉ : L'agence ne voit que les comptes liés à son ID
         return parent::getEloquentQuery()->where('agency_id', Filament::auth()->user()->agency_id);
     }
 
@@ -79,7 +81,7 @@ class AgencyUserResource extends Resource
                             ->required(fn (string $operation): bool => $operation === 'create')
                             ->maxLength(255),
 
-                        // 💡 VERROUILLAGE DES RÔLES : Forcés en arrière-plan
+                        // VERROUILLAGE DES RÔLES : Forcés en arrière-plan
                         Hidden::make('role')->default(User::ROLE_AGENCY),
                         Hidden::make('agency_id')->default(fn () => Filament::auth()->user()->agency_id),
                     ])
@@ -113,7 +115,7 @@ class AgencyUserResource extends Resource
                 EditAction::make(),
                 DeleteAction::make()
                     ->before(function (DeleteAction $action, User $record) {
-                        // 💡 SÉCURITÉ : Empêcher l'utilisateur de se supprimer lui-même
+                        // SÉCURITÉ : Empêcher l'utilisateur de se supprimer lui-même
                         if (Filament::auth()->id() === $record->id) {
                             Notification::make()
                                 ->title('Action impossible')

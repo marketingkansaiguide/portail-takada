@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Agency\Pages\Catalogue;
+use App\Filament\Agency\Resources\AgencyFolderResource;
+use App\Filament\Agency\Resources\AgencyUserResource;
 use App\Http\Middleware\FilamentAgencyB2BAccess;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -11,7 +13,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
-use Filament\View\PanelsRenderHook; // 💡 Importation indispensable pour les hooks de rendu
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -29,7 +31,7 @@ class AgencyPanelProvider extends PanelProvider
             ->path('') // Racine du site
             ->login()
             ->authGuard('agency') // Guard de session isolé pour les agences
-            ->darkMode(false) // 💡 DÉSACTIVATION DU MODE SOMBRE : Retire le bouton de sélection d'affichage du front-office
+            ->darkMode(false) // DÉSACTIVATION DU MODE SOMBRE : Retire le bouton de sélection d'affichage du front-office
             ->colors([
                 'primary' => Color::hex('#096a61'),
                 'secondary' => Color::hex('#dde8b9'),
@@ -42,6 +44,13 @@ class AgencyPanelProvider extends PanelProvider
             ->brandLogoHeight('3rem')
             
             ->discoverResources(in: app_path('Filament/Agency/Resources'), for: 'App\\Filament\\Agency\\Resources')
+            
+            // 💡 DÉCLARATION EXPLICITE DES RESSOURCES POUR FORCER L'AFFICHAGE DANS LE MENU
+            ->resources([
+                AgencyFolderResource::class,
+                AgencyUserResource::class,
+            ])
+            
             ->discoverPages(in: app_path('Filament/Agency/Pages'), for: 'App\\Filament\\Agency\\Pages')
             ->pages([
                 Catalogue::class,
@@ -49,7 +58,7 @@ class AgencyPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Agency/Widgets'), for: 'App\\Filament\\Agency\\Widgets')
             ->widgets([])
             
-            // 💡 DESIGN & UX : Injection dynamique du bouton de connexion en haut à droite
+            // DESIGN & UX : Injection dynamique du bouton de connexion en haut à droite
             ->renderHook(
                 PanelsRenderHook::TOPBAR_END,
                 fn (): string => auth('agency')->guest()

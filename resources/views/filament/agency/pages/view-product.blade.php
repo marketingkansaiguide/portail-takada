@@ -108,6 +108,44 @@
                             {!! $product->description !!}
                         </div>
                     </div>
+
+                    {{-- 💡 NOUVEL ENCART : CONDITIONS D'ANNULATION --}}
+                    <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                        <h2 style="font-size: 1.4rem; font-weight: 700; color: #334155; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <svg style="width: 24px; height: 24px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Politique d'annulation
+                        </h2>
+                        <div style="background: #f8fafc; border-left: 4px solid #cbd5e1; padding: 1.5rem; border-radius: 0 0.75rem 0.75rem 0;">
+                            <p style="margin: 0 0 1.25rem 0; font-size: 0.95rem; color: #475569; line-height: 1.6;">
+                                Sauf mention contraire spécifique détaillée dans la présentation ci-dessus, nos conditions d'annulation B2B standard s'appliquent pour cette prestation :
+                            </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #16a34a; text-transform: uppercase;">+ de 30 jours</span>
+                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">Sans frais</span>
+                                </div>
+                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #d97706; text-transform: uppercase;">De 30 à 15 jours</span>
+                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">30% de frais</span>
+                                </div>
+                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">De 14 à 8 jours</span>
+                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">50% de frais</span>
+                                </div>
+                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626; text-transform: uppercase;">Moins de 7 jours</span>
+                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">100% de frais</span>
+                                </div>
+                            </div>
+                            <p style="margin: 0; font-size: 0.85rem; color: #64748b; font-style: italic;">
+                                <svg style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 0.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                Note : Les frais de dossier ou d'émission de billets physiques peuvent être non-remboursables indépendamment des délais ci-dessus.
+                            </p>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

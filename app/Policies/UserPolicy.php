@@ -16,21 +16,37 @@ class UserPolicy
 
     public function viewAny(User $user): bool
     {
+        // 💡 EXCEPTION : Une agence a toujours le droit de voir la liste de SA propre équipe
+        if ($user->role === User::ROLE_AGENCY) {
+            return true;
+        }
         return $user->hasPermission('user.viewAny');
     }
 
     public function view(User $user, User $model): bool
     {
+        // 💡 SÉCURITÉ : Une agence ne peut voir que les vendeurs de son agence
+        if ($user->role === User::ROLE_AGENCY) {
+            return $user->agency_id === $model->agency_id;
+        }
         return $user->hasPermission('user.view');
     }
 
     public function create(User $user): bool
     {
+        // 💡 EXCEPTION : Une agence peut créer de nouveaux vendeurs
+        if ($user->role === User::ROLE_AGENCY) {
+            return true;
+        }
         return $user->hasPermission('user.create');
     }
 
     public function update(User $user, User $model): bool
     {
+        // 💡 SÉCURITÉ : Une agence ne peut modifier que les vendeurs de son agence
+        if ($user->role === User::ROLE_AGENCY) {
+            return $user->agency_id === $model->agency_id;
+        }
         return $user->hasPermission('user.update');
     }
 
@@ -39,6 +55,11 @@ class UserPolicy
         // Règle de garde essentielle : On ne s'auto-supprime pas
         if ($user->id === $model->id) {
             return false;
+        }
+        
+        // 💡 SÉCURITÉ : Une agence ne peut supprimer que les vendeurs de son agence
+        if ($user->role === User::ROLE_AGENCY) {
+            return $user->agency_id === $model->agency_id;
         }
         return $user->hasPermission('user.delete');
     }
