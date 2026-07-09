@@ -120,7 +120,6 @@
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-4">
             <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
                 
-                {{-- 💡 CONDITION STRICTE : L'ID D'AGENCE DOIT ÊTRE ENREGISTRÉ DANS LA PAGE --}}
                 @if($this->activeAgencyId)
                     <div style="background: white; border-radius: 1.25rem; padding: 2rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
@@ -185,6 +184,8 @@
                                     <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : 'Sélectionner...'" :style="!selectedDate && 'color: #9ca3af'"></span>
                                     <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </button>
+                                {{-- 💡 GESTION ERREUR DATE ICI --}}
+                                @error('serviceDate') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
 
                                 <div x-show="open" style="display: none;">
                                     <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);">
@@ -243,6 +244,8 @@
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                 <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Pax</label>
                                 <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                {{-- 💡 GESTION ERREUR QUANTITE ICI --}}
+                                @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                             </div>
                         </div>
 
@@ -460,8 +463,13 @@
                                 
                                 <select wire:model="selectedFolderId" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; color: #111827;">
                                     <option value="">-- Choisir un dossier voyage --</option>
-                                    @foreach($this->getFoldersList() as $folder)
-                                        <option value="{{ $folder->id }}">{{ $folder->folder_name }} ({{ $folder->reference }})</option>
+                                    @foreach($this->foldersList as $folder)
+                                        <option value="{{ $folder->id }}">
+                                            {{ $folder->folder_name }} 
+                                            @if($folder->start_date && $folder->end_date)
+                                                (Du {{ \Carbon\Carbon::parse($folder->start_date)->format('d/m/Y') }} au {{ \Carbon\Carbon::parse($folder->end_date)->format('d/m/Y') }})
+                                            @endif
+                                        </option>
                                     @endforeach
                                 </select>
                                 @error('selectedFolderId') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror

@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
+use Livewire\Attributes\Computed;
 
 class ViewProduct extends Page
 {
@@ -31,14 +32,13 @@ class ViewProduct extends Page
 
     public ?Product $product = null;
     
-    public ?string $selectedFolderId = null;
+    public ?int $selectedFolderId = null;
     public ?string $serviceDate = null;
     public ?int $quantity = 1;
 
     public array $selectedOptions = []; 
     public array $customValues = [];
 
-    // 💡 VARIABLES MEMOIRE POUR NE JAMAIS PERDRE LA SESSION
     public ?int $activeAgencyId = null;
     public bool $isAdmin = false;
 
@@ -51,11 +51,10 @@ class ViewProduct extends Page
     {
         $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
 
-        // 💡 1. ON CAPTURE ET ON VERROUILLE L'ID AGENCE AU CHARGEMENT
         $user = Filament::auth()->user() ?? auth('agency')->user() ?? auth('web')->user();
         if ($user) {
             if ($user->agency_id) {
-                $this->activeAgencyId = $user->agency_id;
+                $this->activeAgencyId = (int) $user->agency_id;
             }
             if (in_array($user->role, ['super_admin', 'admin'])) {
                 $this->isAdmin = true;
@@ -88,13 +87,15 @@ class ViewProduct extends Page
         }
     }
 
-    // 💡 2. LA LISTE INTERROGE LA VARIABLE VERROUILLÉE
-    public function getFoldersList()
+    #[Computed]
+    public function foldersList()
     {
-        if (!$this->activeAgencyId) return collect();
+        $agencyId = $this->activeAgencyId ?? Filament::auth()->user()?->agency_id;
+
+        if (!$agencyId) return collect();
         
-        return Folder::where('agency_id', $this->activeAgencyId)
-            ->whereIn('status', ['draft', 'pending'])
+        return Folder::where('agency_id', $agencyId)
+            ->whereIn('status', ['draft', 'pending', 'confirmed'])
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -183,14 +184,15 @@ class ViewProduct extends Page
                 ])
             ])
             ->action(function (array $data, \Filament\Pages\Page $livewire) {
-                // 💡 3. ON UTILISE LA VARIABLE VERROUILLÉE POUR L'ENREGISTREMENT
-                if (!$livewire->activeAgencyId) {
-                    Notification::make()->title('Erreur')->body('La session agence est expirée.')->danger()->send();
+                $agencyId = $livewire->activeAgencyId ?? Filament::auth()->user()?->agency_id;
+
+                if (!$agencyId) {
+                    Notification::make()->title('Erreur')->body('La session agence est expirée ou introuvable.')->danger()->send();
                     return;
                 }
 
                 $folder = Folder::create([
-                    'agency_id' => $livewire->activeAgencyId,
+                    'agency_id' => $agencyId,
                     'folder_name' => $data['folder_name'],
                     'lead_traveler_name' => $data['lead_traveler_name'],
                     'hotel_booking_name' => $data['hotel_booking_name'] ?? null,
@@ -236,6 +238,8 @@ class ViewProduct extends Page
                 }
 
                 $livewire->selectedFolderId = $folder->id;
+                
+                unset($livewire->foldersList);
 
                 Notification::make()
                     ->title('Dossier créé avec succès !')
@@ -391,7 +395,9 @@ class ViewProduct extends Page
 
     public function addToFolder(): void
     {
-        if (!$this->activeAgencyId) {
+        $agencyId = $this->activeAgencyId ?? Filament::auth()->user()?->agency_id;
+
+        if (!$agencyId) {
             Notification::make()->title('Session Expirée')->danger()->send();
             return;
         }
@@ -405,6 +411,8 @@ class ViewProduct extends Page
         $messages = [
             'selectedFolderId.required' => 'Veuillez sélectionner un dossier de voyage.',
             'serviceDate.required' => 'La date de la prestation est obligatoire.',
+            'quantity.required' => 'Le nombre de personnes est requis.',
+            'quantity.min' => 'Il faut au minimum 1 personne.',
         ];
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
@@ -433,7 +441,17 @@ class ViewProduct extends Page
             }
         }
 
-        $this->validate($rules, $messages);
+        try {
+            $this->validate($rules, $messages);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Notification::make()
+                ->title('Informations manquantes')
+                ->body('Veuillez vérifier les champs en rouge avant d\'ajouter au dossier.')
+                ->danger()
+                ->send();
+                
+            throw $e;
+        }
 
         $formattedOptions = [];
         foreach ($this->selectedOptions as $optionId => $data) {
@@ -467,7 +485,7 @@ class ViewProduct extends Page
 
         Notification::make()
             ->title('Demande ajoutée au dossier !')
-            ->description('La prestation ainsi que ses options et configurations logistiques ont été enregistrées.')
+            ->body('La prestation ainsi que ses options et configurations logistiques ont été enregistrées.')
             ->success()
             ->send();
 

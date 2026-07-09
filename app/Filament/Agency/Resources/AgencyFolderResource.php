@@ -26,7 +26,7 @@ use Filament\Schemas\Components\Group;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Blade;
-use Filament\Facades\Filament; // 💡 INDISPENSABLE POUR CONSERVER LA SESSION !
+use Filament\Facades\Filament;
 
 class AgencyFolderResource extends Resource
 {
@@ -34,7 +34,6 @@ class AgencyFolderResource extends Resource
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-briefcase';
     
-    // 💡 UTILISATION DE FILAMENT::AUTH() POUR ÉVITER L'ERREUR 403 DE LIVEWIRE
     public static function canViewAny(): bool
     {
         return Filament::auth()->check();
@@ -257,9 +256,17 @@ class AgencyFolderResource extends Resource
                                             foreach ($product->custom_field_definitions as $def) {
                                                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
                                                 $label = $def['name'] ?? 'Information';
+                                                
                                                 if (isset($customValues[$key]) && $customValues[$key] !== '') {
                                                     $val = $customValues[$key];
-                                                    if (is_bool($val)) $val = $val ? 'Oui' : 'Non';
+                                                    
+                                                    // 💡 CORRECTION DU BUG ICI : Gestion des tableaux (ex: inputs multiples) et booléens
+                                                    if (is_bool($val)) {
+                                                        $val = $val ? 'Oui' : 'Non';
+                                                    } elseif (is_array($val)) {
+                                                        $val = implode(', ', \Illuminate\Support\Arr::flatten($val));
+                                                    }
+                                                    
                                                     $cvs[] = "<b>{$label} :</b> {$val}";
                                                 }
                                             }
