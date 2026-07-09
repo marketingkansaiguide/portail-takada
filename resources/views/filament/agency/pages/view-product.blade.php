@@ -109,43 +109,6 @@
                         </div>
                     </div>
 
-                    {{-- 💡 NOUVEL ENCART : CONDITIONS D'ANNULATION --}}
-                    <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <h2 style="font-size: 1.4rem; font-weight: 700; color: #334155; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <svg style="width: 24px; height: 24px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Politique d'annulation
-                        </h2>
-                        <div style="background: #f8fafc; border-left: 4px solid #cbd5e1; padding: 1.5rem; border-radius: 0 0.75rem 0.75rem 0;">
-                            <p style="margin: 0 0 1.25rem 0; font-size: 0.95rem; color: #475569; line-height: 1.6;">
-                                Sauf mention contraire spécifique détaillée dans la présentation ci-dessus, nos conditions d'annulation B2B standard s'appliquent pour cette prestation :
-                            </p>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
-                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: #16a34a; text-transform: uppercase;">+ de 30 jours</span>
-                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">Sans frais</span>
-                                </div>
-                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: #d97706; text-transform: uppercase;">De 30 à 15 jours</span>
-                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">30% de frais</span>
-                                </div>
-                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">De 14 à 8 jours</span>
-                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">50% de frais</span>
-                                </div>
-                                <div style="background: #ffffff; padding: 1rem; border-radius: 0.5rem; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
-                                    <span style="font-size: 0.75rem; font-weight: 700; color: #dc2626; text-transform: uppercase;">Moins de 7 jours</span>
-                                    <span style="font-size: 1.1rem; font-weight: 800; color: #1e293b;">100% de frais</span>
-                                </div>
-                            </div>
-                            <p style="margin: 0; font-size: 0.85rem; color: #64748b; font-style: italic;">
-                                <svg style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 0.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                Note : Les frais de dossier ou d'émission de billets physiques peuvent être non-remboursables indépendamment des délais ci-dessus.
-                            </p>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>
@@ -380,7 +343,7 @@
                                                             @click="activeTab = {{ $i }}" 
                                                             class="pax-tab-item"
                                                             :class="{ 'pax-tab-item-active': activeTab === {{ $i }} }">
-                                                        <svg style="width: 13px; height: 14px; opacity: 0.75;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                        <svg width="14" height="14" style="width: 14px !important; height: 14px !important; flex-shrink: 0 !important; opacity: 0.75; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                                         <span>Pax {{ $i + 1 }}</span>
                                                     </button>
                                                 @endfor
@@ -485,7 +448,7 @@
                         </div>
 
                         {{-- 5. DOSSIER ET ACTION --}}
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>
@@ -510,6 +473,39 @@
                                 AJOUTER AU DOSSIER
                             </button>
                         </div>
+
+                        {{-- 💡 ENCART : CONDITIONS D'ANNULATION EN VOLET DEROULANT --}}
+                        @php
+                            $isSpecific = $product->cancellation_type === 'specific' && !empty($product->cancellation_specifics);
+                            $generalPolicy = \App\Models\Setting::first()?->general_cancellation_policy 
+                                          ?? \App\Models\Setting::first()?->cancellation_policy 
+                                          ?? '';
+                            $hasPolicyToDisplay = $isSpecific || !empty($generalPolicy);
+                            $policyContent = $isSpecific ? $product->cancellation_specifics : $generalPolicy;
+                        @endphp
+
+                        @if($hasPolicyToDisplay)
+                        <div x-data="{ expanded: false }" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03); overflow: hidden;">
+                            <button @click="expanded = !expanded" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; background: transparent; border: none; cursor: pointer; text-align: left; outline: none;">
+                                <span style="font-size: 0.95rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.5rem;">
+                                    <svg width="20" height="20" style="width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #94a3b8; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Détails des conditions d'annulation
+                                </span>
+                                <svg width="20" height="20" :style="expanded ? 'transform: rotate(180deg); width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #64748b; transition: transform 0.2s; display: block;' : 'width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #64748b; transition: transform 0.2s; display: block;'" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            
+                            <div x-show="expanded" x-collapse style="display: none;">
+                                <div style="padding: 0 1.5rem 1.5rem 1.5rem;">
+                                    <div style="background: #f8fafc; border-left: 4px solid #cbd5e1; padding: 1rem; border-radius: 0 0.5rem 0.5rem 0;">
+                                        <div style="color: #475569; line-height: 1.6; font-size: 0.85rem; white-space: pre-wrap;">{!! $policyContent !!}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+
                     </div>
                 
                 @elseif($this->isAdmin)
