@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
 
 class ViewProduct extends Page
@@ -126,12 +127,22 @@ class ViewProduct extends Page
 
                     DatePicker::make('start_date')
                         ->label('Date d\'arrivée au Japon')
-                        ->required(),
+                        ->live()
+                        ->required()
+                        ->beforeOrEqual('end_date')
+                        ->validationMessages([
+                            'before_or_equal' => 'L\'arrivée doit être avant ou le jour du départ.',
+                        ]),
 
                     DatePicker::make('end_date')
                         ->label('Date de départ')
+                        ->live()
                         ->required()
-                        ->afterOrEqual('start_date'),
+                        ->afterOrEqual('start_date')
+                        ->validationMessages([
+                            'after_or_equal' => 'Le départ doit être après ou le jour de l\'arrivée.',
+                        ])
+                        ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
 
                     Repeater::make('contact_phones')
                         ->label('Contact du voyageur pendant le séjour')
@@ -176,7 +187,19 @@ class ViewProduct extends Page
                 Section::make('Logistique d\'arrivée')->schema([
                     Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
                     TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
-                    DatePicker::make('first_hotel_check_in')->label('Date Check-in 1er Hôtel'),
+
+                    DatePicker::make('first_hotel_check_in')
+                        ->label('Date Check-in 1er Hôtel')
+                        ->live()
+                        ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                        ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                        ->afterOrEqual('start_date')
+                        ->beforeOrEqual('end_date')
+                        ->validationMessages([
+                            'after_or_equal' => 'Le check-in doit avoir lieu après l\'arrivée.',
+                            'before_or_equal' => 'Le check-in doit avoir lieu avant le départ.',
+                        ]),
+
                     Textarea::make('first_hotel_address')
                         ->label('Adresse du premier hôtel')
                         ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
@@ -453,6 +476,23 @@ class ViewProduct extends Page
             throw $e;
         }
 
+        // 💡 NOUVEAU : Vérification stricte des dates du dossier avant l'ajout
+        $folder = Folder::find($this->selectedFolderId);
+        if ($folder && $folder->start_date && $folder->end_date) {
+            $serviceDateObj = Carbon::parse($this->serviceDate)->startOfDay();
+            $folderStart = Carbon::parse($folder->start_date)->startOfDay();
+            $folderEnd = Carbon::parse($folder->end_date)->startOfDay();
+
+            if ($serviceDateObj->lt($folderStart) || $serviceDateObj->gt($folderEnd)) {
+                Notification::make()
+                    ->title('Date hors séjour')
+                    ->body("La date choisie (" . $serviceDateObj->format('d/m/Y') . ") est en dehors des dates du dossier sélectionné (du " . $folderStart->format('d/m/Y') . " au " . $folderEnd->format('d/m/Y') . ").")
+                    ->danger()
+                    ->send();
+                return; // On bloque l'ajout
+            }
+        }
+
         $formattedOptions = [];
         foreach ($this->selectedOptions as $optionId => $data) {
             if ($data['enabled']) {
@@ -475,7 +515,6 @@ class ViewProduct extends Page
             'total_price' => 0,
         ]);
 
-        $folder = Folder::find($this->selectedFolderId);
         if ($folder) {
             \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
                 function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },

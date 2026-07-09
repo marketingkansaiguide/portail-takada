@@ -260,7 +260,7 @@ class AgencyFolderResource extends Resource
                                                 if (isset($customValues[$key]) && $customValues[$key] !== '') {
                                                     $val = $customValues[$key];
                                                     
-                                                    // 💡 CORRECTION DU BUG ICI : Gestion des tableaux (ex: inputs multiples) et booléens
+                                                    // 💡 GESTION ARRAY TO STRING ICI
                                                     if (is_bool($val)) {
                                                         $val = $val ? 'Oui' : 'Non';
                                                     } elseif (is_array($val)) {
@@ -439,16 +439,30 @@ class AgencyFolderResource extends Resource
                         Hidden::make('agency_id')->default(fn () => Filament::auth()->user()->agency_id),
                     ]),
 
+                // 💡 REMISE DE LA LOGISTIQUE DANS LA COLONNE DE DROITE
                 Section::make('Logistique d\'arrivée')
                     ->schema([
                         Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
                         TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
-                        DatePicker::make('first_hotel_check_in')->label('Date Check-in 1er Hôtel'),
+
+                        DatePicker::make('first_hotel_check_in')
+                            ->label('Date Check-in 1er Hôtel')
+                            ->live()
+                            ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                            ->maxDate(fn ($get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                            ->afterOrEqual('start_date')
+                            ->beforeOrEqual('end_date')
+                            ->validationMessages([
+                                'after_or_equal' => 'Doit être après ou le jour de l\'arrivée.',
+                                'before_or_equal' => 'Doit être avant ou le jour du départ.',
+                            ]),
+
                         Textarea::make('first_hotel_address')
                             ->label('Adresse du premier hôtel')
                             ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
                             ->rows(2),
-                    ])
+                    ]),
+
             ])->columnSpan(['lg' => 1]),
 
             Section::make('Communication avec l\'équipe Takada')

@@ -9,7 +9,6 @@ use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
-// 💡 UNIFICATION FILAMENT V5 : Toutes les actions sont désormais globales !
 use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\BulkActionGroup;
@@ -29,7 +28,7 @@ use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn; // 💡 Import explicite des colonnes
+use Filament\Tables\Columns\TextColumn; 
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 
@@ -192,13 +191,43 @@ class FolderResource extends Resource
                             TextInput::make('pax_adults')
                                 ->label(__('Composition : Adultes'))
                                 ->readOnly()
-                                ->dehydrated()
+                                ->dehydrated(true)
+                                ->mutateDehydratedStateUsing(function (Get $get) {
+                                    $passengers = $get('folderPassengers') ?? [];
+                                    $startDate = $get('start_date');
+                                    $adults = 0;
+                                    foreach ($passengers as $passenger) {
+                                        if (!empty($passenger['birth_date'])) {
+                                            $birthDate = Carbon::parse($passenger['birth_date']);
+                                            $compareDate = $startDate ? Carbon::parse($startDate) : Carbon::now();
+                                            if ($birthDate->diffInYears($compareDate) >= 18) {
+                                                $adults++;
+                                            }
+                                        }
+                                    }
+                                    return max(0, $adults);
+                                })
                                 ->default(0),
 
                             TextInput::make('pax_children')
                                 ->label(__('Composition : Enfants'))
                                 ->readOnly()
-                                ->dehydrated()
+                                ->dehydrated(true)
+                                ->mutateDehydratedStateUsing(function (Get $get) {
+                                    $passengers = $get('folderPassengers') ?? [];
+                                    $startDate = $get('start_date');
+                                    $children = 0;
+                                    foreach ($passengers as $passenger) {
+                                        if (!empty($passenger['birth_date'])) {
+                                            $birthDate = Carbon::parse($passenger['birth_date']);
+                                            $compareDate = $startDate ? Carbon::parse($startDate) : Carbon::now();
+                                            if ($birthDate->diffInYears($compareDate) < 18) {
+                                                $children++;
+                                            }
+                                        }
+                                    }
+                                    return max(0, $children);
+                                })
                                 ->default(0),
 
                             Select::make('ticket_dispatch_method')
@@ -243,7 +272,13 @@ class FolderResource extends Resource
                                 ->label(__('Date de check-in du 1er hôtel'))
                                 ->live()
                                 ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
-                                ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null),
+                                ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                                ->afterOrEqual('start_date')
+                                ->beforeOrEqual('end_date')
+                                ->validationMessages([
+                                    'after_or_equal' => __('Doit être après ou le jour de l\'arrivée.'),
+                                    'before_or_equal' => __('Doit être avant ou le jour du départ.'),
+                                ]),
 
                             Textarea::make('first_hotel_address')
                                 ->label(__('Adresse du premier hôtel'))
@@ -257,16 +292,25 @@ class FolderResource extends Resource
                         ->description(__('Renseignez les dates globales du séjour ainsi que le détail des vols.'))
                         ->schema([
                             Group::make()->schema([
+                                // 💡 AJOUT VALIDATION STRICTE ARRIVÉE/DÉPART
                                 DatePicker::make('start_date')
                                     ->label(__('Date d\'arrivée au Japon'))
                                     ->required()
                                     ->live()
+                                    ->beforeOrEqual('end_date')
+                                    ->validationMessages([
+                                        'before_or_equal' => __('L\'arrivée doit être avant ou le jour du départ.'),
+                                    ])
                                     ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
 
                                 DatePicker::make('end_date')
                                     ->label(__('Date de départ'))
                                     ->required()
                                     ->live()
+                                    ->afterOrEqual('start_date')
+                                    ->validationMessages([
+                                        'after_or_equal' => __('Le départ doit être après ou le jour de l\'arrivée.'),
+                                    ])
                                     ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
                             ])->columns(2),
 
@@ -300,7 +344,17 @@ class FolderResource extends Resource
                                     ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get)),
 
                                 Hidden::make('total_price')
-                                    ->default(0),
+                                    ->default(0)
+                                    ->dehydrated(true)
+                                    ->mutateDehydratedStateUsing(function (Get $get) {
+                                        $items = $get('folderItems') ?? [];
+                                        $total = 0;
+                                        foreach ($items as $item) {
+                                            $total += (float) ($item['total_price'] ?? 0);
+                                        }
+                                        $fee = (float) ($get('folder_fee') ?? 0);
+                                        return $total + $fee;
+                                    }),
 
                                 Placeholder::make('total_price_display')
                                     ->label(__('Montant total (¥)'))
@@ -391,7 +445,7 @@ class FolderResource extends Resource
                         ]),
 
                     Section::make(__('Prestations commandées'))
-                        ->description(__('Gérez les articles et options tarifaires liés à ce dossier.'))
+                        ->description(__('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
                         ->schema([
                             Repeater::make('folderItems')
                                 ->relationship()
@@ -719,7 +773,6 @@ class FolderResource extends Resource
             ])
             ->filters([])
             ->recordActions([
-                // 💡 L'ACTION UTILISE DÉSORMAIS L'ESPACE GLOBAL !
                 Action::make('download_pdf')
                     ->label(__('Pré-facture'))
                     ->icon('heroicon-o-document-arrow-down')
