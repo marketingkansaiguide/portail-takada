@@ -5,12 +5,21 @@ namespace App\Filament\Agency\Pages;
 use App\Models\Product;
 use App\Models\Folder;
 use App\Models\FolderItem;
+use App\Models\FolderPassenger;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use BackedEnum;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Filament\Facades\Filament;
+
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Group;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Textarea;
 
 class ViewProduct extends Page
 {
@@ -29,6 +38,10 @@ class ViewProduct extends Page
     public array $selectedOptions = []; 
     public array $customValues = [];
 
+    // 💡 VARIABLES MEMOIRE POUR NE JAMAIS PERDRE LA SESSION
+    public ?int $activeAgencyId = null;
+    public bool $isAdmin = false;
+
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -38,18 +51,26 @@ class ViewProduct extends Page
     {
         $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
 
+        // 💡 1. ON CAPTURE ET ON VERROUILLE L'ID AGENCE AU CHARGEMENT
+        $user = Filament::auth()->user() ?? auth('agency')->user() ?? auth('web')->user();
+        if ($user) {
+            if ($user->agency_id) {
+                $this->activeAgencyId = $user->agency_id;
+            }
+            if (in_array($user->role, ['super_admin', 'admin'])) {
+                $this->isAdmin = true;
+            }
+        }
+
         if (isset($this->product->is_public) && !$this->product->is_public) {
-            if (!auth('agency')->check()) {
-                abort(403, 'Cette activité requiert un compte partenaire privilégié.');
+            if (!$this->activeAgencyId) {
+                abort(403, 'Cette activité requiert un compte partenaire B2B privilégié.');
             }
         }
 
         if ($this->product->productOptions) {
             foreach ($this->product->productOptions as $option) {
-                $this->selectedOptions[$option->id] = [
-                    'enabled' => false,
-                    'quantity' => 1
-                ];
+                $this->selectedOptions[$option->id] = ['enabled' => false, 'quantity' => 1];
             }
         }
 
@@ -67,17 +88,17 @@ class ViewProduct extends Page
         }
     }
 
-    public function getAvailableFolders()
+    // 💡 2. LA LISTE INTERROGE LA VARIABLE VERROUILLÉE
+    public function getFoldersList()
     {
-        if (!auth('agency')->check()) return [];
+        if (!$this->activeAgencyId) return collect();
         
-        return Folder::where('agency_id', auth('agency')->user()->agency_id)
+        return Folder::where('agency_id', $this->activeAgencyId)
             ->whereIn('status', ['draft', 'pending'])
             ->orderBy('created_at', 'desc')
             ->get();
     }
 
-    // 💡 LA POP-IN EXIGE DÉSORMAIS TOUS LES CHAMPS MÉTAR DE CRÉATION
     public function createFolderAction(): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('createFolder')
@@ -85,63 +106,136 @@ class ViewProduct extends Page
             ->icon('heroicon-m-plus')
             ->color('gray')
             ->size('sm')
+            ->modalHeading('Créer un nouveau dossier')
+            ->modalWidth('4xl')
             ->form([
-                \Filament\Forms\Components\TextInput::make('folder_name')
-                    ->label('Nom du dossier / Réf. Groupe')
-                    ->required(),
+                Section::make('Informations Principales')->columns(2)->schema([
+                    TextInput::make('folder_name')
+                        ->label('Nom du dossier / Réf. Groupe')
+                        ->required(),
 
-                \Filament\Forms\Components\TextInput::make('lead_traveler_name')
-                    ->label('Nom du voyageur principal')
-                    ->required(),
+                    TextInput::make('lead_traveler_name')
+                        ->label('Nom du voyageur principal')
+                        ->required(),
 
-                \Filament\Forms\Components\TextInput::make('hotel_booking_name')
-                    ->label('Nom réservation hôtel')
-                    ->placeholder('Si différent du voyageur principal'),
+                    TextInput::make('hotel_booking_name')
+                        ->label('Nom réservation hôtel')
+                        ->placeholder('Si différent du voyageur principal')
+                        ->columnSpanFull(),
 
-                \Filament\Forms\Components\DatePicker::make('start_date')
-                    ->label('Date d\'arrivée au Japon')
-                    ->required(),
+                    DatePicker::make('start_date')
+                        ->label('Date d\'arrivée au Japon')
+                        ->required(),
 
-                \Filament\Forms\Components\DatePicker::make('end_date')
-                    ->label('Date de départ')
-                    ->required()
-                    ->afterOrEqual('start_date'),
+                    DatePicker::make('end_date')
+                        ->label('Date de départ')
+                        ->required()
+                        ->afterOrEqual('start_date'),
 
-                \Filament\Forms\Components\Repeater::make('contact_phones')
-                    ->label('Contact du voyageur pendant le séjour')
-                    ->addable(false)
-                    ->deletable(false)
-                    ->reorderable(false)
-                    ->defaultItems(1)
-                    ->schema([
-                        \Filament\Forms\Components\TextInput::make('phone')
-                            ->label('Téléphone')
-                            ->tel()
-                            ->required()
-                            ->placeholder('+33 6...'),
-                        \Filament\Forms\Components\TextInput::make('email')
-                            ->label('Adresse E-mail')
-                            ->email()
-                            ->placeholder('voyageur@email.com'),
-                    ])
-                    ->columns(2),
+                    Repeater::make('contact_phones')
+                        ->label('Contact du voyageur pendant le séjour')
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false)
+                        ->defaultItems(1)
+                        ->schema([
+                            TextInput::make('phone')
+                                ->label('Téléphone')
+                                ->tel()
+                                ->required()
+                                ->placeholder('+33 6...'),
+                            TextInput::make('email')
+                                ->label('Adresse E-mail')
+                                ->email()
+                                ->placeholder('voyageur@email.com'),
+                        ])
+                        ->columnSpanFull()
+                        ->columns(2),
+                ]),
+
+                Section::make('Liste des Voyageurs')->schema([
+                    Repeater::make('passengers')
+                        ->hiddenLabel()
+                        ->addActionLabel('Ajouter un voyageur')
+                        ->defaultItems(1)
+                        ->schema([
+                            Group::make()->schema([
+                                TextInput::make('last_name')->label('Nom')->required(),
+                                TextInput::make('first_name')->label('Prénom')->required(),
+                                DatePicker::make('birth_date')->label('Date de naissance')->required(),
+                                TextInput::make('nationality')->label('Nationalité')->default('Française')->required(),
+                            ])->columns(4),
+                            
+                            Textarea::make('dietary_restrictions')->label('Allergies / Restrictions alimentaires')->rows(1),
+                            Textarea::make('mobility_concerns')->label('Besoins PMR / Handicap')->rows(1),
+                        ])
+                        ->required(),
+                ]),
+
+                Section::make('Logistique d\'arrivée')->schema([
+                    Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
+                    TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
+                    DatePicker::make('first_hotel_check_in')->label('Date Check-in 1er Hôtel'),
+                    Textarea::make('first_hotel_address')
+                        ->label('Adresse du premier hôtel')
+                        ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
+                        ->rows(2),
+                ])
             ])
-            ->action(function (array $data) {
+            ->action(function (array $data, \Filament\Pages\Page $livewire) {
+                // 💡 3. ON UTILISE LA VARIABLE VERROUILLÉE POUR L'ENREGISTREMENT
+                if (!$livewire->activeAgencyId) {
+                    Notification::make()->title('Erreur')->body('La session agence est expirée.')->danger()->send();
+                    return;
+                }
+
                 $folder = Folder::create([
-                    'agency_id' => auth('agency')->user()->agency_id,
+                    'agency_id' => $livewire->activeAgencyId,
                     'folder_name' => $data['folder_name'],
                     'lead_traveler_name' => $data['lead_traveler_name'],
                     'hotel_booking_name' => $data['hotel_booking_name'] ?? null,
                     'start_date' => $data['start_date'],
                     'end_date' => $data['end_date'],
                     'contact_phones' => $data['contact_phones'] ?? [],
+                    'flight_info' => $data['flight_info'] ?? null,
+                    'first_hotel_name' => $data['first_hotel_name'] ?? null,
+                    'first_hotel_check_in' => $data['first_hotel_check_in'] ?? null,
+                    'first_hotel_address' => $data['first_hotel_address'] ?? null,
                     'status' => 'draft',
                     'total_price' => 0,
                     'folder_fee' => 0,
                     'ticket_dispatch_method' => 'hotel',
                 ]);
 
-                $this->selectedFolderId = $folder->id;
+                if (!empty($data['passengers'])) {
+                    $adults = 0;
+                    $children = 0;
+                    
+                    foreach ($data['passengers'] as $pax) {
+                        FolderPassenger::create([
+                            'folder_id' => $folder->id,
+                            'last_name' => $pax['last_name'],
+                            'first_name' => $pax['first_name'],
+                            'birth_date' => $pax['birth_date'],
+                            'nationality' => $pax['nationality'],
+                            'dietary_restrictions' => $pax['dietary_restrictions'] ?? null,
+                            'mobility_concerns' => $pax['mobility_concerns'] ?? null,
+                        ]);
+                        
+                        if (Carbon::parse($pax['birth_date'])->age >= 12) {
+                            $adults++;
+                        } else {
+                            $children++;
+                        }
+                    }
+                    
+                    $folder->update([
+                        'pax_adults' => max(1, $adults),
+                        'pax_children' => $children,
+                    ]);
+                }
+
+                $livewire->selectedFolderId = $folder->id;
 
                 Notification::make()
                     ->title('Dossier créé avec succès !')
@@ -180,14 +274,12 @@ class ViewProduct extends Page
                 $matchedPrice = null;
                 foreach ($this->product->productPeriods as $period) {
                     if (!$period->start_date || !$period->end_date) continue;
-                    
                     $inPeriod = false;
                     if ($period->start_date <= $period->end_date) {
                         $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
                     } else {
                         $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
                     }
-
                     if ($inPeriod) {
                         $minP = $period->productPrices->min('price');
                         if ($minP !== null) {
@@ -299,8 +391,8 @@ class ViewProduct extends Page
 
     public function addToFolder(): void
     {
-        if (!auth('agency')->check()) {
-            $this->redirect(route('filament.agency.auth.login'));
+        if (!$this->activeAgencyId) {
+            Notification::make()->title('Session Expirée')->danger()->send();
             return;
         }
 

@@ -120,8 +120,8 @@
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-4">
             <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
                 
-                {{-- 💡 UTILISATION DU BON GUARD POUR L'AFFICHAGE CONDITIONNEL --}}
-                @if(auth('agency')->check())
+                {{-- 💡 CONDITION STRICTE : L'ID D'AGENCE DOIT ÊTRE ENREGISTRÉ DANS LA PAGE --}}
+                @if($this->activeAgencyId)
                     <div style="background: white; border-radius: 1.25rem; padding: 2rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
                         {{-- 1. SELECTION DATE ET PAX --}}
@@ -183,7 +183,7 @@
                                 <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Date d'activité</label>
                                 <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                                     <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : 'Sélectionner...'" :style="!selectedDate && 'color: #9ca3af'"></span>
-                                    <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </button>
 
                                 <div x-show="open" style="display: none;">
@@ -274,7 +274,7 @@
                         @endif
 
                         {{-- 3. INFORMATIONS LOGISTIQUES REQUISES --}}
-                        @if(auth('agency')->check() && !empty($product->custom_field_definitions) && count($product->custom_field_definitions) > 0)
+                        @if(!empty($product->custom_field_definitions) && count($product->custom_field_definitions) > 0)
                             @php
                                 $globalFields = [];
                                 $paxFields = [];
@@ -453,16 +453,14 @@
                         {{-- 5. DOSSIER ET ACTION --}}
                         <div style="display: flex; flex-direction: column; gap: 1rem;">
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                                <!-- 💡 Bouton d'action Filament pour créer le dossier -->
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>
                                     {{ $this->createFolderAction }}
                                 </div>
                                 
-                                <!-- 💡 Utilisation de la nouvelle fonction fiable getAvailableFolders() -->
                                 <select wire:model="selectedFolderId" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; color: #111827;">
                                     <option value="">-- Choisir un dossier voyage --</option>
-                                    @foreach($this->getAvailableFolders() as $folder)
+                                    @foreach($this->getFoldersList() as $folder)
                                         <option value="{{ $folder->id }}">{{ $folder->folder_name }} ({{ $folder->reference }})</option>
                                     @endforeach
                                 </select>
@@ -474,6 +472,16 @@
                             </button>
                         </div>
                     </div>
+                
+                @elseif($this->isAdmin)
+                    <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #e0f2fe; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
+                        <div style="color: #0284c7; background: #e0f2fe; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #bae6fd;">
+                            <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">Vue Administrateur</h3>
+                        <p style="color: #475569; font-size: 0.9rem; line-height: 1.6; margin: 0;">Vous explorez le catalogue avec un compte administrateur. Pour utiliser la fonction d'ajout au panier, veuillez vous connecter avec un véritable compte Agence partenaire.</p>
+                    </div>
+
                 @else
                     <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #f1f5f9; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
                         <div style="color: #d97706; background: #fffbeb; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #fde68a;">
