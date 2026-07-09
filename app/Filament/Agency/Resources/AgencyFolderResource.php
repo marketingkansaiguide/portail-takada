@@ -21,10 +21,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Livewire;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Blade;
+use Filament\Facades\Filament; // 💡 INDISPENSABLE POUR CONSERVER LA SESSION !
 
 class AgencyFolderResource extends Resource
 {
@@ -32,24 +34,25 @@ class AgencyFolderResource extends Resource
     
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-briefcase';
     
+    // 💡 UTILISATION DE FILAMENT::AUTH() POUR ÉVITER L'ERREUR 403 DE LIVEWIRE
     public static function canViewAny(): bool
     {
-        return auth()->check();
+        return Filament::auth()->check();
     }
 
     public static function canCreate(): bool
     {
-        return auth()->check();
+        return Filament::auth()->check();
     }
 
     public static function canEdit(Model $record): bool
     {
-        return auth()->check() && $record->agency_id === auth()->user()->agency_id;
+        return Filament::auth()->check() && $record->agency_id === Filament::auth()->user()->agency_id;
     }
 
     public static function canView(Model $record): bool
     {
-        return auth()->check() && $record->agency_id === auth()->user()->agency_id;
+        return Filament::auth()->check() && $record->agency_id === Filament::auth()->user()->agency_id;
     }
 
     public static function canDelete(Model $record): bool
@@ -74,7 +77,7 @@ class AgencyFolderResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('agency_id', auth()->user()->agency_id);
+        return parent::getEloquentQuery()->where('agency_id', Filament::auth()->user()->agency_id);
     }
 
     public static function updatePassengerCount($set, $get) {
@@ -99,6 +102,11 @@ class AgencyFolderResource extends Resource
                             ->label('Nom du voyageur principal')
                             ->required(),
 
+                        TextInput::make('hotel_booking_name')
+                            ->label('Nom réservation hôtel')
+                            ->placeholder('Si différent du voyageur principal')
+                            ->columnSpanFull(),
+
                         DatePicker::make('start_date')
                             ->label('Date d\'arrivée au Japon')
                             ->required()
@@ -110,184 +118,285 @@ class AgencyFolderResource extends Resource
                             ->required()
                             ->live()
                             ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
+
+                        Repeater::make('contact_phones')
+                            ->label('Contact du voyageur pendant le séjour')
+                            ->addable(false)
+                            ->deletable(false)
+                            ->reorderable(false)
+                            ->defaultItems(1)
+                            ->schema([
+                                TextInput::make('phone')
+                                    ->label('Téléphone')
+                                    ->tel()
+                                    ->required()
+                                    ->placeholder('+33 6...'),
+                                TextInput::make('email')
+                                    ->label('Adresse E-mail')
+                                    ->email()
+                                    ->placeholder('voyageur@email.com'),
+                            ])
+                            ->columnSpanFull()
+                            ->columns(2),
                     ]),
 
-                // 💡 RESTAURATION DES PASSAGERS
                 Section::make('Liste des Voyageurs')
                     ->schema([
                         Repeater::make('folderPassengers')
                             ->relationship()
-                            ->label('')
+                            ->hiddenLabel()
                             ->addActionLabel('Ajouter un voyageur')
-                            ->collapsible()
-                            ->live()
-                            ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get))
-                            ->itemLabel(fn (array $state) => trim(($state['first_name'] ?? '') . ' ' . ($state['last_name'] ?? '')) ?: 'Nouveau voyageur')
+                            ->itemLabel(function (array $state) {
+                                if (!empty($state['id'])) return new HtmlString("<span style='color:#096a61; font-weight:600;'>Passager enregistré</span>");
+                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>Nouveau passager...</span>");
+                            })
                             ->schema([
+                                Placeholder::make('condensed_passenger')
+                                    ->hiddenLabel()
+                                    ->visible(fn ($get) => !empty($get('id')))
+                                    ->content(function ($get) {
+                                        $pax = \App\Models\FolderPassenger::find($get('id'));
+                                        if (!$pax) return '';
+                                        $name = trim(($pax->first_name ?? '') . ' ' . ($pax->last_name ?? ''));
+                                        $age = $pax->birth_date ? \Carbon\Carbon::parse($pax->birth_date)->age . ' ans' : '';
+                                        $nat = $pax->nationality ?? '';
+
+                                        $warns = [];
+                                        if (!empty($pax->dietary_restrictions)) $warns[] = "🚫 Allergies: {$pax->dietary_restrictions}";
+                                        if (!empty($pax->mobility_concerns)) $warns[] = "♿ PMR: {$pax->mobility_concerns}";
+                                        $warnHtml = '';
+                                        if (count($warns) > 0) {
+                                            $warnHtml = "<div style='margin-top:0.5rem; font-size:0.8rem; color:#dc2626; font-weight:600;'>" . implode('<br>', $warns) . "</div>";
+                                        }
+
+                                        return new HtmlString("
+                                            <div style='padding:0.75rem 1rem; border-left:4px solid #096a61; background:#f9fafb; border-radius:0 0.5rem 0.5rem 0;'>
+                                                <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>({$age}) - {$nat}</span></div>
+                                                {$warnHtml}
+                                            </div>
+                                        ");
+                                    }),
+
                                 Group::make()->schema([
-                                    TextInput::make('last_name')->label('Nom')->required(),
-                                    TextInput::make('first_name')->label('Prénom')->required(),
-                                    DatePicker::make('birth_date')
-                                        ->label('Date de naissance')
-                                        ->required()
-                                        ->live()
-                                        ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
-                                    TextInput::make('nationality')->label('Nationalité')->required(),
-                                ])->columns(4),
-                                Textarea::make('dietary_restrictions')->label('Allergies')->rows(1),
-                                Textarea::make('mobility_concerns')->label('Besoins PMR')->rows(1),
+                                    Group::make()->schema([
+                                        TextInput::make('last_name')->label('Nom')->required(),
+                                        TextInput::make('first_name')->label('Prénom')->required(),
+                                        DatePicker::make('birth_date')
+                                            ->label('Date de naissance')
+                                            ->required()
+                                            ->live()
+                                            ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
+                                        TextInput::make('nationality')->label('Nationalité')->required(),
+                                    ])->columns(4),
+                                    Textarea::make('dietary_restrictions')->label('Allergies')->rows(1),
+                                    Textarea::make('mobility_concerns')->label('Besoins PMR')->rows(1),
+                                ])->visible(fn ($get) => empty($get('id'))),
                             ])
+                            ->deleteAction(fn ($action) => $action->hidden(fn ($get) => !empty($get('id'))))
                     ]),
 
-                Section::make('Prestations souhaitées')
+                Section::make('Prestations demandées')
+                    ->description('Vos prestations réservées et le suivi de leur statut.')
                     ->schema([
                         Repeater::make('folderItems')
                             ->relationship()
-                            ->label('')
-                            ->addActionLabel('Ajouter une prestation au dossier')
-                            ->collapsible()
-                            ->live()
+                            ->hiddenLabel()
+                            ->addActionLabel('Ajouter une prestation')
                             ->itemLabel(function (array $state) {
-                                if (!isset($state['product_id'])) return 'Nouvelle demande';
-                                $productName = \App\Models\Product::find($state['product_id'])?->name ?? 'Produit inconnu';
-                                $date = !empty($state['service_date']) ? Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
-                                
-                                // 💡 AJOUT DU STATUT VISUEL DANS L'ENTÊTE DE LA PRESTATION
-                                $statusModel = !empty($state['item_status_id']) ? \App\Models\ItemStatus::find($state['item_status_id']) : null;
-                                $statusName = $statusModel?->name ?? 'Nouveau';
-                                
-                                return new \Illuminate\Support\HtmlString("
-                                    <div style='display:flex; justify-content:space-between; width:100%;'>
-                                        <span>{$productName} - {$date}</span>
-                                        <span style='font-size:0.75rem; background:#f3f4f6; padding:2px 8px; border-radius:99px; font-weight:bold;'>📌 {$statusName}</span>
-                                    </div>
-                                ");
+                                if (!empty($state['id'])) return new HtmlString("<span style='color:#096a61; font-weight:600;'>Prestation enregistrée</span>");
+                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>Nouvelle demande en cours...</span>");
                             })
                             ->schema([
-                                Select::make('product_id')
-                                    ->relationship('product', 'name')
-                                    ->label('Produit / Activité')
-                                    ->required()
-                                    ->searchable()
-                                    ->preload()
-                                    ->live()
-                                    ->afterStateUpdated(function ($set, $get, $state, $old) {
-                                        if ($state !== $old) {
-                                            $set('selected_options', []);
-                                            $set('custom_values', []);
+                                Placeholder::make('condensed_item')
+                                    ->hiddenLabel()
+                                    ->visible(fn ($get) => !empty($get('id')))
+                                    ->content(function ($get) {
+                                        $item = \App\Models\FolderItem::with(['product', 'itemStatus'])->find($get('id'));
+                                        if (!$item) return '';
+
+                                        $productName = $item->product->name ?? 'Prestation';
+                                        $date = $item->service_date ? \Carbon\Carbon::parse($item->service_date)->format('d/m/Y') : 'À définir';
+                                        $qty = $item->quantity ?? 1;
+
+                                        $status = $item->itemStatus;
+                                        $statusName = $status->name ?? 'En attente';
+                                        $colorName = $status->color ?? 'gray';
+                                        $statusColor = match($colorName) {
+                                            'success' => '#16a34a',
+                                            'warning' => '#d97706',
+                                            'danger' => '#dc2626',
+                                            'info' => '#2563eb',
+                                            default => '#6b7280',
+                                        };
+                                        $statusBadge = "<span style='background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
+
+                                        $optionsHtml = '';
+                                        $selectedOptions = $item->selected_options ?? [];
+                                        if (is_array($selectedOptions) && count($selectedOptions) > 0) {
+                                            $opts = [];
+                                            foreach ($selectedOptions as $optData) {
+                                                if (!empty($optData['product_option_id'])) {
+                                                    $optModel = \App\Models\ProductOption::find($optData['product_option_id']);
+                                                    if ($optModel) {
+                                                        $optQty = $optData['quantity'] ?? 1;
+                                                        $qtyStr = $optModel->billing_type === 'manual' ? " (x{$optQty})" : "";
+                                                        $opts[] = "• " . $optModel->name . $qtyStr;
+                                                    }
+                                                }
+                                            }
+                                            if (count($opts) > 0) {
+                                                $optionsHtml = "<div style='margin-top:1rem; font-size:0.85rem; color:#4b5563;'><b>Options incluses :</b><br>" . implode('<br>', $opts) . "</div>";
+                                            }
                                         }
-                                        self::updateItemPrices($set, $get);
-                                    })
-                                    ->disabled(fn ($get) => !empty($get('id'))), 
-                                    
+
+                                        $customValuesHtml = '';
+                                        $customValues = $item->custom_values ?? [];
+                                        $product = $item->product;
+                                        if ($product && !empty($product->custom_field_definitions) && is_array($customValues) && count($customValues) > 0) {
+                                            $cvs = [];
+                                            foreach ($product->custom_field_definitions as $def) {
+                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                                $label = $def['name'] ?? 'Information';
+                                                if (isset($customValues[$key]) && $customValues[$key] !== '') {
+                                                    $val = $customValues[$key];
+                                                    if (is_bool($val)) $val = $val ? 'Oui' : 'Non';
+                                                    $cvs[] = "<b>{$label} :</b> {$val}";
+                                                }
+                                            }
+                                            if (count($cvs) > 0) {
+                                                $customValuesHtml = "<div style='margin-top:0.75rem; font-size:0.85rem; color:#4b5563; padding-top:0.75rem; border-top:1px dashed #e5e7eb;'>" . implode('<br>', $cvs) . "</div>";
+                                            }
+                                        }
+
+                                        return new HtmlString("
+                                            <div style='padding:1.25rem; border-radius:0.75rem; border:1px solid #e5e7eb; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
+                                                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;'>
+                                                    <strong style='font-size:1.15rem; color:#111827;'>{$productName}</strong>
+                                                    {$statusBadge}
+                                                </div>
+                                                <div style='display:flex; gap:2rem; font-size:0.95rem; color:#374151; background:#f3f4f6; padding:0.75rem 1.25rem; border-radius:0.5rem;'>
+                                                    <span>📅 Date : <b>{$date}</b></span>
+                                                    <span>👥 Pax : <b>{$qty}</b></span>
+                                                </div>
+                                                {$optionsHtml}
+                                                {$customValuesHtml}
+                                            </div>
+                                        ");
+                                    }),
+
                                 Group::make()->schema([
-                                    DatePicker::make('service_date')
-                                        ->label('Date souhaitée')
+                                    Select::make('product_id')
+                                        ->relationship('product', 'name')
+                                        ->label('Produit / Activité')
                                         ->required()
+                                        ->searchable()
+                                        ->preload()
                                         ->live()
-                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                        ->disabled(fn ($get) => !empty($get('id'))),
-
-                                    TextInput::make('quantity')
-                                        ->label('Participants')
-                                        ->numeric()
-                                        ->default(1)
-                                        ->required()
-                                        ->live()
-                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                        ->disabled(fn ($get) => !empty($get('id'))),
-
-                                    Placeholder::make('price_preview')
-                                        ->label('Sous-total net estimé')
-                                        ->content(fn ($get) => number_format((float)($get('total_price') ?? 0), 0, '.', ' ') . ' ¥'),
-
-                                    Hidden::make('unit_price')->default(0),
-                                    Hidden::make('total_price')->default(0),
-                                    Hidden::make('item_status_id')->default(1), 
-                                ])->columns(3),
-
-                                // 💡 RESTAURATION DES OPTIONS
-                                Repeater::make('selected_options')
-                                    ->label('Options')
-                                    ->addActionLabel('Ajouter une option')
-                                    ->live()
-                                    ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                    ->disabled(fn ($get) => !empty($get('id')))
-                                    ->schema([
-                                        Select::make('product_option_id')
-                                            ->label('Option')
-                                            ->options(function ($get) {
-                                                $productId = $get('../../product_id');
-                                                if (!$productId) return [];
-                                                return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
-                                            })
+                                        ->afterStateUpdated(function ($set, $get, $state, $old) {
+                                            if ($state !== $old) {
+                                                $set('selected_options', []);
+                                                $set('custom_values', []);
+                                            }
+                                            self::updateItemPrices($set, $get);
+                                        })
+                                        ->columnSpan(2), 
+                                        
+                                    Group::make()->schema([
+                                        DatePicker::make('service_date')
+                                            ->label('Date souhaitée')
+                                            ->required()
                                             ->live()
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $set('product_option_id', $state);
-                                                $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                                                $parentGet = function($k) use ($get) { return $get('../../'.$k); };
-                                                self::updateItemPrices($parentSet, $parentGet);
-                                            }),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+
                                         TextInput::make('quantity')
-                                            ->label('Qté')
+                                            ->label('Participants')
                                             ->numeric()
                                             ->default(1)
+                                            ->required()
                                             ->live()
-                                            ->visible(fn ($get) => \App\Models\ProductOption::find($get('product_option_id'))?->billing_type === 'manual')
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $set('quantity', $state);
-                                                $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                                                $parentGet = function($k) use ($get) { return $get('../../'.$k); };
-                                                self::updateItemPrices($parentSet, $parentGet);
-                                            }),
-                                    ])->columns(2),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
 
-                                // 💡 RESTAURATION DES CHAMPS PERSONNALISÉS
-                                Group::make()
-                                    ->statePath('custom_values')
-                                    ->disabled(fn ($get) => !empty($get('id')))
-                                    ->schema(function ($get) {
-                                        $productId = $get('product_id');
-                                        if (!$productId) return [];
-                                        $product = \App\Models\Product::find($productId);
-                                        if (!$product || empty($product->custom_field_definitions)) return [];
+                                        Placeholder::make('status_info')
+                                            ->label('Statut')
+                                            ->content(new HtmlString("<span class='font-bold text-orange-600'>Sera enregistré</span>")),
 
-                                        $fields = [];
-                                        foreach ($product->custom_field_definitions as $def) {
-                                            $type = $def['type'] ?? 'text';
-                                            $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                                            $label = $def['name'] ?? 'Information';
-                                            if ($def['is_per_passenger'] ?? false) $label .= ' (Par passager)';
+                                        Hidden::make('unit_price')->default(0),
+                                        Hidden::make('total_price')->default(0),
+                                        Hidden::make('item_status_id')->default(1), 
+                                    ])->columns(3),
 
-                                            $field = match ($type) {
-                                                'textarea' => Textarea::make($key)->label($label)->rows(2),
-                                                'number' => TextInput::make($key)->numeric()->label($label),
-                                                'date' => DatePicker::make($key)->label($label),
-                                                'toggle' => Toggle::make($key)->label($label)->inline(false),
-                                                'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
-                                                default => TextInput::make($key)->label($label),
-                                            };
-                                            if (($def['is_required'] ?? false) && $type !== 'toggle') $field->required();
-                                            $fields[] = $field;
-                                        }
+                                    Repeater::make('selected_options')
+                                        ->hiddenLabel()
+                                        ->addActionLabel('Ajouter une option')
+                                        ->live()
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->schema([
+                                            Select::make('product_option_id')
+                                                ->label('Option')
+                                                ->options(function ($get) {
+                                                    $productId = $get('../../product_id');
+                                                    if (!$productId) return [];
+                                                    return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
+                                                })
+                                                ->live()
+                                                ->afterStateUpdated(function ($state, $set, $get) {
+                                                    $set('product_option_id', $state);
+                                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                    self::updateItemPrices($parentSet, $parentGet);
+                                                }),
+                                            TextInput::make('quantity')
+                                                ->label('Qté')
+                                                ->numeric()
+                                                ->default(1)
+                                                ->live()
+                                                ->visible(fn ($get) => \App\Models\ProductOption::find($get('product_option_id'))?->billing_type === 'manual')
+                                                ->afterStateUpdated(function ($state, $set, $get) {
+                                                    $set('quantity', $state);
+                                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                    self::updateItemPrices($parentSet, $parentGet);
+                                                }),
+                                        ])->columns(2),
 
-                                        return [
-                                            Section::make('Informations requises par le fournisseur')
-                                                ->schema($fields)->columns(2)
-                                        ];
-                                    }),
+                                    Group::make()
+                                        ->statePath('custom_values')
+                                        ->schema(function ($get) {
+                                            $productId = $get('../product_id');
+                                            if (!$productId) return [];
+
+                                            $product = \App\Models\Product::find($productId);
+                                            if (!$product || empty($product->custom_field_definitions)) return [];
+
+                                            $fields = [];
+                                            foreach ($product->custom_field_definitions as $def) {
+                                                $type = $def['type'] ?? 'text';
+                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                                $label = $def['name'] ?? 'Information';
+                                                if ($def['is_per_passenger'] ?? false) $label .= ' (Par passager)';
+
+                                                $field = match ($type) {
+                                                    'textarea' => Textarea::make($key)->label($label)->rows(2),
+                                                    'number' => TextInput::make($key)->numeric()->label($label),
+                                                    'date' => DatePicker::make($key)->label($label),
+                                                    'toggle' => Toggle::make($key)->label($label)->inline(false),
+                                                    'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                    default => TextInput::make($key)->label($label),
+                                                };
+                                                if (($def['is_required'] ?? false) && $type !== 'toggle') $field->required();
+                                                
+                                                $fields[] = $field;
+                                            }
+
+                                            return [
+                                                Section::make('Informations requises par le fournisseur')
+                                                    ->schema($fields)->columns(2)
+                                            ];
+                                        }),
+                                ])->visible(fn ($get) => empty($get('id'))), 
                             ])
                             ->deleteAction(fn ($action) => $action->hidden(fn ($get) => !empty($get('id')))),
                     ]),
-                    
-                // 💡 CHAT INTÉGRÉ EN PLEINE LARGEUR (En bas du formulaire principal)
-                Section::make('')
-                    ->schema([
-                        Livewire::make(\App\Livewire\FolderChat::class, fn (Model $record) => ['folder' => $record])
-                            ->key('folder-chat')
-                    ])
-                    ->hidden(fn (?Model $record) => $record === null)
-                    ->columnSpanFull()
             ])->columnSpan(['lg' => 2]),
 
             Group::make()->schema([
@@ -295,7 +404,17 @@ class AgencyFolderResource extends Resource
                     ->schema([
                         Placeholder::make('status_display')
                             ->label('Statut du dossier')
-                            ->content(fn ($record) => $record?->status ? strtoupper($record->status) : 'EN ATTENTE (NOUVEAU)')
+                            ->content(function ($record) {
+                                if (!$record || !$record->status) return 'EN ATTENTE (NOUVEAU)';
+                                return match ($record->status) {
+                                    'draft' => 'BROUILLON',
+                                    'pending' => 'EN ATTENTE DE VALIDATION',
+                                    'confirmed' => 'CONFIRMÉ / VALIDÉ',
+                                    'completed' => 'VOYAGE TERMINÉ',
+                                    'cancelled' => 'ANNULÉ',
+                                    default => strtoupper($record->status),
+                                };
+                            })
                             ->extraAttributes(['class' => 'text-primary-600 font-bold']),
 
                         Placeholder::make('total_price_display')
@@ -310,7 +429,7 @@ class AgencyFolderResource extends Resource
                         Hidden::make('total_price')->default(0),
                         Hidden::make('status')->default('pending'),
                         Hidden::make('folder_fee')->default(0),
-                        Hidden::make('agency_id')->default(fn () => auth()->user()->agency_id),
+                        Hidden::make('agency_id')->default(fn () => Filament::auth()->user()->agency_id),
                     ]),
 
                 Section::make('Logistique d\'arrivée')
@@ -318,9 +437,25 @@ class AgencyFolderResource extends Resource
                         Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
                         TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
                         DatePicker::make('first_hotel_check_in')->label('Date Check-in 1er Hôtel'),
-                        // 💡 Les champs d'envoi de billetterie ont été strictement retirés ici.
+                        Textarea::make('first_hotel_address')
+                            ->label('Adresse du premier hôtel')
+                            ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
+                            ->rows(2),
                     ])
             ])->columnSpan(['lg' => 1]),
+
+            Section::make('Communication avec l\'équipe Takada')
+                ->description('Échangez directement avec nous ici pour toute question ou envoi de fichier sur ce dossier.')
+                ->schema([
+                    Placeholder::make('chat_placeholder')
+                        ->hiddenLabel()
+                        ->content(fn (?Model $record) => $record ? new HtmlString(
+                            Blade::render('@livewire("folder-chat", ["folder" => $folder])', ['folder' => $record])
+                        ) : '')
+                ])
+                ->hidden(fn (?Model $record) => $record === null)
+                ->columnSpanFull(),
+
         ])->columns(3);
     }
 
@@ -335,6 +470,14 @@ class AgencyFolderResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'draft' => 'Brouillon',
+                        'pending' => 'En attente',
+                        'confirmed' => 'Confirmé',
+                        'completed' => 'Terminé',
+                        'cancelled' => 'Annulé',
+                        default => $state,
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'draft' => 'gray',
                         'pending' => 'warning',

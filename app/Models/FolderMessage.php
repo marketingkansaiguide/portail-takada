@@ -2,11 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class FolderMessage extends Model
 {
-    protected $fillable = ['folder_id', 'user_id', 'message'];
+    use HasFactory;
+
+    // 💡 AJOUT DE 'attachment_path' ICI POUR AUTORISER LA SAUVEGARDE !
+    protected $fillable = [
+        'folder_id',
+        'user_id',
+        'message',
+        'attachment_path',
+    ];
 
     public function folder()
     {

@@ -120,6 +120,7 @@
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-4">
             <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
                 
+                {{-- 💡 UTILISATION DU BON GUARD POUR L'AFFICHAGE CONDITIONNEL --}}
                 @if(auth('agency')->check())
                     <div style="background: white; border-radius: 1.25rem; padding: 2rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
@@ -182,7 +183,7 @@
                                 <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Date d'activité</label>
                                 <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                                     <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : 'Sélectionner...'" :style="!selectedDate && 'color: #9ca3af'"></span>
-                                    <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </button>
 
                                 <div x-show="open" style="display: none;">
@@ -292,7 +293,6 @@
                                 
                                 <div style="display: flex; flex-direction: column; gap: 1rem;">
                                     
-                                    {{-- Formulaires Globaux --}}
                                     @if(count($globalFields) > 0)
                                         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
                                             @foreach($globalFields as $def)
@@ -333,7 +333,6 @@
                                         </div>
                                     @endif
 
-                                    {{-- Formulaires par Pax --}}
                                     @if(count($paxFields) > 0)
                                         @if(count($globalFields) > 0)
                                             <div style="height: 1px; background: #e2e8f0; margin: 0.25rem 0;"></div>
@@ -357,7 +356,6 @@
                                                 @for($i = 0; $i < $qty; $i++)
                                                     <div x-show="activeTab === {{ $i }}" style="display:none; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;" :style="activeTab === {{ $i }} ? 'display:grid;' : 'display:none;'">
                                                         @foreach($paxFields as $def)
-                                                            {{-- 🎯 CORRECTION REUSSIE ICI : Le tag de fermeture @endphp est restauré correctement --}}
                                                             @php 
                                                                 $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
                                                                 $isRequired = $def['is_required'] ?? false;
@@ -455,10 +453,16 @@
                         {{-- 5. DOSSIER ET ACTION --}}
                         <div style="display: flex; flex-direction: column; gap: 1rem;">
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                                <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>
+                                <!-- 💡 Bouton d'action Filament pour créer le dossier -->
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>
+                                    {{ $this->createFolderAction }}
+                                </div>
+                                
+                                <!-- 💡 Utilisation de la nouvelle fonction fiable getAvailableFolders() -->
                                 <select wire:model="selectedFolderId" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; color: #111827;">
                                     <option value="">-- Choisir un dossier voyage --</option>
-                                    @foreach($this->availableFolders as $folder)
+                                    @foreach($this->getAvailableFolders() as $folder)
                                         <option value="{{ $folder->id }}">{{ $folder->folder_name }} ({{ $folder->reference }})</option>
                                     @endforeach
                                 </select>

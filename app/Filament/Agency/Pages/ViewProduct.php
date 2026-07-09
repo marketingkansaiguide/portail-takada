@@ -67,7 +67,7 @@ class ViewProduct extends Page
         }
     }
 
-    public function getAvailableFoldersProperty()
+    public function getAvailableFolders()
     {
         if (!auth('agency')->check()) return [];
         
@@ -77,7 +77,79 @@ class ViewProduct extends Page
             ->get();
     }
 
-    // Moteur pour générer les pastilles du calendrier
+    // 💡 LA POP-IN EXIGE DÉSORMAIS TOUS LES CHAMPS MÉTAR DE CRÉATION
+    public function createFolderAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('createFolder')
+            ->label('Nouveau dossier')
+            ->icon('heroicon-m-plus')
+            ->color('gray')
+            ->size('sm')
+            ->form([
+                \Filament\Forms\Components\TextInput::make('folder_name')
+                    ->label('Nom du dossier / Réf. Groupe')
+                    ->required(),
+
+                \Filament\Forms\Components\TextInput::make('lead_traveler_name')
+                    ->label('Nom du voyageur principal')
+                    ->required(),
+
+                \Filament\Forms\Components\TextInput::make('hotel_booking_name')
+                    ->label('Nom réservation hôtel')
+                    ->placeholder('Si différent du voyageur principal'),
+
+                \Filament\Forms\Components\DatePicker::make('start_date')
+                    ->label('Date d\'arrivée au Japon')
+                    ->required(),
+
+                \Filament\Forms\Components\DatePicker::make('end_date')
+                    ->label('Date de départ')
+                    ->required()
+                    ->afterOrEqual('start_date'),
+
+                \Filament\Forms\Components\Repeater::make('contact_phones')
+                    ->label('Contact du voyageur pendant le séjour')
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false)
+                    ->defaultItems(1)
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('phone')
+                            ->label('Téléphone')
+                            ->tel()
+                            ->required()
+                            ->placeholder('+33 6...'),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->label('Adresse E-mail')
+                            ->email()
+                            ->placeholder('voyageur@email.com'),
+                    ])
+                    ->columns(2),
+            ])
+            ->action(function (array $data) {
+                $folder = Folder::create([
+                    'agency_id' => auth('agency')->user()->agency_id,
+                    'folder_name' => $data['folder_name'],
+                    'lead_traveler_name' => $data['lead_traveler_name'],
+                    'hotel_booking_name' => $data['hotel_booking_name'] ?? null,
+                    'start_date' => $data['start_date'],
+                    'end_date' => $data['end_date'],
+                    'contact_phones' => $data['contact_phones'] ?? [],
+                    'status' => 'draft',
+                    'total_price' => 0,
+                    'folder_fee' => 0,
+                    'ticket_dispatch_method' => 'hotel',
+                ]);
+
+                $this->selectedFolderId = $folder->id;
+
+                Notification::make()
+                    ->title('Dossier créé avec succès !')
+                    ->success()
+                    ->send();
+            });
+    }
+
     public function getCalendarMapProperty(): array
     {
         $map = [];
@@ -141,9 +213,6 @@ class ViewProduct extends Page
         return $map;
     }
 
-    /**
-     * 💡 NOUVEAU MOTEUR : Simulateur de devis en temps réel
-     */
     public function getEstimatedPrice(): array
     {
         if (!$this->product) return [];
@@ -153,7 +222,6 @@ class ViewProduct extends Page
         $hasDate = !empty($this->serviceDate);
         $isOnDemand = $this->product->is_on_demand ?? false;
 
-        // 1. Calcul du prix de base selon la date et la dégressivité du Pax
         if ($hasDate && !$isOnDemand) {
             $mdStr = Carbon::parse($this->serviceDate)->format('m-d');
             $matchedPrice = null;
@@ -169,13 +237,11 @@ class ViewProduct extends Page
                     }
 
                     if ($inPeriod && $period->productPrices) {
-                        // Cherche le prix qui correspond exactement à la quantité de Pax !
                         $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
                         if ($validPrices->isNotEmpty()) {
                             $matchedPrice = $validPrices->first()->price;
                             break;
                         } else {
-                            // Sécurité : Si le pax dépasse les grilles, on prend le palier le plus haut
                             $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
                             break;
                         }
@@ -184,7 +250,6 @@ class ViewProduct extends Page
             }
             $basePricePerUnit = $matchedPrice ?? 0;
         } else {
-            // S'il n'y a pas de date sélectionnée, on affiche le prix minimum de l'année pour CE pax
             $minPrice = null;
             if ($this->product->productPeriods) {
                 foreach($this->product->productPeriods as $period) {
@@ -203,7 +268,6 @@ class ViewProduct extends Page
 
         $totalBase = $basePricePerUnit * $qty;
         
-        // 2. Calcul du surcoût des options
         $optionsPrice = 0;
         if ($this->product->productOptions) {
             foreach ($this->product->productOptions as $option) {
