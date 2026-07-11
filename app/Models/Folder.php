@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Folder extends Model
 {
     protected $fillable = [
-        'agency_id', 'reference', 'folder_name', 'lead_traveler_name',
+        'agency_id', 'main_seller_id', 'reference', 'folder_name', 'lead_traveler_name',
         'hotel_booking_name', 'contact_phones', 'pax_adults', 'pax_children',
         'start_date', 'end_date', 'status', 'folder_fee', 'total_price',
         'flight_info', 'first_hotel_check_in', 'first_hotel_name',
@@ -32,6 +32,9 @@ class Folder extends Model
     public function agency() { return $this->belongsTo(Agency::class); }
     public function folderItems() { return $this->hasMany(FolderItem::class)->orderBy('service_date', 'asc'); }
     public function folderPassengers() { return $this->hasMany(FolderPassenger::class); }
+    
+    // Relation ajoutée pour le vendeur principal
+    public function mainSeller() { return $this->belongsTo(User::class, 'main_seller_id'); }
 
     // 🎯 CONNEXION AU TABLEAU D'AFFICHAGE FILAMENT
     public function activitiesAsSubject()

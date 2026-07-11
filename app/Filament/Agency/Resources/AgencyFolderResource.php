@@ -106,6 +106,17 @@ class AgencyFolderResource extends Resource
                             ->placeholder('Si différent du voyageur principal')
                             ->columnSpanFull(),
 
+                        Select::make('main_seller_id')
+                            ->label('Vendeur principal')
+                            ->options(function () {
+                                $agencyId = Filament::auth()->user()->agency_id;
+                                if (!$agencyId) return [];
+                                return \App\Models\User::where('agency_id', $agencyId)->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
+
                         DatePicker::make('start_date')
                             ->label('Date d\'arrivée au Japon')
                             ->required()
@@ -487,6 +498,7 @@ class AgencyFolderResource extends Resource
                 Tables\Columns\TextColumn::make('reference')->label('Réf.')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('folder_name')->label('Nom du dossier')->searchable(),
                 Tables\Columns\TextColumn::make('lead_traveler_name')->label('Voyageur')->searchable(),
+                Tables\Columns\TextColumn::make('mainSeller.name')->label('Vendeur Principal')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('start_date')->label('Arrivée')->date('d/m/Y')->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Statut')

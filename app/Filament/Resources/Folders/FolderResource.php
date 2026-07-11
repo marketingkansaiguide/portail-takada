@@ -15,6 +15,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Action; 
 
+use Filament\Forms\Components\Actions\Action as FormAction; 
+
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
@@ -186,7 +188,20 @@ class FolderResource extends Resource
                                 ->label(__('Agence émettrice'))
                                 ->required()
                                 ->searchable()
-                                ->preload(),
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set) => $set('main_seller_id', null)),
+
+                            Select::make('main_seller_id')
+                                ->label(__('Vendeur principal'))
+                                ->options(function (Get $get) {
+                                    $agencyId = $get('agency_id');
+                                    if (!$agencyId) return \App\Models\User::pluck('name', 'id');
+                                    return \App\Models\User::where('agency_id', $agencyId)->pluck('name', 'id');
+                                })
+                                ->searchable()
+                                ->preload()
+                                ->nullable(),
 
                             TextInput::make('pax_adults')
                                 ->label(__('Composition : Adultes'))
@@ -292,7 +307,6 @@ class FolderResource extends Resource
                         ->description(__('Renseignez les dates globales du séjour ainsi que le détail des vols.'))
                         ->schema([
                             Group::make()->schema([
-                                // 💡 AJOUT VALIDATION STRICTE ARRIVÉE/DÉPART
                                 DatePicker::make('start_date')
                                     ->label(__('Date d\'arrivée au Japon'))
                                     ->required()
@@ -379,7 +393,7 @@ class FolderResource extends Resource
                         ->schema([
                             Repeater::make('folderPassengers')
                                 ->relationship()
-                                ->label('')
+                                ->hiddenLabel() // 💡 MASQUE LE TEXTE "Folder passengers"
                                 ->addActionLabel(__('Ajouter un voyageur'))
                                 ->collapsible()
                                 ->collapsed()
@@ -449,7 +463,7 @@ class FolderResource extends Resource
                         ->schema([
                             Repeater::make('folderItems')
                                 ->relationship()
-                                ->label('')
+                                ->hiddenLabel() // 💡 MASQUE LE TEXTE "Folder items"
                                 ->addActionLabel(__('Ajouter une prestation au dossier'))
                                 ->collapsible()
                                 ->collapsed()
@@ -500,7 +514,7 @@ class FolderResource extends Resource
                                     ");
                                 })
                                 ->extraItemActions([
-                                    Action::make('generateSupplierEmail')
+                                    FormAction::make('generateSupplierEmail')
                                         ->icon('heroicon-o-envelope')
                                         ->color('info')
                                         ->tooltip(__('Aperçu de l\'email fournisseur'))
@@ -569,6 +583,85 @@ class FolderResource extends Resource
                                                 . "&body=" . urlencode($body);
 
                                             $component->getLivewire()->js("window.open('{$gmailUrl}', '_blank')");
+                                        }),
+
+                                    FormAction::make('downloadFaxCsv')
+                                        ->icon('heroicon-o-printer')
+                                        ->color('warning')
+                                        ->tooltip(__('Télécharger le FAX (CSV pour Excel)'))
+                                        ->action(function (array $arguments, \Filament\Forms\Components\Repeater $component) {
+                                            $state = $component->getState();
+                                            $itemData = $state[$arguments['item']] ?? [];
+                                            
+                                            if (empty($itemData['id'])) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('Veuillez sauvegarder le dossier avant de générer le fax.'))
+                                                    ->danger()
+                                                    ->send();
+                                                return;
+                                            }
+                                            
+                                            $item = \App\Models\FolderItem::with(['product.supplier', 'folder'])->find($itemData['id']);
+                                            if (!$item) return;
+                                            
+                                            $subject = $item->parseSupplierEmailSubject();
+                                            $body = $item->parseSupplierEmail();
+                                            
+                                            // Lecture de notre grille visuelle
+                                            $faxData = $item->product->supplier_fax_header ?? [];
+                                            if (!is_array($faxData)) $faxData = [];
+                                            
+                                            // LECTURE DE LA DROITE (Expéditeur Takada - modifiable)
+                                            $writerName = auth()->check() ? auth()->user()->name : 'Takada Travel';
+                                            $writerEmail = auth()->check() ? auth()->user()->email : 'resa@kansai-guide.com';
+
+                                            $fComp = str_replace('"', '""', $faxData['from_company'] ?? 'TAKADA TRAVEL合同会社');
+                                            $fAddr = str_replace('"', '""', $faxData['from_address'] ?? "〒532-0012大阪市淀川区木川東\n3丁目1-23 KC新大阪ビル 2階");
+                                            
+                                            $fCont = str_replace('"', '""', str_replace('[NOM_AGENT]', $writerName, $faxData['from_contact'] ?? '担当者： [NOM_AGENT]'));
+                                            $fMail = str_replace('"', '""', str_replace('[EMAIL_AGENT]', $writerEmail, $faxData['from_mail'] ?? 'MAIL : [EMAIL_AGENT]'));
+                                            $fTel = str_replace('"', '""', $faxData['from_tel'] ?? 'TEL：06-6195-9799');
+                                            $fFax = str_replace('"', '""', $faxData['from_fax'] ?? 'FAX：06-6195-9921');
+
+                                            $currentDate = now()->format('Y/m/d');
+                                            $cleanSubject = str_replace('"', '""', $subject);
+                                            $cleanBody = str_replace('"', '""', $body);
+                                            
+                                            // LECTURE DE LA GAUCHE (Destinataire)
+                                            $h1 = str_replace('"', '""', $faxData['to_company_name'] ?? ($item->product->supplier->name ?? ''));
+                                            $h2 = str_replace('"', '""', $faxData['to_contact_name'] ?? 'ご担当者様');
+                                            $sTel = str_replace('"', '""', $faxData['to_tel'] ?? ($item->product->supplier->phone ?? ''));
+                                            $sFax = str_replace('"', '""', $faxData['to_fax'] ?? ($item->product->supplier->phone ?? ''));
+
+                                            // Encodage BOM UTF-8 indispensable pour que Excel lise les Kanji
+                                            $csvContent = "\xEF\xBB\xBF"; 
+                                            
+                                            $csvContent .= ",,,,,,\n"; 
+                                            $csvContent .= ",,,,,,{$currentDate}\n"; 
+                                            $csvContent .= ",,,,,,\n"; 
+                                            $csvContent .= "送付先：,,,,,,発信元：\n"; 
+                                            $csvContent .= "\"{$h1}\",,,,,,\"{$fComp}\"\n"; 
+                                            $csvContent .= "\"{$h2}\",,,,,,\"{$fAddr}\"\n"; 
+                                            $csvContent .= ",,,,,,\"{$fCont}\"\n"; 
+                                            $csvContent .= ",,,,,,\"{$fMail}\"\n"; 
+                                            $csvContent .= "TEL：,\"{$sTel}\",,,,,\"{$fTel}\"\n"; 
+                                            $csvContent .= "FAX：,\"{$sFax}\",,,,,\"{$fFax}\"\n"; 
+                                            $csvContent .= ",,,,,,\n"; 
+                                            $csvContent .= "件名：,\"{$cleanSubject}\",,,,,\n"; 
+                                            
+                                            $bodyLines = explode("\n", str_replace("\r", "", $body));
+                                            foreach($bodyLines as $line) {
+                                                $cleanLine = str_replace('"', '""', $line);
+                                                $csvContent .= "\"{$cleanLine}\",,,,,,\n";
+                                            }
+                                            
+                                            $filename = "FAX_" . \Illuminate\Support\Str::slug($item->product->name ?? 'supplier') . "_" . now()->format('Ymd_His') . ".csv";
+                                            
+                                            return response()->streamDownload(function () use ($csvContent) {
+                                                echo $csvContent;
+                                            }, $filename, [
+                                                'Content-Type' => 'text/csv; charset=UTF-8',
+                                            ]);
                                         })
                                 ])
                                 ->schema([
@@ -752,6 +845,11 @@ class FolderResource extends Resource
 
                 TextColumn::make('folder_name')
                     ->label(__('Nom du dossier'))
+                    ->searchable(),
+
+                TextColumn::make('mainSeller.name')
+                    ->label(__('Vendeur Principal'))
+                    ->sortable()
                     ->searchable(),
 
                 TextColumn::make('status')

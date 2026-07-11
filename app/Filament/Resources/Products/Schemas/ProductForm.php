@@ -24,9 +24,6 @@ class ProductForm
         return $schema
             ->columns(3)
             ->components([
-                // =========================================================================
-                // --- COLONNE GAUCHE (LARGEUR : 2 PANELS) ---
-                // =========================================================================
                 Group::make()->schema([
                     Section::make(__('Présentation de la prestation'))
                         ->description(__('Renseignez le titre, la description détaillée et ajoutez les visuels.'))
@@ -181,7 +178,6 @@ class ProductForm
                                         ->required(),
                                         
                                     Group::make()->schema([
-                                        // 💡 Saisie textuelle réutilisable JJ/MM (Indépendante de l'année)
                                         TextInput::make('start_date')
                                             ->label(__('Date de début (JJ/MM)'))
                                             ->placeholder('Ex: 01/04')
@@ -190,7 +186,6 @@ class ProductForm
                                                 function () {
                                                     return function (string $attribute, $value, \Closure $fail) {
                                                         $parts = explode('/', $value);
-                                                        // Test sur l'année bissextile 2024 pour valider le 29/02 de façon transparente
                                                         if (count($parts) !== 2 || !checkdate((int)($parts[1] ?? 0), (int)($parts[0] ?? 0), 2024)) {
                                                             $fail('Date de début invalide (Format JJ/MM attendu).');
                                                         }
@@ -262,16 +257,79 @@ class ProductForm
                                 ])
                         ]),
 
-                    Section::make(__('Modèle d\'E-mail pour le Fournisseur'))
-                        ->description(__('Rédigez l\'objet et le texte par défaut qui seront générés dans le dossier client.'))
+                    Section::make(__('Modèles de communication Fournisseur (Mail & Fax)'))
+                        ->description(__('Rédigez l\'objet, l\'en-tête de fax et le texte par défaut qui seront générés dans le dossier client.'))
                         ->schema([
                             TextInput::make('supplier_email_subject')
-                                ->label(__('Objet de l\'e-mail'))
+                                ->label(__('Objet de l\'e-mail / Sujet du Fax'))
                                 ->placeholder("Ex: ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]")
                                 ->columnSpanFull(),
 
+                            // 💡 LA GRILLE ENTIÈREMENT PERSONNALISABLE
+                            Group::make()
+                                ->statePath('supplier_fax_header')
+                                ->schema([
+                                    Section::make('En-tête visuelle du document FAX')
+                                        ->columns(2)
+                                        ->schema([
+                                            // COLONNE GAUCHE (Destinataire)
+                                            Group::make()->schema([
+                                                Placeholder::make('lbl_to')
+                                                    ->hiddenLabel()
+                                                    ->content(new \Illuminate\Support\HtmlString('<div style="font-weight:bold; font-size:1.1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 0.5rem; padding-bottom: 0.2rem;">送付先： (Destinataire)</div>')),
+                                                TextInput::make('to_company_name')
+                                                    ->label('Nom de l\'entreprise')
+                                                    ->placeholder('Ex: 旭川合同自動車㈱ タクシーコールセンター'),
+                                                TextInput::make('to_contact_name')
+                                                    ->label('Nom du contact')
+                                                    ->default('ご担当者様')
+                                                    ->placeholder('Ex: 田中様'),
+                                                TextInput::make('to_tel')
+                                                    ->label('TEL Destinataire')
+                                                    ->placeholder('Ex: 0166-33-3131'),
+                                                TextInput::make('to_fax')
+                                                    ->label('FAX Destinataire')
+                                                    ->placeholder('Ex: 0166-34-0930'),
+                                            ])->columnSpan(1),
+
+                                            // COLONNE DROITE (Expéditeur - Modifiable !)
+                                            Group::make()->schema([
+                                                Placeholder::make('lbl_from')
+                                                    ->hiddenLabel()
+                                                    ->content(new \Illuminate\Support\HtmlString('<div style="font-weight:bold; font-size:1.1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 0.5rem; padding-bottom: 0.2rem;">発信元： (Expéditeur)</div>')),
+                                                TextInput::make('from_company')
+                                                    ->label('Société émettrice')
+                                                    ->default('TAKADA TRAVEL合同会社')
+                                                    ->placeholder('Ex: TAKADA TRAVEL...'),
+                                                Textarea::make('from_address')
+                                                    ->label('Adresse postale')
+                                                    ->default("〒532-0012大阪市淀川区木川東\n3丁目1-23 KC新大阪ビル 2階")
+                                                    ->rows(2)
+                                                    ->placeholder("〒532-0012..."),
+                                                TextInput::make('from_contact')
+                                                    ->label('Contact expéditeur')
+                                                    ->default('担当者： [NOM_AGENT]')
+                                                    ->helperText('Laissez [NOM_AGENT] pour utiliser le nom du compte connecté.')
+                                                    ->placeholder('担当者： [NOM_AGENT]'),
+                                                TextInput::make('from_mail')
+                                                    ->label('Email de réponse')
+                                                    ->default('MAIL : [EMAIL_AGENT]')
+                                                    ->helperText('Laissez [EMAIL_AGENT] pour utiliser l\'email du compte connecté.')
+                                                    ->placeholder('MAIL : [EMAIL_AGENT]'),
+                                                TextInput::make('from_tel')
+                                                    ->label('TEL émetteur')
+                                                    ->default('TEL：06-6195-9799')
+                                                    ->placeholder('TEL：06-6195-9799'),
+                                                TextInput::make('from_fax')
+                                                    ->label('FAX émetteur')
+                                                    ->default('FAX：06-6195-9921')
+                                                    ->placeholder('FAX：06-6195-9921'),
+                                            ])->columnSpan(1),
+                                        ]),
+                                ]),
+
                             Textarea::make('supplier_email_template')
-                                ->label(__('Corps du message'))
+                                ->label(__('Corps du message (Valable pour Mail et Fax)'))
                                 ->placeholder("Bonjour [CONTACT_FOURNISSEUR],\n\nJe souhaite réserver la prestation suivante...\n\n[IF_QUANTITY>=10]Attention c'est un grand groupe ![/IF_QUANTITY]\n\n[IF_PAX_CHILDREN>0]Parmi eux, il y a [PAX_CHILDREN] enfants ![/IF_PAX_CHILDREN]\n\n[IF_OPTION:dressing]Options incluses : Habillage pour [OPTION:dressing] personnes.[/IF_OPTION]\n\nCordialement,\n[NOM_AGENT]")
                                 ->rows(10)
                                 ->columnSpanFull(),
@@ -321,9 +379,6 @@ class ProductForm
 
                 ])->columnSpan(['lg' => 2]),
 
-                // =========================================================================
-                // --- COLONNE DROITE (LARGEUR : 1 PANEL) ---
-                // =========================================================================
                 Group::make()->schema([
                     Section::make(__('Classification'))
                         ->schema([
@@ -377,7 +432,6 @@ class ProductForm
 
                     Section::make(__('Paramètres de Vente'))
                         ->schema([
-                            // 💡 INTERRUPTEUR DE VISIBILITÉ : helperText() utilisé pour compatibilité ascendante
                             Toggle::make('is_public')
                                 ->label(__('Produit public (Vitrine)'))
                                 ->helperText(__('Si activé, l\'activité s\'affiche sur le catalogue sans authentification (prix masqué).'))

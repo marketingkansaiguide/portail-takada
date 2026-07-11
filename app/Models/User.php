@@ -102,4 +102,12 @@ class User extends Authenticatable implements FilamentUser
 
         return false;
     }
+    
+    /**
+     * Dossiers où cet utilisateur est le vendeur principal assigné
+     */
+    public function mainSellerFolders()
+    {
+        return $this->hasMany(Folder::class, 'main_seller_id');
+    }
 }

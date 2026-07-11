@@ -57,6 +57,42 @@ class FolderItem extends Model
     }
 
     /**
+     * 💡 NOUVEAU : Moteur de parsing pour l'EN-TÊTE DU FAX
+     */
+    public function parseSupplierFaxHeader(): string
+    {
+        $product = $this->product;
+        
+        $template = ($product && !empty($product->supplier_fax_header)) 
+            ? $product->supplier_fax_header 
+            : "ご担当者様"; // Défaut
+
+        $folder = $this->folder;
+        $dossierRef = $folder ? $folder->reference : 'N/A';
+        $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
+        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
+        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
+        $quantite = $this->quantity ?? 1;
+
+        $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
+        $supplierContact = ($product && $product->supplier && $product->supplier->contact_name) 
+            ? $product->supplier->contact_name 
+            : 'Partenaire';
+
+        $replacements = [
+            '[DOSSIER_REF]' => $dossierRef,
+            '[LEAD_NAME]' => $leadName,
+            '[DATE_PRESTA]' => $datePresta,
+            '[DATE_PRESTA_JP]' => $datePrestaJp,
+            '[QUANTITE]' => $quantite,
+            '[NOM_AGENT]' => $writerName,
+            '[CONTACT_FOURNISSEUR]' => $supplierContact,
+        ];
+
+        return trim(str_replace(array_keys($replacements), array_values($replacements), $template));
+    }
+
+    /**
      * Moteur de parsing des Shortcodes & Conditions : Génère l'e-mail formaté pour le fournisseur
      */
     public function parseSupplierEmail(): string

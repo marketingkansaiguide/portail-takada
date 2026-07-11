@@ -21,7 +21,8 @@ class Product extends Model
         'is_on_demand',
         'days_before_opening',
         'custom_field_definitions',
-        'supplier_email_subject', // 💡 NOUVEAU CHAMP
+        'supplier_email_subject', 
+        'supplier_fax_header',
         'supplier_email_template'
     ];
 
@@ -33,6 +34,7 @@ class Product extends Model
         'custom_field_definitions' => 'array',
         'is_lottery' => 'boolean',
         'is_on_demand' => 'boolean',
+        'supplier_fax_header' => 'array', // 💡 AJOUT : Permet de stocker la grille proprement
     ];
 
     public function supplier()
