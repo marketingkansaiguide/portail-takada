@@ -391,7 +391,7 @@ class FolderResource extends Resource
                         ->schema([
                             Repeater::make('folderPassengers')
                                 ->relationship()
-                                ->hiddenLabel() // 💡 MASQUE LE TEXTE "Folder passengers"
+                                ->hiddenLabel() 
                                 ->addActionLabel(__('Ajouter un voyageur'))
                                 ->collapsible()
                                 ->collapsed()
@@ -461,7 +461,7 @@ class FolderResource extends Resource
                         ->schema([
                             Repeater::make('folderItems')
                                 ->relationship()
-                                ->hiddenLabel() // 💡 MASQUE LE TEXTE "Folder items"
+                                ->hiddenLabel() 
                                 ->addActionLabel(__('Ajouter une prestation au dossier'))
                                 ->collapsible()
                                 ->collapsed()
@@ -583,11 +583,14 @@ class FolderResource extends Resource
                                             $component->getLivewire()->js("window.open('{$gmailUrl}', '_blank')");
                                         }),
 
-                                    Action::make('downloadFaxCsv')
-                                        ->icon('heroicon-o-printer')
-                                        ->color('warning')
-                                        ->tooltip(__('Télécharger le FAX (CSV pour Excel)'))
+                                    Action::make('generateGoogleSheetFax')
+                                        ->icon('heroicon-o-document-text')
+                                        ->color('success')
+                                        ->tooltip(__('Ouvrir un nouveau FAX dans Google Sheets'))
                                         ->action(function (array $arguments, \Filament\Forms\Components\Repeater $component) {
+                                            
+                                            $googleDriveFolderId = '0AJNFhn85cg0OUk9PVA'; 
+
                                             $state = $component->getState();
                                             $itemData = $state[$arguments['item']] ?? [];
                                             
@@ -601,65 +604,237 @@ class FolderResource extends Resource
                                             
                                             $item = \App\Models\FolderItem::with(['product.supplier', 'folder'])->find($itemData['id']);
                                             if (!$item) return;
-                                            
-                                            $subject = $item->parseSupplierEmailSubject();
-                                            $body = $item->parseSupplierEmail();
-                                            
-                                            // Lecture de notre grille visuelle
-                                            $faxData = $item->product->supplier_fax_header ?? [];
-                                            if (!is_array($faxData)) $faxData = [];
-                                            
-                                            // LECTURE DE LA DROITE (Expéditeur Takada - modifiable)
-                                            $writerName = auth()->check() ? auth()->user()->name : 'Takada Travel';
-                                            $writerEmail = auth()->check() ? auth()->user()->email : 'resa@kansai-guide.com';
 
-                                            $fComp = str_replace('"', '""', $faxData['from_company'] ?? 'TAKADA TRAVEL合同会社');
-                                            $fAddr = str_replace('"', '""', $faxData['from_address'] ?? "〒532-0012大阪市淀川区木川東\n3丁目1-23 KC新大阪ビル 2階");
-                                            
-                                            $fCont = str_replace('"', '""', str_replace('[NOM_AGENT]', $writerName, $faxData['from_contact'] ?? '担当者： [NOM_AGENT]'));
-                                            $fMail = str_replace('"', '""', str_replace('[EMAIL_AGENT]', $writerEmail, $faxData['from_mail'] ?? 'MAIL : [EMAIL_AGENT]'));
-                                            $fTel = str_replace('"', '""', $faxData['from_tel'] ?? 'TEL：06-6195-9799');
-                                            $fFax = str_replace('"', '""', $faxData['from_fax'] ?? 'FAX：06-6195-9921');
-
-                                            $currentDate = now()->format('Y/m/d');
-                                            $cleanSubject = str_replace('"', '""', $subject);
-                                            $cleanBody = str_replace('"', '""', $body);
-                                            
-                                            // LECTURE DE LA GAUCHE (Destinataire)
-                                            $h1 = str_replace('"', '""', $faxData['to_company_name'] ?? ($item->product->supplier->name ?? ''));
-                                            $h2 = str_replace('"', '""', $faxData['to_contact_name'] ?? 'ご担当者様');
-                                            $sTel = str_replace('"', '""', $faxData['to_tel'] ?? ($item->product->supplier->phone ?? ''));
-                                            $sFax = str_replace('"', '""', $faxData['to_fax'] ?? ($item->product->supplier->phone ?? ''));
-
-                                            // Encodage BOM UTF-8 indispensable pour que Excel lise les Kanji
-                                            $csvContent = "\xEF\xBB\xBF"; 
-                                            
-                                            $csvContent .= ",,,,,,\n"; 
-                                            $csvContent .= ",,,,,,{$currentDate}\n"; 
-                                            $csvContent .= ",,,,,,\n"; 
-                                            $csvContent .= "送付先：,,,,,,発信元：\n"; 
-                                            $csvContent .= "\"{$h1}\",,,,,,\"{$fComp}\"\n"; 
-                                            $csvContent .= "\"{$h2}\",,,,,,\"{$fAddr}\"\n"; 
-                                            $csvContent .= ",,,,,,\"{$fCont}\"\n"; 
-                                            $csvContent .= ",,,,,,\"{$fMail}\"\n"; 
-                                            $csvContent .= "TEL：,\"{$sTel}\",,,,,\"{$fTel}\"\n"; 
-                                            $csvContent .= "FAX：,\"{$sFax}\",,,,,\"{$fFax}\"\n"; 
-                                            $csvContent .= ",,,,,,\n"; 
-                                            $csvContent .= "件名：,\"{$cleanSubject}\",,,,,\n"; 
-                                            
-                                            $bodyLines = explode("\n", str_replace("\r", "", $body));
-                                            foreach($bodyLines as $line) {
-                                                $cleanLine = str_replace('"', '""', $line);
-                                                $csvContent .= "\"{$cleanLine}\",,,,,,\n";
+                                            $keyFilePath = storage_path('app/google-credentials.json');
+                                            if (!file_exists($keyFilePath)) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('Clé Google manquante'))
+                                                    ->body(__('Le fichier google-credentials.json est introuvable dans storage/app/.'))
+                                                    ->danger()
+                                                    ->send();
+                                                return;
                                             }
-                                            
-                                            $filename = "FAX_" . \Illuminate\Support\Str::slug($item->product->name ?? 'supplier') . "_" . now()->format('Ymd_His') . ".csv";
-                                            
-                                            return response()->streamDownload(function () use ($csvContent) {
-                                                echo $csvContent;
-                                            }, $filename, [
-                                                'Content-Type' => 'text/csv; charset=UTF-8',
-                                            ]);
+
+                                            try {
+                                                $client = new \Google\Client();
+                                                $client->setApplicationName('Portail Takada');
+                                                $client->setScopes([\Google\Service\Drive::DRIVE, \Google\Service\Sheets::SPREADSHEETS]);
+                                                $client->setAuthConfig($keyFilePath);
+                                                $client->setAccessType('offline');
+
+                                                $serviceSheets = new \Google\Service\Sheets($client);
+                                                $serviceDrive = new \Google\Service\Drive($client);
+
+                                                $subject = $item->parseSupplierEmailSubject();
+                                                $body = $item->parseSupplierEmail();
+                                                
+                                                $faxData = $item->product->supplier_fax_header ?? [];
+                                                if (!is_array($faxData)) $faxData = [];
+                                                
+                                                $writerName = auth()->check() ? auth()->user()->name : 'Takada Travel';
+                                                $writerEmail = auth()->check() ? auth()->user()->email : 'resa@kansai-guide.com';
+
+                                                // Données de l'Expéditeur
+                                                $fComp = $faxData['from_company'] ?? 'TAKADA TRAVEL合同会社';
+                                                $fAddr = $faxData['from_address'] ?? "〒532-0012大阪市淀川区木川東3丁目1-23";
+                                                $fCont = str_replace('[NOM_AGENT]', $writerName, $faxData['from_contact'] ?? '担当者： [NOM_AGENT]');
+                                                $fMail = str_replace('[EMAIL_AGENT]', $writerEmail, $faxData['from_mail'] ?? 'MAIL : [EMAIL_AGENT]');
+                                                
+                                                // Conservation du 0 pour les numéros de l'expéditeur
+                                                $fTelRaw = $faxData['from_tel'] ?? '06-6195-9799';
+                                                $fFaxRaw = $faxData['from_fax'] ?? '06-6195-9921';
+                                                $fTel = str_starts_with($fTelRaw, '0') ? "'" . $fTelRaw : $fTelRaw;
+                                                $fFax = str_starts_with($fFaxRaw, '0') ? "'" . $fFaxRaw : $fFaxRaw;
+
+                                                $currentDate = now()->format('Y/m/d');
+                                                
+                                                // Données du Destinataire (Conservation du 0 forcée par l'apostrophe textuelle)
+                                                $h1 = $faxData['to_company_name'] ?? ($item->product->supplier->name ?? '');
+                                                $h2 = $faxData['to_contact_name'] ?? 'ご担当者様';
+                                                
+                                                $sTelRaw = $faxData['to_tel'] ?? ($item->product->supplier->phone ?? '');
+                                                $sFaxRaw = $faxData['to_fax'] ?? ($item->product->supplier->phone ?? '');
+                                                $sTel = str_starts_with($sTelRaw, '0') ? "'" . $sTelRaw : $sTelRaw;
+                                                $sFax = str_starts_with($sFaxRaw, '0') ? "'" . $sFaxRaw : $sFaxRaw;
+
+                                                $filename = "FAX_" . \Illuminate\Support\Str::slug($item->product->name ?? 'supplier') . "_" . now()->format('Ymd_His');
+
+                                                // 1. CRÉATION DU FICHIER DIRECTEMENT DANS LE DOSSIER PARTAGÉ D'ENTREPRISE
+                                                $fileMetadata = new \Google\Service\Drive\DriveFile([
+                                                    'name' => $filename,
+                                                    'mimeType' => 'application/vnd.google-apps.spreadsheet',
+                                                    'parents' => [$googleDriveFolderId] 
+                                                ]);
+                                                
+                                                $file = $serviceDrive->files->create($fileMetadata, [
+                                                    'fields' => 'id',
+                                                    'supportsAllDrives' => true
+                                                ]);
+                                                
+                                                $spreadsheetId = $file->id;
+
+                                                $spreadsheet = $serviceSheets->spreadsheets->get($spreadsheetId);
+                                                $sheetId = $spreadsheet->sheets[0]->properties->sheetId;
+
+                                                // 2. INJECTION DU TEXTE DANS LA GRILLE (Le mot 敬具 est réintégré à la ligne 17)
+                                                $values = [
+                                                    ['', 'FAX', '', '', '', '', '', '', ''], // Row 1
+                                                    ['', '', '', '', '', '', '', '', ''], // Row 2
+                                                    ['', '', '', '', '', '', $currentDate, '', ''], // Row 3
+                                                    ['', '', '', '', '', '', '', '', ''], // Row 4
+                                                    ['送付先：', '', '', '', '', '', '発信元：', '', ''], // Row 5
+                                                    [$h1, '', '', '', '', '', $fComp, '', ''], // Row 6
+                                                    [$h2, '', '', '', '', '', $fAddr, '', ''], // Row 7
+                                                    ['', '', '', '', '', '', $fCont, '', ''], // Row 8
+                                                    ['', '', '', '', '', '', $fMail, '', ''], // Row 9
+                                                    ['TEL：', $sTel, '', '', '', '', "TEL：{$fTel}", '', ''], // Row 10
+                                                    ['FAX：', $sFax, '', '', '', '', "FAX：{$fFax}", '', ''], // Row 11
+                                                    ['', '', '', '', '', '', '', '', ''], // Row 12
+                                                    ['件名：', $subject, '', '', '', '', '', '', ''], // Row 13
+                                                    [$body, '', '', '', '', '', '', '', ''], // Row 14
+                                                    ['', '', '', '', '', '', '', '', ''], // Row 15
+                                                    ['', '', '', '', '', '', '', '', ''], // Row 16
+                                                    ['', '', '', '', '', '', '', '', '敬具'], // Row 17
+                                                ];
+
+                                                $bodyObj = new \Google\Service\Sheets\ValueRange(['values' => $values]);
+                                                $params = ['valueInputOption' => 'USER_ENTERED'];
+                                                $serviceSheets->spreadsheets_values->update($spreadsheetId, 'A1:I17', $bodyObj, $params);
+
+                                                // 3. APPLICATION DU DESIGN ET DES BORDURES EXACTES
+                                                $requests = [
+                                                    // Supprimer la grille de fond
+                                                    [
+                                                        'updateSheetProperties' => [
+                                                            'properties' => ['sheetId' => $sheetId, 'gridProperties' => ['hideGridlines' => true]],
+                                                            'fields' => 'gridProperties.hideGridlines'
+                                                        ]
+                                                    ],
+                                                    // Typographie globale (Police Arial, Taille 18 comme dans l'Excel)
+                                                    [
+                                                        'repeatCell' => [
+                                                            'range' => ['sheetId' => $sheetId, 'startRowIndex' => 0, 'endRowIndex' => 20, 'startColumnIndex' => 0, 'endColumnIndex' => 10],
+                                                            'cell' => ['userEnteredFormat' => ['textFormat' => ['fontFamily' => 'Arial', 'fontSize' => 18]]],
+                                                            'fields' => 'userEnteredFormat.textFormat'
+                                                        ]
+                                                    ],
+                                                    // Redimensionnement des colonnes
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 0, 'endIndex' => 1], 'properties' => ['pixelSize' => 100], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 1, 'endIndex' => 2], 'properties' => ['pixelSize' => 110], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 2, 'endIndex' => 5], 'properties' => ['pixelSize' => 100], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 5, 'endIndex' => 6], 'properties' => ['pixelSize' => 45], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 6, 'endIndex' => 7], 'properties' => ['pixelSize' => 100], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 7, 'endIndex' => 8], 'properties' => ['pixelSize' => 70], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 8, 'endIndex' => 9], 'properties' => ['pixelSize' => 170], 'fields' => 'pixelSize']],
+                                                    
+                                                    // Hauteurs de ligne 
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => 0, 'endIndex' => 1], 'properties' => ['pixelSize' => 55], 'fields' => 'pixelSize']],
+                                                    ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => 6, 'endIndex' => 7], 'properties' => ['pixelSize' => 42], 'fields' => 'pixelSize']],
+                                                    
+                                                    // Fusions de cellules
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 2, 'endRowIndex' => 3, 'startColumnIndex' => 6, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Date
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 1, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Sujet
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Corps du texte
+                                                    
+                                                    // BORDURES CAHIER : Sous chaque ligne de contact (Index 5 à 10 inclus)
+                                                    [
+                                                        'updateBorders' => [
+                                                            'range' => ['sheetId' => $sheetId, 'startRowIndex' => 5, 'endRowIndex' => 11, 'startColumnIndex' => 0, 'endColumnIndex' => 5],
+                                                            'innerHorizontal' => ['style' => 'SOLID'],
+                                                            'bottom' => ['style' => 'SOLID']
+                                                        ]
+                                                    ],
+                                                    [
+                                                        'updateBorders' => [
+                                                            'range' => ['sheetId' => $sheetId, 'startRowIndex' => 5, 'endRowIndex' => 11, 'startColumnIndex' => 6, 'endColumnIndex' => 9],
+                                                            'innerHorizontal' => ['style' => 'SOLID'],
+                                                            'bottom' => ['style' => 'SOLID']
+                                                        ]
+                                                    ],
+                                                    
+                                                    // Bordure sous le Sujet
+                                                    [
+                                                        'updateBorders' => [
+                                                            'range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 1, 'endColumnIndex' => 9],
+                                                            'bottom' => ['style' => 'SOLID']
+                                                        ]
+                                                    ],
+
+                                                    // Grand Cadre noir pour le Message (A14:I14 uniquement pour s'arrêter juste au-dessus du footer)
+                                                    [
+                                                        'updateBorders' => [
+                                                            'range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
+                                                            'top' => ['style' => 'SOLID'],
+                                                            'bottom' => ['style' => 'SOLID'],
+                                                            'left' => ['style' => 'SOLID'],
+                                                            'right' => ['style' => 'SOLID'],
+                                                        ]
+                                                    ],
+
+                                                    // Style du texte B1 ("FAX") (Taille 24 + Gras + Libre Franklin)
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 0, 'endRowIndex' => 1, 'startColumnIndex' => 1, 'endColumnIndex' => 2],
+                                                        'cell' => ['userEnteredFormat' => ['textFormat' => ['fontFamily' => 'Libre Franklin', 'fontSize' => 24, 'bold' => true]]],
+                                                        'fields' => 'userEnteredFormat.textFormat'
+                                                    ]],
+
+                                                    // Retour à la ligne pour le corps du texte (WrapText)
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
+                                                        'cell' => ['userEnteredFormat' => ['wrapStrategy' => 'WRAP', 'verticalAlignment' => 'TOP']],
+                                                        'fields' => 'userEnteredFormat(wrapStrategy,verticalAlignment)'
+                                                    ]],
+
+                                                    // Alignement à droite pour la date
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 2, 'endRowIndex' => 3, 'startColumnIndex' => 6, 'endColumnIndex' => 9],
+                                                        'cell' => ['userEnteredFormat' => ['horizontalAlignment' => 'RIGHT']],
+                                                        'fields' => 'userEnteredFormat.horizontalAlignment'
+                                                    ]],
+
+                                                    // Alignement à droite pour '敬具' (I17)
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 16, 'endRowIndex' => 17, 'startColumnIndex' => 8, 'endColumnIndex' => 9],
+                                                        'cell' => ['userEnteredFormat' => ['horizontalAlignment' => 'RIGHT']],
+                                                        'fields' => 'userEnteredFormat.horizontalAlignment'
+                                                    ]],
+
+                                                    // Mises en gras (titres expéditeur/dest/sujet)
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 4, 'endRowIndex' => 6, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
+                                                        'cell' => ['userEnteredFormat' => ['textFormat' => ['bold' => true]]],
+                                                        'fields' => 'userEnteredFormat.textFormat.bold'
+                                                    ]],
+                                                    ['repeatCell' => [
+                                                        'range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
+                                                        'cell' => ['userEnteredFormat' => ['textFormat' => ['bold' => true]]],
+                                                        'fields' => 'userEnteredFormat.textFormat.bold'
+                                                    ]],
+                                                ];
+
+                                                $batchUpdateRequest = new \Google\Service\Sheets\BatchUpdateSpreadsheetRequest(['requests' => $requests]);
+                                                $serviceSheets->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
+
+                                                // 4. RÉGLAGE DES PERMISSIONS AVEC SUPPORTSALLDRIVES
+                                                $permission = new \Google\Service\Drive\Permission([
+                                                    'type' => 'anyone',
+                                                    'role' => 'writer'
+                                                ]);
+                                                $serviceDrive->permissions->create($spreadsheetId, $permission, [
+                                                    'supportsAllDrives' => true 
+                                                ]);
+
+                                                // 5. OUVERTURE DANS UN NOUVEL ONGLET
+                                                $url = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/edit";
+                                                $component->getLivewire()->js("window.open('{$url}', '_blank')");
+
+                                            } catch (\Exception $e) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('Erreur de communication avec Google'))
+                                                    ->body($e->getMessage())
+                                                    ->danger()
+                                                    ->send();
+                                            }
                                         })
                                 ])
                                 ->schema([
