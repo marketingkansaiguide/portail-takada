@@ -15,8 +15,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\Action; 
 
-use Filament\Forms\Components\Actions\Action as FormAction; 
-
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
@@ -514,7 +512,7 @@ class FolderResource extends Resource
                                     ");
                                 })
                                 ->extraItemActions([
-                                    FormAction::make('generateSupplierEmail')
+                                    Action::make('generateSupplierEmail')
                                         ->icon('heroicon-o-envelope')
                                         ->color('info')
                                         ->tooltip(__('Aperçu de l\'email fournisseur'))
@@ -585,7 +583,7 @@ class FolderResource extends Resource
                                             $component->getLivewire()->js("window.open('{$gmailUrl}', '_blank')");
                                         }),
 
-                                    FormAction::make('downloadFaxCsv')
+                                    Action::make('downloadFaxCsv')
                                         ->icon('heroicon-o-printer')
                                         ->color('warning')
                                         ->tooltip(__('Télécharger le FAX (CSV pour Excel)'))

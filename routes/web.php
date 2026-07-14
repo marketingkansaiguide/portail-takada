@@ -46,6 +46,43 @@ Route::get('/pdf/recapitulatif/{folder}', function (Folder $folder) {
 
 /*
 |--------------------------------------------------------------------------
+| ROUTE POUR GÉNÉRER LE FAX (VUE HTML PRÊTE À IMPRIMER / PDF)
+|--------------------------------------------------------------------------
+*/
+Route::get('/pdf/fax/{folderItem}', function (\App\Models\FolderItem $folderItem) {
+    $item = $folderItem->load(['product.supplier', 'folder']);
+    
+    $faxData = $item->product->supplier_fax_header ?? [];
+    if (!is_array($faxData)) $faxData = [];
+
+    $writerName = auth()->check() ? auth()->user()->name : 'Takada Travel';
+    $writerEmail = auth()->check() ? auth()->user()->email : 'resa@kansai-guide.com';
+
+    $data = [
+        'date' => now()->format('Y/m/d'),
+        'to_company' => $faxData['to_company_name'] ?? ($item->product->supplier->name ?? ''),
+        'to_contact' => $faxData['to_contact_name'] ?? 'ご担当者様',
+        'to_tel' => $faxData['to_tel'] ?? ($item->product->supplier->phone ?? ''),
+        'to_fax' => $faxData['to_fax'] ?? ($item->product->supplier->phone ?? ''),
+        
+        'from_company' => $faxData['from_company'] ?? 'TAKADA TRAVEL合同会社',
+        'from_address' => $faxData['from_address'] ?? "〒532-0012大阪市淀川区木川東\n3丁目1-23 KC新大阪ビル 2階",
+        'from_contact' => str_replace('[NOM_AGENT]', $writerName, $faxData['from_contact'] ?? '担当者： [NOM_AGENT]'),
+        'from_mail' => str_replace('[EMAIL_AGENT]', $writerEmail, $faxData['from_mail'] ?? 'MAIL : [EMAIL_AGENT]'),
+        'from_tel' => $faxData['from_tel'] ?? 'TEL：06-6195-9799',
+        'from_fax' => $faxData['from_fax'] ?? 'FAX：06-6195-9921',
+        
+        'subject' => $item->parseSupplierEmailSubject(),
+        'body' => $item->parseSupplierEmail(),
+        'writer_name' => $writerName,
+    ];
+
+    return view('pdf.fax', $data);
+})->name('pdf.fax')->middleware('auth');
+
+
+/*
+|--------------------------------------------------------------------------
 | SOLUTION INFAILLIBLE POUR LES IMAGES SOUS WINDOWS / HERD
 |--------------------------------------------------------------------------
 */
