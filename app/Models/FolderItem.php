@@ -9,7 +9,7 @@ use Carbon\Carbon;
 class FolderItem extends Model
 {
     protected $fillable = [
-        'folder_id', 'product_id', 'product_option_id', 'item_status_id',
+        'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
         'service_date', 'quantity', 'unit_price', 'total_price', 'custom_values', 
         'selected_options',
     ];
@@ -21,15 +21,42 @@ class FolderItem extends Model
     ];
 
     /**
+     * Helper pour récupérer la configuration spécifique du fournisseur sélectionné (ou le premier par défaut)
+     */
+    public function getProductSupplierData()
+    {
+        if ($this->supplier_id) {
+            return \App\Models\ProductSupplier::where('product_id', $this->product_id)
+                ->where('supplier_id', $this->supplier_id)
+                ->first();
+        }
+        // Fallback sécurisé vers le premier fournisseur rattaché
+        return \App\Models\ProductSupplier::where('product_id', $this->product_id)->first();
+    }
+
+    /**
+     * Helper pour identifier le fournisseur cible réel
+     */
+    public function getTargetSupplier()
+    {
+        if ($this->supplier_id) {
+            return \App\Models\Supplier::find($this->supplier_id);
+        }
+        $ps = $this->getProductSupplierData();
+        return $ps ? \App\Models\Supplier::find($ps->supplier_id) : null;
+    }
+
+    /**
      * Moteur de parsing de l'OBJET de l'e-mail
      */
     public function parseSupplierEmailSubject(): string
     {
-        $product = $this->product;
+        $productSupplier = $this->getProductSupplierData();
         
-        $template = ($product && !empty($product->supplier_email_subject)) 
-            ? $product->supplier_email_subject 
-            : "ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]";
+        $template = "ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]"; // Défaut
+        if ($productSupplier && !empty($productSupplier->email_subject)) {
+            $template = $productSupplier->email_subject;
+        }
 
         $folder = $this->folder;
         $dossierRef = $folder ? $folder->reference : 'N/A';
@@ -39,9 +66,8 @@ class FolderItem extends Model
         $quantite = $this->quantity ?? 1;
 
         $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
-        $supplierContact = ($product && $product->supplier && $product->supplier->contact_name) 
-            ? $product->supplier->contact_name 
-            : 'Partenaire';
+        $targetSupplier = $this->getTargetSupplier();
+        $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
         $replacements = [
             '[DOSSIER_REF]' => $dossierRef,
@@ -57,15 +83,16 @@ class FolderItem extends Model
     }
 
     /**
-     * 💡 NOUVEAU : Moteur de parsing pour l'EN-TÊTE DU FAX
+     * Moteur de parsing pour l'EN-TÊTE DU FAX
      */
     public function parseSupplierFaxHeader(): string
     {
-        $product = $this->product;
+        $productSupplier = $this->getProductSupplierData();
+        $templateData = "ご担当者様"; // Défaut
         
-        $template = ($product && !empty($product->supplier_fax_header)) 
-            ? $product->supplier_fax_header 
-            : "ご担当者様"; // Défaut
+        if ($productSupplier && !empty($productSupplier->fax_header)) {
+            $templateData = is_array($productSupplier->fax_header) ? ($productSupplier->fax_header['to_contact_name'] ?? 'ご担当者様') : $productSupplier->fax_header;
+        }
 
         $folder = $this->folder;
         $dossierRef = $folder ? $folder->reference : 'N/A';
@@ -75,9 +102,8 @@ class FolderItem extends Model
         $quantite = $this->quantity ?? 1;
 
         $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
-        $supplierContact = ($product && $product->supplier && $product->supplier->contact_name) 
-            ? $product->supplier->contact_name 
-            : 'Partenaire';
+        $targetSupplier = $this->getTargetSupplier();
+        $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
         $replacements = [
             '[DOSSIER_REF]' => $dossierRef,
@@ -89,20 +115,26 @@ class FolderItem extends Model
             '[CONTACT_FOURNISSEUR]' => $supplierContact,
         ];
 
-        return trim(str_replace(array_keys($replacements), array_values($replacements), $template));
+        $templateString = is_array($templateData) ? json_encode($templateData) : (string)$templateData;
+        return trim(str_replace(array_keys($replacements), array_values($replacements), $templateString));
     }
 
     /**
-     * Moteur de parsing des Shortcodes & Conditions : Génère l'e-mail formaté pour le fournisseur
+     * Moteur de parsing des Shortcodes & Conditions : Génère l'e-mail formaté
      */
     public function parseSupplierEmail(): string
     {
         $product = $this->product;
-        if (!$product || empty($product->supplier_email_template)) {
-            return "Aucun modèle d'e-mail n'a été configuré pour ce produit.";
+        $productSupplier = $this->getProductSupplierData();
+
+        $emailRendered = "Aucun modèle d'e-mail n'a été configuré pour ce fournisseur.";
+
+        if ($productSupplier && !empty($productSupplier->email_template)) {
+            $emailRendered = $productSupplier->email_template;
+        } else {
+            return $emailRendered;
         }
 
-        $emailRendered = $product->supplier_email_template;
         $folder = $this->folder;
 
         // --- 1. PRÉPARATION DES VARIABLES GÉNÉRALES ---
@@ -113,9 +145,8 @@ class FolderItem extends Model
         $quantite = $this->quantity ?? 1;
         
         $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
-        $supplierContact = ($product->supplier && $product->supplier->contact_name) 
-            ? $product->supplier->contact_name 
-            : 'Partenaire';
+        $targetSupplier = $this->getTargetSupplier();
+        $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
         $selectedOpts = is_string($this->selected_options) ? json_decode($this->selected_options, true) : $this->selected_options;
 
@@ -380,6 +411,7 @@ class FolderItem extends Model
                     
                     $labels = [
                         'item_status_id' => 'Statut de la prestation',
+                        'supplier_id' => 'Fournisseur',
                         'service_date' => 'Date de service',
                         'quantity' => 'Quantité',
                         'unit_price' => 'Prix unitaire',
@@ -390,7 +422,6 @@ class FolderItem extends Model
                     foreach ($changes as $key => $newValue) {
                         $oldValue = $item->getOriginal($key);
 
-                        // 💡 LOGIQUE DÉTAILLÉE POUR LES CHAMPS PERSONNALISÉS (CUSTOM VALUES)
                         if ($key === 'custom_values') {
                             $oldCustom = is_string($oldValue) ? json_decode($oldValue, true) : (is_array($oldValue) ? $oldValue : []);
                             $newCustom = is_string($newValue) ? json_decode($newValue, true) : (is_array($newValue) ? $newValue : []);
@@ -398,11 +429,9 @@ class FolderItem extends Model
                             $oldCustom = $oldCustom ?: [];
                             $newCustom = $newCustom ?: [];
 
-                            // Compare les deux tableaux pour trouver toutes les clés impactées
                             $allKeys = array_unique(array_merge(array_keys($oldCustom), array_keys($newCustom)));
 
                             foreach ($allKeys as $k) {
-                                // Formate les booléens (Toggle) en Oui/Non
                                 $oldV = isset($oldCustom[$k]) ? (is_bool($oldCustom[$k]) ? ($oldCustom[$k] ? 'Oui' : 'Non') : (string)$oldCustom[$k]) : 'Vide';
                                 $newV = isset($newCustom[$k]) ? (is_bool($newCustom[$k]) ? ($newCustom[$k] ? 'Oui' : 'Non') : (string)$newCustom[$k]) : 'Vide';
 
@@ -416,13 +445,19 @@ class FolderItem extends Model
                             continue;
                         }
 
-                        // Logique standard pour les autres clés
                         if (!array_key_exists($key, $labels)) continue;
 
                         if ($key === 'item_status_id') {
                             $oldStatus = $oldValue ? (\App\Models\ItemStatus::find($oldValue)?->name ?? 'Inconnu') : 'Aucun';
                             $newStatus = $newValue ? (\App\Models\ItemStatus::find($newValue)?->name ?? 'Inconnu') : 'Aucun';
                             $changesText[] = "• {$labels[$key]} : '{$oldStatus}' ➔ '{$newStatus}'";
+                            continue;
+                        }
+                        
+                        if ($key === 'supplier_id') {
+                            $oldSupp = $oldValue ? (\App\Models\Supplier::find($oldValue)?->name ?? 'Par défaut') : 'Par défaut';
+                            $newSupp = $newValue ? (\App\Models\Supplier::find($newValue)?->name ?? 'Par défaut') : 'Par défaut';
+                            $changesText[] = "• {$labels[$key]} : '{$oldSupp}' ➔ '{$newSupp}'";
                             continue;
                         }
 
@@ -485,5 +520,6 @@ class FolderItem extends Model
     public function folder(): BelongsTo { return $this->belongsTo(Folder::class); }
     public function product(): BelongsTo { return $this->belongsTo(Product::class); }
     public function productOption(): BelongsTo { return $this->belongsTo(ProductOption::class); }
+    public function supplier(): BelongsTo { return $this->belongsTo(Supplier::class, 'supplier_id'); }
     public function itemStatus(): BelongsTo { return $this->belongsTo(ItemStatus::class); }
 }

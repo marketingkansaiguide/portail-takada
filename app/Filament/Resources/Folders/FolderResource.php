@@ -474,6 +474,21 @@ class FolderResource extends Resource
                                     $date = !empty($state['service_date']) ? Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
                                     $quantity = $state['quantity'] ?? 1;
 
+                                    $supplierText = "";
+                                    if (!empty($state['supplier_id'])) {
+                                        $supplierName = \App\Models\Supplier::find($state['supplier_id'])?->name ?? '';
+                                        $supplierText = "  |  🏢 {$supplierName}";
+                                    } elseif (!empty($state['product_id'])) {
+                                        $suppliersCount = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->count();
+                                        if ($suppliersCount > 1) {
+                                            $supplierText = "  |  <span style='background-color: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-weight: bold; border: 1px solid #f87171;'>⚠️ SÉLECTIONNER UN FOURNISSEUR</span>";
+                                        } elseif ($suppliersCount === 1) {
+                                            $ps = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->first();
+                                            $supplierName = \App\Models\Supplier::find($ps->supplier_id)?->name ?? '';
+                                            $supplierText = "  |  🏢 {$supplierName}";
+                                        }
+                                    }
+
                                     $optionName = __('Sans option');
                                     if (!empty($state['selected_options']) && is_array($state['selected_options'])) {
                                         $names = [];
@@ -500,7 +515,7 @@ class FolderResource extends Resource
                                         default => '#94a3b8',   
                                     };
 
-                                    $mainText = "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity;
+                                    $mainText = "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity . $supplierText;
 
                                     return new \Illuminate\Support\HtmlString("
                                         <span style='display: flex; justify-content: space-between; align-items: center; width: 100%;'>
@@ -533,6 +548,16 @@ class FolderResource extends Resource
                                             $state = $component->getState();
                                             $itemData = $state[$arguments['item']] ?? [];
                                             
+                                            if (empty($itemData['supplier_id']) && !empty($itemData['product_id'])) {
+                                                $suppliersCount = \App\Models\ProductSupplier::where('product_id', $itemData['product_id'])->count();
+                                                if ($suppliersCount > 1) {
+                                                    return [
+                                                        'email_subject_preview' => '',
+                                                        'email_preview' => __('Veuillez sélectionner un fournisseur avant de générer l\'email.')
+                                                    ];
+                                                }
+                                            }
+
                                             if (empty($itemData['id'])) {
                                                 return [
                                                     'email_subject_preview' => '',
@@ -565,18 +590,29 @@ class FolderResource extends Resource
                                             $state = $component->getState();
                                             $itemData = $state[$arguments['item']] ?? [];
                                             
-                                            $item = \App\Models\FolderItem::with(['product.supplier', 'folder'])->find($itemData['id']);
+                                            if (empty($itemData['supplier_id']) && !empty($itemData['product_id'])) {
+                                                $suppliersCount = \App\Models\ProductSupplier::where('product_id', $itemData['product_id'])->count();
+                                                if ($suppliersCount > 1) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->title(__('Fournisseur manquant'))
+                                                        ->body(__('Dépliez la prestation et sélectionnez un fournisseur avant d\'envoyer l\'email.'))
+                                                        ->warning()
+                                                        ->send();
+                                                    return;
+                                                }
+                                            }
+
+                                            $item = \App\Models\FolderItem::with(['product', 'folder'])->find($itemData['id'] ?? null);
                                             if (!$item) return;
 
-                                            $supplierEmail = ($item->product && $item->product->supplier) 
-                                                ? $item->product->supplier->email 
-                                                : '';
+                                            $targetSupplier = $item->getTargetSupplier();
+                                            $supplierEmail = $targetSupplier ? $targetSupplier->email : '';
 
                                             $subject = $data['email_subject_preview'] ?? 'ご予約依頼';
                                             $body = $data['email_preview'] ?? '';
 
                                             $gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1"
-                                                . "&to=" . urlencode($supplierEmail)
+                                                . "&to=" . urlencode((string)$supplierEmail)
                                                 . "&su=" . urlencode($subject)
                                                 . "&body=" . urlencode($body);
 
@@ -594,6 +630,18 @@ class FolderResource extends Resource
                                             $state = $component->getState();
                                             $itemData = $state[$arguments['item']] ?? [];
                                             
+                                            if (empty($itemData['supplier_id']) && !empty($itemData['product_id'])) {
+                                                $suppliersCount = \App\Models\ProductSupplier::where('product_id', $itemData['product_id'])->count();
+                                                if ($suppliersCount > 1) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->title(__('Fournisseur manquant'))
+                                                        ->body(__('Dépliez la prestation et sélectionnez un fournisseur avant de générer le Fax.'))
+                                                        ->warning()
+                                                        ->send();
+                                                    return;
+                                                }
+                                            }
+
                                             if (empty($itemData['id'])) {
                                                 \Filament\Notifications\Notification::make()
                                                     ->title(__('Veuillez sauvegarder le dossier avant de générer le fax.'))
@@ -602,7 +650,7 @@ class FolderResource extends Resource
                                                 return;
                                             }
                                             
-                                            $item = \App\Models\FolderItem::with(['product.supplier', 'folder'])->find($itemData['id']);
+                                            $item = \App\Models\FolderItem::with(['product', 'folder'])->find($itemData['id']);
                                             if (!$item) return;
 
                                             $keyFilePath = storage_path('app/google-credentials.json');
@@ -628,19 +676,20 @@ class FolderResource extends Resource
                                                 $subject = $item->parseSupplierEmailSubject();
                                                 $body = $item->parseSupplierEmail();
                                                 
-                                                $faxData = $item->product->supplier_fax_header ?? [];
+                                                $targetSupplier = $item->getTargetSupplier();
+                                                $ps = $item->getProductSupplierData();
+
+                                                $faxData = ($ps && $ps->fax_header) ? $ps->fax_header : [];
                                                 if (!is_array($faxData)) $faxData = [];
                                                 
                                                 $writerName = auth()->check() ? auth()->user()->name : 'Takada Travel';
                                                 $writerEmail = auth()->check() ? auth()->user()->email : 'resa@kansai-guide.com';
 
-                                                // Données de l'Expéditeur
                                                 $fComp = $faxData['from_company'] ?? 'TAKADA TRAVEL合同会社';
                                                 $fAddr = $faxData['from_address'] ?? "〒532-0012大阪市淀川区木川東3丁目1-23";
                                                 $fCont = str_replace('[NOM_AGENT]', $writerName, $faxData['from_contact'] ?? '担当者： [NOM_AGENT]');
                                                 $fMail = str_replace('[EMAIL_AGENT]', $writerEmail, $faxData['from_mail'] ?? 'MAIL : [EMAIL_AGENT]');
                                                 
-                                                // Conservation du 0 pour les numéros de l'expéditeur
                                                 $fTelRaw = $faxData['from_tel'] ?? '06-6195-9799';
                                                 $fFaxRaw = $faxData['from_fax'] ?? '06-6195-9921';
                                                 $fTel = str_starts_with($fTelRaw, '0') ? "'" . $fTelRaw : $fTelRaw;
@@ -648,18 +697,16 @@ class FolderResource extends Resource
 
                                                 $currentDate = now()->format('Y/m/d');
                                                 
-                                                // Données du Destinataire (Conservation du 0 forcée par l'apostrophe textuelle)
-                                                $h1 = $faxData['to_company_name'] ?? ($item->product->supplier->name ?? '');
+                                                $h1 = $faxData['to_company_name'] ?? ($targetSupplier->name ?? '');
                                                 $h2 = $faxData['to_contact_name'] ?? 'ご担当者様';
                                                 
-                                                $sTelRaw = $faxData['to_tel'] ?? ($item->product->supplier->phone ?? '');
-                                                $sFaxRaw = $faxData['to_fax'] ?? ($item->product->supplier->phone ?? '');
+                                                $sTelRaw = $faxData['to_tel'] ?? ($targetSupplier->phone ?? '');
+                                                $sFaxRaw = $faxData['to_fax'] ?? ($targetSupplier->fax ?? '');
                                                 $sTel = str_starts_with($sTelRaw, '0') ? "'" . $sTelRaw : $sTelRaw;
                                                 $sFax = str_starts_with($sFaxRaw, '0') ? "'" . $sFaxRaw : $sFaxRaw;
 
                                                 $filename = "FAX_" . \Illuminate\Support\Str::slug($item->product->name ?? 'supplier') . "_" . now()->format('Ymd_His');
 
-                                                // 1. CRÉATION DU FICHIER DIRECTEMENT DANS LE DOSSIER PARTAGÉ D'ENTREPRISE
                                                 $fileMetadata = new \Google\Service\Drive\DriveFile([
                                                     'name' => $filename,
                                                     'mimeType' => 'application/vnd.google-apps.spreadsheet',
@@ -676,41 +723,37 @@ class FolderResource extends Resource
                                                 $spreadsheet = $serviceSheets->spreadsheets->get($spreadsheetId);
                                                 $sheetId = $spreadsheet->sheets[0]->properties->sheetId;
 
-                                                // 2. INJECTION DU TEXTE DANS LA GRILLE (Le mot 敬具 est réintégré à la ligne 17)
                                                 $values = [
-                                                    ['', 'FAX', '', '', '', '', '', '', ''], // Row 1
-                                                    ['', '', '', '', '', '', '', '', ''], // Row 2
-                                                    ['', '', '', '', '', '', $currentDate, '', ''], // Row 3
-                                                    ['', '', '', '', '', '', '', '', ''], // Row 4
-                                                    ['送付先：', '', '', '', '', '', '発信元：', '', ''], // Row 5
-                                                    [$h1, '', '', '', '', '', $fComp, '', ''], // Row 6
-                                                    [$h2, '', '', '', '', '', $fAddr, '', ''], // Row 7
-                                                    ['', '', '', '', '', '', $fCont, '', ''], // Row 8
-                                                    ['', '', '', '', '', '', $fMail, '', ''], // Row 9
-                                                    ['TEL：', $sTel, '', '', '', '', "TEL：{$fTel}", '', ''], // Row 10
-                                                    ['FAX：', $sFax, '', '', '', '', "FAX：{$fFax}", '', ''], // Row 11
-                                                    ['', '', '', '', '', '', '', '', ''], // Row 12
-                                                    ['件名：', $subject, '', '', '', '', '', '', ''], // Row 13
-                                                    [$body, '', '', '', '', '', '', '', ''], // Row 14
-                                                    ['', '', '', '', '', '', '', '', ''], // Row 15
-                                                    ['', '', '', '', '', '', '', '', ''], // Row 16
-                                                    ['', '', '', '', '', '', '', '', '敬具'], // Row 17
+                                                    ['', 'FAX', '', '', '', '', '', '', ''],
+                                                    ['', '', '', '', '', '', '', '', ''],
+                                                    ['', '', '', '', '', '', $currentDate, '', ''],
+                                                    ['', '', '', '', '', '', '', '', ''],
+                                                    ['送付先：', '', '', '', '', '', '発信元：', '', ''],
+                                                    [$h1, '', '', '', '', '', $fComp, '', ''],
+                                                    [$h2, '', '', '', '', '', $fAddr, '', ''],
+                                                    ['', '', '', '', '', '', $fCont, '', ''],
+                                                    ['', '', '', '', '', '', $fMail, '', ''],
+                                                    ['TEL：', $sTel, '', '', '', '', "TEL：{$fTel}", '', ''],
+                                                    ['FAX：', $sFax, '', '', '', '', "FAX：{$fFax}", '', ''],
+                                                    ['', '', '', '', '', '', '', '', ''],
+                                                    ['件名：', $subject, '', '', '', '', '', '', ''],
+                                                    [$body, '', '', '', '', '', '', '', ''],
+                                                    ['', '', '', '', '', '', '', '', ''],
+                                                    ['', '', '', '', '', '', '', '', ''],
+                                                    ['', '', '', '', '', '', '', '', '敬具'],
                                                 ];
 
                                                 $bodyObj = new \Google\Service\Sheets\ValueRange(['values' => $values]);
                                                 $params = ['valueInputOption' => 'USER_ENTERED'];
                                                 $serviceSheets->spreadsheets_values->update($spreadsheetId, 'A1:I17', $bodyObj, $params);
 
-                                                // 3. APPLICATION DU DESIGN ET DES BORDURES EXACTES
                                                 $requests = [
-                                                    // Supprimer la grille de fond
                                                     [
                                                         'updateSheetProperties' => [
                                                             'properties' => ['sheetId' => $sheetId, 'gridProperties' => ['hideGridlines' => true]],
                                                             'fields' => 'gridProperties.hideGridlines'
                                                         ]
                                                     ],
-                                                    // Typographie globale (Police Arial, Taille 18 comme dans l'Excel)
                                                     [
                                                         'repeatCell' => [
                                                             'range' => ['sheetId' => $sheetId, 'startRowIndex' => 0, 'endRowIndex' => 20, 'startColumnIndex' => 0, 'endColumnIndex' => 10],
@@ -718,7 +761,6 @@ class FolderResource extends Resource
                                                             'fields' => 'userEnteredFormat.textFormat'
                                                         ]
                                                     ],
-                                                    // Redimensionnement des colonnes
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 0, 'endIndex' => 1], 'properties' => ['pixelSize' => 100], 'fields' => 'pixelSize']],
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 1, 'endIndex' => 2], 'properties' => ['pixelSize' => 110], 'fields' => 'pixelSize']],
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 2, 'endIndex' => 5], 'properties' => ['pixelSize' => 100], 'fields' => 'pixelSize']],
@@ -727,16 +769,13 @@ class FolderResource extends Resource
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 7, 'endIndex' => 8], 'properties' => ['pixelSize' => 70], 'fields' => 'pixelSize']],
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 8, 'endIndex' => 9], 'properties' => ['pixelSize' => 170], 'fields' => 'pixelSize']],
                                                     
-                                                    // Hauteurs de ligne 
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => 0, 'endIndex' => 1], 'properties' => ['pixelSize' => 55], 'fields' => 'pixelSize']],
                                                     ['updateDimensionProperties' => ['range' => ['sheetId' => $sheetId, 'dimension' => 'ROWS', 'startIndex' => 6, 'endIndex' => 7], 'properties' => ['pixelSize' => 42], 'fields' => 'pixelSize']],
                                                     
-                                                    // Fusions de cellules
-                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 2, 'endRowIndex' => 3, 'startColumnIndex' => 6, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Date
-                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 1, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Sujet
-                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']], // Corps du texte
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 2, 'endRowIndex' => 3, 'startColumnIndex' => 6, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']],
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 1, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']],
+                                                    ['mergeCells' => ['range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9], 'mergeType' => 'MERGE_ALL']],
                                                     
-                                                    // BORDURES CAHIER : Sous chaque ligne de contact (Index 5 à 10 inclus)
                                                     [
                                                         'updateBorders' => [
                                                             'range' => ['sheetId' => $sheetId, 'startRowIndex' => 5, 'endRowIndex' => 11, 'startColumnIndex' => 0, 'endColumnIndex' => 5],
@@ -751,16 +790,12 @@ class FolderResource extends Resource
                                                             'bottom' => ['style' => 'SOLID']
                                                         ]
                                                     ],
-                                                    
-                                                    // Bordure sous le Sujet
                                                     [
                                                         'updateBorders' => [
                                                             'range' => ['sheetId' => $sheetId, 'startRowIndex' => 12, 'endRowIndex' => 13, 'startColumnIndex' => 1, 'endColumnIndex' => 9],
                                                             'bottom' => ['style' => 'SOLID']
                                                         ]
                                                     ],
-
-                                                    // Grand Cadre noir pour le Message (A14:I14 uniquement pour s'arrêter juste au-dessus du footer)
                                                     [
                                                         'updateBorders' => [
                                                             'range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
@@ -770,36 +805,26 @@ class FolderResource extends Resource
                                                             'right' => ['style' => 'SOLID'],
                                                         ]
                                                     ],
-
-                                                    // Style du texte B1 ("FAX") (Taille 24 + Gras + Libre Franklin)
                                                     ['repeatCell' => [
                                                         'range' => ['sheetId' => $sheetId, 'startRowIndex' => 0, 'endRowIndex' => 1, 'startColumnIndex' => 1, 'endColumnIndex' => 2],
                                                         'cell' => ['userEnteredFormat' => ['textFormat' => ['fontFamily' => 'Libre Franklin', 'fontSize' => 24, 'bold' => true]]],
                                                         'fields' => 'userEnteredFormat.textFormat'
                                                     ]],
-
-                                                    // Retour à la ligne pour le corps du texte (WrapText)
                                                     ['repeatCell' => [
                                                         'range' => ['sheetId' => $sheetId, 'startRowIndex' => 13, 'endRowIndex' => 14, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
                                                         'cell' => ['userEnteredFormat' => ['wrapStrategy' => 'WRAP', 'verticalAlignment' => 'TOP']],
                                                         'fields' => 'userEnteredFormat(wrapStrategy,verticalAlignment)'
                                                     ]],
-
-                                                    // Alignement à droite pour la date
                                                     ['repeatCell' => [
                                                         'range' => ['sheetId' => $sheetId, 'startRowIndex' => 2, 'endRowIndex' => 3, 'startColumnIndex' => 6, 'endColumnIndex' => 9],
                                                         'cell' => ['userEnteredFormat' => ['horizontalAlignment' => 'RIGHT']],
                                                         'fields' => 'userEnteredFormat.horizontalAlignment'
                                                     ]],
-
-                                                    // Alignement à droite pour '敬具' (I17)
                                                     ['repeatCell' => [
                                                         'range' => ['sheetId' => $sheetId, 'startRowIndex' => 16, 'endRowIndex' => 17, 'startColumnIndex' => 8, 'endColumnIndex' => 9],
                                                         'cell' => ['userEnteredFormat' => ['horizontalAlignment' => 'RIGHT']],
                                                         'fields' => 'userEnteredFormat.horizontalAlignment'
                                                     ]],
-
-                                                    // Mises en gras (titres expéditeur/dest/sujet)
                                                     ['repeatCell' => [
                                                         'range' => ['sheetId' => $sheetId, 'startRowIndex' => 4, 'endRowIndex' => 6, 'startColumnIndex' => 0, 'endColumnIndex' => 9],
                                                         'cell' => ['userEnteredFormat' => ['textFormat' => ['bold' => true]]],
@@ -815,7 +840,6 @@ class FolderResource extends Resource
                                                 $batchUpdateRequest = new \Google\Service\Sheets\BatchUpdateSpreadsheetRequest(['requests' => $requests]);
                                                 $serviceSheets->spreadsheets->batchUpdate($spreadsheetId, $batchUpdateRequest);
 
-                                                // 4. RÉGLAGE DES PERMISSIONS AVEC SUPPORTSALLDRIVES
                                                 $permission = new \Google\Service\Drive\Permission([
                                                     'type' => 'anyone',
                                                     'role' => 'writer'
@@ -824,7 +848,6 @@ class FolderResource extends Resource
                                                     'supportsAllDrives' => true 
                                                 ]);
 
-                                                // 5. OUVERTURE DANS UN NOUVEL ONGLET
                                                 $url = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/edit";
                                                 $component->getLivewire()->js("window.open('{$url}', '_blank')");
 
@@ -839,6 +862,50 @@ class FolderResource extends Resource
                                 ])
                                 ->schema([
                                     Group::make()->schema([
+                                        // 💡 MODIFICATION CLÉ ICI :
+                                        // 1. Requis uniquement s'il y a > 1 fournisseur
+                                        // 2. Hydratation automatique pour les anciennes données
+                                        Select::make('supplier_id')
+                                            ->label(__('Fournisseur de la prestation'))
+                                            ->options(function ($get) {
+                                                $productId = $get('product_id'); 
+                                                if (!$productId) return [];
+                                                return \App\Models\ProductSupplier::where('product_id', $productId)
+                                                    ->with('supplier')
+                                                    ->get()
+                                                    ->pluck('supplier.name', 'supplier_id');
+                                            })
+                                            ->required(function (Get $get) {
+                                                $productId = $get('product_id');
+                                                if (!$productId) return false;
+                                                return \App\Models\ProductSupplier::where('product_id', $productId)->count() > 1;
+                                            })
+                                            ->afterStateHydrated(function ($state, callable $set, callable $get) {
+                                                if (!$state && $get('product_id')) {
+                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $get('product_id'))->pluck('supplier_id')->toArray();
+                                                    if (count($suppliers) === 1) {
+                                                        $set('supplier_id', $suppliers[0]);
+                                                    }
+                                                }
+                                            })
+                                            ->searchable()
+                                            ->preload()
+                                            ->live()
+                                            ->validationMessages([
+                                                'required' => __('Veuillez impérativement sélectionner un fournisseur pour cette prestation.'),
+                                            ])
+                                            ->hint(function ($get) {
+                                                $productId = $get('product_id');
+                                                if ($productId && !$get('supplier_id')) {
+                                                    $count = \App\Models\ProductSupplier::where('product_id', $productId)->count();
+                                                    if ($count > 1) {
+                                                        return new \Illuminate\Support\HtmlString('<span style="color:red; font-weight:bold;">⚠️ Sélection requise</span>');
+                                                    }
+                                                }
+                                                return null;
+                                            })
+                                            ->columnSpan(4),
+
                                         Select::make('product_id')
                                             ->relationship('product', 'name')
                                             ->label(__('Produit / Activité'))
@@ -850,6 +917,14 @@ class FolderResource extends Resource
                                                 if ($state !== $old) {
                                                     $set('selected_options', []); 
                                                     $set('custom_values', []); 
+                                                    
+                                                    // Auto-sélection du fournisseur s'il n'y en a qu'un
+                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $state)->pluck('supplier_id')->toArray();
+                                                    if (count($suppliers) === 1) {
+                                                        $set('supplier_id', $suppliers[0]);
+                                                    } else {
+                                                        $set('supplier_id', null);
+                                                    }
                                                 }
                                                 self::updateItemPrices($set, $get);
                                             })
@@ -865,8 +940,8 @@ class FolderResource extends Resource
                                                 ['name' => 'En attente de validation'],
                                                 ['color' => 'warning']
                                             )->id)
-                                            ->columnSpan(2),
-                                    ])->columns(6),
+                                            ->columnSpan(4),
+                                    ])->columns(12),
 
                                     Group::make()->schema([
                                         DatePicker::make('service_date')

@@ -34,7 +34,7 @@ class Product extends Model
         'custom_field_definitions' => 'array',
         'is_lottery' => 'boolean',
         'is_on_demand' => 'boolean',
-        'supplier_fax_header' => 'array', // 💡 AJOUT : Permet de stocker la grille proprement
+        'supplier_fax_header' => 'array',
     ];
 
     public function supplier()
@@ -55,5 +55,10 @@ class Product extends Model
     public function productOptions()
     {
         return $this->hasMany(ProductOption::class);
+    }
+
+    public function productSuppliers()
+    {
+        return $this->hasMany(ProductSupplier::class);
     }
 }
