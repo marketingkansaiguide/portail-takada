@@ -10,12 +10,13 @@ class FolderItem extends Model
 {
     protected $fillable = [
         'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
-        'service_date', 'quantity', 'unit_price', 'total_price', 'custom_values', 
+        'service_date', 'quantity', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values', 
         'selected_options',
     ];
 
     protected $casts = [
         'service_date' => 'date', 'quantity' => 'integer',
+        'purchase_unit_price' => 'integer', 'purchase_total_price' => 'integer',
         'unit_price' => 'integer', 'total_price' => 'integer', 
         'custom_values' => 'array', 'selected_options' => 'array',
     ];
@@ -30,7 +31,6 @@ class FolderItem extends Model
                 ->where('supplier_id', $this->supplier_id)
                 ->first();
         }
-        // Fallback sécurisé vers le premier fournisseur rattaché
         return \App\Models\ProductSupplier::where('product_id', $this->product_id)->first();
     }
 
@@ -335,6 +335,8 @@ class FolderItem extends Model
             foreach ($this->custom_values as $key => $val) {
                 if (is_bool($val)) {
                     $userValue = $val ? __('Oui') : __('Non');
+                } elseif (is_array($val)) {
+                    $userValue = implode(', ', $val);
                 } elseif (empty($val) && $val !== 0 && $val !== '0') {
                     $userValue = '';
                 } else {
@@ -414,8 +416,10 @@ class FolderItem extends Model
                         'supplier_id' => 'Fournisseur',
                         'service_date' => 'Date de service',
                         'quantity' => 'Quantité',
-                        'unit_price' => 'Prix unitaire',
-                        'total_price' => 'Prix total',
+                        'purchase_unit_price' => 'Prix d\'achat unitaire',
+                        'purchase_total_price' => 'Prix d\'achat total',
+                        'unit_price' => 'Prix de vente unitaire',
+                        'total_price' => 'Prix de vente total',
                         'selected_options' => 'Options sélectionnées',
                     ];
 
@@ -432,8 +436,14 @@ class FolderItem extends Model
                             $allKeys = array_unique(array_merge(array_keys($oldCustom), array_keys($newCustom)));
 
                             foreach ($allKeys as $k) {
-                                $oldV = isset($oldCustom[$k]) ? (is_bool($oldCustom[$k]) ? ($oldCustom[$k] ? 'Oui' : 'Non') : (string)$oldCustom[$k]) : 'Vide';
-                                $newV = isset($newCustom[$k]) ? (is_bool($newCustom[$k]) ? ($newCustom[$k] ? 'Oui' : 'Non') : (string)$newCustom[$k]) : 'Vide';
+                                $oVal = isset($oldCustom[$k]) ? $oldCustom[$k] : 'Vide';
+                                $nVal = isset($newCustom[$k]) ? $newCustom[$k] : 'Vide';
+
+                                if (is_array($oVal)) $oVal = implode(', ', $oVal);
+                                if (is_array($nVal)) $nVal = implode(', ', $nVal);
+
+                                $oldV = is_bool($oVal) ? ($oVal ? 'Oui' : 'Non') : (string)$oVal;
+                                $newV = is_bool($nVal) ? ($nVal ? 'Oui' : 'Non') : (string)$nVal;
 
                                 if ($oldV === '') $oldV = 'Vide';
                                 if ($newV === '') $newV = 'Vide';
@@ -473,8 +483,8 @@ class FolderItem extends Model
                             continue;
                         }
 
-                        $oldString = $oldValue !== null && $oldValue !== '' ? (string)$oldValue : 'Non renseigné';
-                        $newString = $newValue !== null && $newValue !== '' ? (string)$newValue : 'Vide';
+                        $oldString = is_array($oldValue) ? json_encode($oldValue) : ($oldValue !== null && $oldValue !== '' ? (string)$oldValue : 'Non renseigné');
+                        $newString = is_array($newValue) ? json_encode($newValue) : ($newValue !== null && $newValue !== '' ? (string)$newValue : 'Vide');
                         $changesText[] = "• {$labels[$key]} : '{$oldString}' ➔ '{$newString}'";
                     }
 

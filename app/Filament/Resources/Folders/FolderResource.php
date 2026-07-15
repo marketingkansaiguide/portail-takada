@@ -29,8 +29,6 @@ use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn; 
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 
 class FolderResource extends Resource
 {
@@ -79,12 +77,18 @@ class FolderResource extends Resource
     public static function updateFolderTotal($set, $get)
     {
         $items = $get('folderItems') ?? [];
-        $total = 0;
+        $totalSale = 0;
+        $totalPurchase = 0;
+        
         foreach ($items as $item) {
-            $total += (float) ($item['total_price'] ?? 0);
+            $totalSale += (float) ($item['total_price'] ?? 0);
+            $totalPurchase += (float) ($item['purchase_total_price'] ?? 0);
         }
+        
         $fee = (float) ($get('folder_fee') ?? 0);
-        $set('total_price', $total + $fee);
+        
+        $set('total_price', $totalSale + $fee);
+        // Note: La marge est calculée à la volée dans le Placeholder
     }
 
     public static function updateItemPrices($set, $get)
@@ -94,15 +98,9 @@ class FolderResource extends Resource
         $itemQuantity = (int) ($get('quantity') ?? 1);
         $selectedOptions = $get('selected_options') ?? [];
 
-        if (!$productId) {
-            return;
-        }
-
-        $product = \App\Models\Product::find($productId);
-        if (!$product) return;
-
+        // --- 1. CALCUL DU PRIX DE VENTE ---
         $basePrice = 0;
-        if ($serviceDate) {
+        if ($productId && $serviceDate) {
             $date = Carbon::parse($serviceDate);
             $period = \App\Models\ProductPeriod::where('product_id', $productId)
                 ->whereDate('start_date', '<=', $date)
@@ -141,21 +139,15 @@ class FolderResource extends Resource
             }
         }
 
-        $legacyOptionId = $get('product_option_id');
-        if ($legacyOptionId && empty($selectedOptions)) {
-            $option = \App\Models\ProductOption::find($legacyOptionId);
-            if ($option) {
-                $mod = (float) $option->price_modifier;
-                if ($option->billing_type === 'per_pax') $perPaxOptionsTotal += $mod;
-                elseif ($option->billing_type === 'per_booking') $fixedOptionsTotal += $mod;
-            }
-        }
-
         $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
         $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
 
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
+
+        // --- 2. CALCUL DU PRIX D'ACHAT ---
+        $purchaseUnitPrice = (float) ($get('purchase_unit_price') ?? 0);
+        $set('purchase_total_price', $purchaseUnitPrice * $itemQuantity);
     }
 
     public static function form(Schema $schema): Schema
@@ -188,11 +180,11 @@ class FolderResource extends Resource
                                 ->searchable()
                                 ->preload()
                                 ->live()
-                                ->afterStateUpdated(fn (Set $set) => $set('main_seller_id', null)),
+                                ->afterStateUpdated(fn ($set) => $set('main_seller_id', null)),
 
                             Select::make('main_seller_id')
                                 ->label(__('Vendeur principal'))
-                                ->options(function (Get $get) {
+                                ->options(function ($get) {
                                     $agencyId = $get('agency_id');
                                     if (!$agencyId) return \App\Models\User::pluck('name', 'id');
                                     return \App\Models\User::where('agency_id', $agencyId)->pluck('name', 'id');
@@ -205,7 +197,7 @@ class FolderResource extends Resource
                                 ->label(__('Composition : Adultes'))
                                 ->readOnly()
                                 ->dehydrated(true)
-                                ->mutateDehydratedStateUsing(function (Get $get) {
+                                ->mutateDehydratedStateUsing(function ($state, $get) {
                                     $passengers = $get('folderPassengers') ?? [];
                                     $startDate = $get('start_date');
                                     $adults = 0;
@@ -226,7 +218,7 @@ class FolderResource extends Resource
                                 ->label(__('Composition : Enfants'))
                                 ->readOnly()
                                 ->dehydrated(true)
-                                ->mutateDehydratedStateUsing(function (Get $get) {
+                                ->mutateDehydratedStateUsing(function ($state, $get) {
                                     $passengers = $get('folderPassengers') ?? [];
                                     $startDate = $get('start_date');
                                     $children = 0;
@@ -257,14 +249,14 @@ class FolderResource extends Resource
                                 ->label(__('Précisez le lieu d\'envoi'))
                                 ->placeholder('Ex: Agence locale, Aéroport...')
                                 ->required()
-                                ->visible(fn (Get $get) => $get('ticket_dispatch_method') === 'autre'),
+                                ->visible(fn ($get) => $get('ticket_dispatch_method') === 'autre'),
 
                             Repeater::make('contact_phones')
                                 ->label(__('Numéros de téléphone de contact'))
                                 ->addActionLabel(__('Ajouter un numéro de contact'))
                                 ->schema([
                                     TextInput::make('phone')
-                                        ->label('')
+                                        ->hiddenLabel()
                                         ->tel()
                                         ->required()
                                         ->placeholder('+33 6...'),
@@ -284,8 +276,8 @@ class FolderResource extends Resource
                             DatePicker::make('first_hotel_check_in')
                                 ->label(__('Date de check-in du 1er hôtel'))
                                 ->live()
-                                ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
-                                ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                                ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                                ->maxDate(fn ($get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
                                 ->afterOrEqual('start_date')
                                 ->beforeOrEqual('end_date')
                                 ->validationMessages([
@@ -323,7 +315,7 @@ class FolderResource extends Resource
                                     ->validationMessages([
                                         'after_or_equal' => __('Le départ doit être après ou le jour de l\'arrivée.'),
                                     ])
-                                    ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
+                                    ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
                             ])->columns(2),
 
                             Textarea::make('flight_info')
@@ -358,7 +350,7 @@ class FolderResource extends Resource
                                 Hidden::make('total_price')
                                     ->default(0)
                                     ->dehydrated(true)
-                                    ->mutateDehydratedStateUsing(function (Get $get) {
+                                    ->mutateDehydratedStateUsing(function ($state, $get) {
                                         $items = $get('folderItems') ?? [];
                                         $total = 0;
                                         foreach ($items as $item) {
@@ -367,10 +359,24 @@ class FolderResource extends Resource
                                         $fee = (float) ($get('folder_fee') ?? 0);
                                         return $total + $fee;
                                     }),
+                            ])->columns(1),
+
+                            // 💡 NOUVEAU BLOC : AFFICHAGE DE L'ACHAT, DE LA VENTE ET DE LA MARGE
+                            Group::make()->schema([
+                                Placeholder::make('total_purchase_price_display')
+                                    ->label(__('Coût d\'achat (Total)'))
+                                    ->content(function ($get) {
+                                        $items = $get('folderItems') ?? [];
+                                        $total = 0;
+                                        foreach ($items as $item) {
+                                            $total += (float) ($item['purchase_total_price'] ?? 0);
+                                        }
+                                        return number_format($total, 0, '.', ' ') . ' ¥';
+                                    }),
 
                                 Placeholder::make('total_price_display')
-                                    ->label(__('Montant total (¥)'))
-                                    ->content(function (Get $get) {
+                                    ->label(__('Prix de vente (Total)'))
+                                    ->content(function ($get) {
                                         $items = $get('folderItems') ?? [];
                                         $total = 0;
                                         foreach ($items as $item) {
@@ -381,7 +387,32 @@ class FolderResource extends Resource
                                         
                                         return number_format($finalTotal, 0, '.', ' ') . ' ¥';
                                     }),
-                            ])->columns(2),
+
+                                Placeholder::make('margin_display')
+                                    ->label(__('Marge Brute'))
+                                    ->content(function ($get) {
+                                        $items = $get('folderItems') ?? [];
+                                        $totalSale = 0;
+                                        $totalPurchase = 0;
+                                        foreach ($items as $item) {
+                                            $totalSale += (float) ($item['total_price'] ?? 0);
+                                            $totalPurchase += (float) ($item['purchase_total_price'] ?? 0);
+                                        }
+                                        $fee = (float) ($get('folder_fee') ?? 0);
+                                        $finalSale = $totalSale + $fee;
+
+                                        $margin = $finalSale - $totalPurchase;
+                                        $marginRate = $finalSale > 0 ? ($margin / $finalSale) * 100 : 0;
+
+                                        $color = $margin >= 0 ? '#16a34a' : '#dc2626';
+
+                                        return new \Illuminate\Support\HtmlString(
+                                            "<span style='font-weight:bold; font-size:1.1rem; color: {$color};'>" .
+                                            number_format($margin, 0, '.', ' ') . " ¥ (" . number_format($marginRate, 2, '.', '') . "%)" .
+                                            "</span>"
+                                        );
+                                    }),
+                            ])->columns(3),
                         ]),
                 ])->columnSpan(['lg' => 1]),
 
@@ -433,7 +464,7 @@ class FolderResource extends Resource
                                             ->label(__('Date de naissance'))
                                             ->required()
                                             ->live()
-                                            ->maxDate(fn (Get $get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : now()->endOfDay())
+                                            ->maxDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : now()->endOfDay())
                                             ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
 
                                         TextInput::make('nationality')
@@ -568,7 +599,10 @@ class FolderResource extends Resource
                                             $item = \App\Models\FolderItem::with(['product', 'folder.folderPassengers', 'productOption'])->find($itemData['id']);
                                             
                                             if ($item) {
+                                                $item->supplier_id = $itemData['supplier_id'] ?? $item->supplier_id;
+                                                $item->product_id = $itemData['product_id'] ?? $item->product_id;
                                                 $item->quantity = $itemData['quantity'] ?? $item->quantity;
+                                                
                                                 if (!empty($itemData['service_date'])) {
                                                     $item->service_date = Carbon::parse($itemData['service_date']);
                                                 }
@@ -604,6 +638,8 @@ class FolderResource extends Resource
 
                                             $item = \App\Models\FolderItem::with(['product', 'folder'])->find($itemData['id'] ?? null);
                                             if (!$item) return;
+
+                                            $item->supplier_id = $itemData['supplier_id'] ?? $item->supplier_id;
 
                                             $targetSupplier = $item->getTargetSupplier();
                                             $supplierEmail = $targetSupplier ? $targetSupplier->email : '';
@@ -652,6 +688,15 @@ class FolderResource extends Resource
                                             
                                             $item = \App\Models\FolderItem::with(['product', 'folder'])->find($itemData['id']);
                                             if (!$item) return;
+
+                                            $item->supplier_id = $itemData['supplier_id'] ?? $item->supplier_id;
+                                            $item->product_id = $itemData['product_id'] ?? $item->product_id;
+                                            $item->quantity = $itemData['quantity'] ?? $item->quantity;
+                                            if (!empty($itemData['service_date'])) {
+                                                $item->service_date = Carbon::parse($itemData['service_date']);
+                                            }
+                                            $item->selected_options = $itemData['selected_options'] ?? $item->selected_options ?? [];
+                                            $item->custom_values = $itemData['custom_values'] ?? $item->custom_values ?? [];
 
                                             $keyFilePath = storage_path('app/google-credentials.json');
                                             if (!file_exists($keyFilePath)) {
@@ -862,46 +907,41 @@ class FolderResource extends Resource
                                 ])
                                 ->schema([
                                     Group::make()->schema([
-                                        // 💡 MODIFICATION CLÉ ICI :
-                                        // 1. Requis uniquement s'il y a > 1 fournisseur
-                                        // 2. Hydratation automatique pour les anciennes données
                                         Select::make('supplier_id')
                                             ->label(__('Fournisseur de la prestation'))
                                             ->options(function ($get) {
-                                                $productId = $get('product_id'); 
-                                                if (!$productId) return [];
-                                                return \App\Models\ProductSupplier::where('product_id', $productId)
-                                                    ->with('supplier')
-                                                    ->get()
-                                                    ->pluck('supplier.name', 'supplier_id');
+                                                try {
+                                                    $productId = $get('product_id'); 
+                                                    if (!$productId) return [];
+                                                    return \App\Models\ProductSupplier::where('product_id', $productId)
+                                                        ->with('supplier')
+                                                        ->get()
+                                                        ->pluck('supplier.name', 'supplier_id');
+                                                } catch (\Exception $e) { return []; }
                                             })
-                                            ->required(function (Get $get) {
-                                                $productId = $get('product_id');
-                                                if (!$productId) return false;
-                                                return \App\Models\ProductSupplier::where('product_id', $productId)->count() > 1;
-                                            })
-                                            ->afterStateHydrated(function ($state, callable $set, callable $get) {
-                                                if (!$state && $get('product_id')) {
-                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $get('product_id'))->pluck('supplier_id')->toArray();
-                                                    if (count($suppliers) === 1) {
-                                                        $set('supplier_id', $suppliers[0]);
+                                            ->afterStateHydrated(function ($component, $state, $get) {
+                                                try {
+                                                    if (!$state && $get('product_id')) {
+                                                        $suppliers = \App\Models\ProductSupplier::where('product_id', $get('product_id'))->pluck('supplier_id')->toArray();
+                                                        if (count($suppliers) === 1) {
+                                                            $component->state($suppliers[0]);
+                                                        }
                                                     }
-                                                }
+                                                } catch (\Exception $e) {}
                                             })
                                             ->searchable()
                                             ->preload()
                                             ->live()
-                                            ->validationMessages([
-                                                'required' => __('Veuillez impérativement sélectionner un fournisseur pour cette prestation.'),
-                                            ])
                                             ->hint(function ($get) {
-                                                $productId = $get('product_id');
-                                                if ($productId && !$get('supplier_id')) {
-                                                    $count = \App\Models\ProductSupplier::where('product_id', $productId)->count();
-                                                    if ($count > 1) {
-                                                        return new \Illuminate\Support\HtmlString('<span style="color:red; font-weight:bold;">⚠️ Sélection requise</span>');
+                                                try {
+                                                    $productId = $get('product_id');
+                                                    if ($productId && !$get('supplier_id')) {
+                                                        $count = \App\Models\ProductSupplier::where('product_id', $productId)->count();
+                                                        if ($count > 1) {
+                                                            return new \Illuminate\Support\HtmlString('<span style="color:red; font-weight:bold;">⚠️ Sélection requise pour générer les documents</span>');
+                                                        }
                                                     }
-                                                }
+                                                } catch (\Exception $e) {}
                                                 return null;
                                             })
                                             ->columnSpan(4),
@@ -918,11 +958,14 @@ class FolderResource extends Resource
                                                     $set('selected_options', []); 
                                                     $set('custom_values', []); 
                                                     
-                                                    // Auto-sélection du fournisseur s'il n'y en a qu'un
-                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $state)->pluck('supplier_id')->toArray();
-                                                    if (count($suppliers) === 1) {
-                                                        $set('supplier_id', $suppliers[0]);
-                                                    } else {
+                                                    try {
+                                                        $suppliers = \App\Models\ProductSupplier::where('product_id', $state)->pluck('supplier_id')->toArray();
+                                                        if (count($suppliers) === 1) {
+                                                            $set('supplier_id', $suppliers[0]);
+                                                        } else {
+                                                            $set('supplier_id', null);
+                                                        }
+                                                    } catch (\Exception $e) {
                                                         $set('supplier_id', null);
                                                     }
                                                 }
@@ -943,6 +986,7 @@ class FolderResource extends Resource
                                             ->columnSpan(4),
                                     ])->columns(12),
 
+                                    // 💡 NOUVELLE GRILLE INCLUANT LES PRIX D'ACHAT
                                     Group::make()->schema([
                                         DatePicker::make('service_date')
                                             ->label(__('Date'))
@@ -950,7 +994,8 @@ class FolderResource extends Resource
                                             ->live()
                                             ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
                                             ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                            ->columnSpan(1),
 
                                         TextInput::make('quantity')
                                             ->label(__('Total Pax'))
@@ -958,22 +1003,45 @@ class FolderResource extends Resource
                                             ->default(1)
                                             ->required()
                                             ->live()
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get)),
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                            ->columnSpan(1),
 
-                                        TextInput::make('unit_price')
-                                            ->label(__('Prix Unit. (¥)'))
+                                        // --- LIGNES D'ACHAT ---
+                                        TextInput::make('purchase_unit_price')
+                                            ->label(__('Achat Unit. (¥)'))
                                             ->numeric()
+                                            ->default(0)
+                                            ->live()
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                            ->columnSpan(1),
+
+                                        TextInput::make('purchase_total_price')
+                                            ->label(__('Total Achat (¥)'))
+                                            ->numeric()
+                                            ->default(0)
+                                            ->readOnly()
+                                            ->dehydrated()
+                                            ->columnSpan(1),
+
+                                        // --- LIGNES DE VENTE ---
+                                        TextInput::make('unit_price')
+                                            ->label(__('Vente Unit. (¥)'))
+                                            ->numeric()
+                                            ->default(0) 
                                             ->readOnly() 
                                             ->dehydrated()
-                                            ->required(),
+                                            ->required(false)
+                                            ->columnSpan(1),
 
                                         TextInput::make('total_price')
-                                            ->label(__('Total Net (¥)'))
+                                            ->label(__('Total Vente (¥)'))
                                             ->numeric()
+                                            ->default(0) 
                                             ->readOnly() 
                                             ->dehydrated()
-                                            ->required(),
-                                    ])->columns(4),
+                                            ->required(false)
+                                            ->columnSpan(1),
+                                    ])->columns(6),
 
                                     Repeater::make('selected_options')
                                         ->label(__('Options Sélectionnées'))
@@ -1031,9 +1099,17 @@ class FolderResource extends Resource
                                             if (!$product || empty($product->custom_field_definitions)) return [];
 
                                             $fields = [];
-                                            foreach ($product->custom_field_definitions as $def) {
+                                            foreach ($product->custom_field_definitions as $idx => $def) {
                                                 $type = $def['type'] ?? 'text';
-                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                                
+                                                $key = !empty($def['key']) ? trim($def['key']) : '';
+                                                if (empty($key)) {
+                                                    $key = Str::slug($def['name'] ?? 'custom', '_');
+                                                }
+                                                if (empty($key)) {
+                                                    $key = 'custom_field_' . $idx; 
+                                                }
+
                                                 $label = $def['name'] ?? 'Information';
                                                 $placeholder = $def['placeholder'] ?? '';
                                                 $isRequired = $def['is_required'] ?? false;
@@ -1058,7 +1134,7 @@ class FolderResource extends Resource
                                                 };
 
                                                 if ($isRequired && $type !== 'toggle') {
-                                                    $field->required();
+                                                    $field->rules(['required']);
                                                 }
 
                                                 $fields[] = $field;
