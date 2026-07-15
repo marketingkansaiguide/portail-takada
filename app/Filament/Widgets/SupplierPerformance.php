@@ -10,6 +10,7 @@ use App\Models\FolderItem;
 
 class SupplierPerformance extends BaseWidget
 {
+    protected static bool $isLazy = false;
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Volume d\'Affaires par Fournisseur';
 
@@ -70,6 +71,7 @@ class SupplierPerformance extends BaseWidget
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
             ])
-            ->defaultSort('total_ca', 'desc');
+            ->defaultSort('total_ca', 'desc')
+            ->striped();
     }
 }
