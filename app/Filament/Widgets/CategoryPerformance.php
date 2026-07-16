@@ -5,17 +5,24 @@ namespace App\Filament\Widgets;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters; // 💡 Ajout pour les filtres
 use App\Models\Category;
 use App\Models\FolderItem;
 
 class CategoryPerformance extends BaseWidget
 {
+    use InteractsWithPageFilters; // 💡 Activation des filtres
+    protected static bool $isDiscovered = false;
+
     protected static bool $isLazy = false; // 💡 Sécurité anti-crash Windows
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'CA & Rentabilité par Catégorie de prestation';
 
     public function table(Table $table): Table
     {
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
+
         return $table
             ->query(
                 Category::query()
@@ -24,19 +31,25 @@ class CategoryPerformance extends BaseWidget
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')
-                            ->whereIn('folders.status', ['confirmed', 'completed']),
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_ca' => FolderItem::selectRaw('COALESCE(SUM(folder_items.total_price), 0)')
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')
-                            ->whereIn('folders.status', ['confirmed', 'completed']),
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(folder_items.purchase_total_price), 0)')
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')
-                            ->whereIn('folders.status', ['confirmed', 'completed']),
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
                     ])
             )
             ->columns([

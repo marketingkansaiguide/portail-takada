@@ -5,46 +5,57 @@ namespace App\Filament\Widgets;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use App\Models\Agency;
 use App\Models\Folder;
 use App\Models\FolderItem;
 
 class AgencyPerformance extends BaseWidget
 {
+    use InteractsWithPageFilters; 
+
+    protected static bool $isDiscovered = false; 
     protected static bool $isLazy = false;
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Performances & Rentabilité par Agence';
 
     public function table(Table $table): Table
     {
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
+
         return $table
             ->query(
                 Agency::query()
                     ->addSelect([
-                        // Nombre total de dossiers confirmés/terminés pour cette agence
                         'folders_count' => Folder::selectRaw('count(*)')
                             ->whereColumn('agency_id', 'agencies.id')
-                            ->whereIn('status', ['confirmed', 'completed']),
+                            ->whereIn('status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate)),
 
-                        // CA Total (Vente)
                         'total_ca' => Folder::selectRaw('COALESCE(SUM(total_price), 0)')
                             ->whereColumn('agency_id', 'agencies.id')
-                            ->whereIn('status', ['confirmed', 'completed']),
+                            ->whereIn('status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate)),
 
-                        // Coût d'achat total des prestations contenues dans ces dossiers
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(purchase_total_price), 0)')
-                            ->whereIn('folder_id', function ($query) {
+                            ->whereIn('folder_id', function ($query) use ($startDate, $endDate) {
                                 $query->select('id')->from('folders')
                                     ->whereColumn('agency_id', 'agencies.id')
-                                    ->whereIn('status', ['confirmed', 'completed']);
+                                    ->whereIn('status', ['confirmed', 'completed'])
+                                    ->when($startDate, fn ($q) => $q->whereDate('created_at', '>=', $startDate))
+                                    ->when($endDate, fn ($q) => $q->whereDate('created_at', '<=', $endDate));
                             }),
 
-                        // Nombre total de prestations réservées
                         'items_count' => FolderItem::selectRaw('count(*)')
-                            ->whereIn('folder_id', function ($query) {
+                            ->whereIn('folder_id', function ($query) use ($startDate, $endDate) {
                                 $query->select('id')->from('folders')
                                     ->whereColumn('agency_id', 'agencies.id')
-                                    ->whereIn('status', ['confirmed', 'completed']);
+                                    ->whereIn('status', ['confirmed', 'completed'])
+                                    ->when($startDate, fn ($q) => $q->whereDate('created_at', '>=', $startDate))
+                                    ->when($endDate, fn ($q) => $q->whereDate('created_at', '<=', $endDate));
                             }),
                     ])
             )
@@ -71,6 +82,17 @@ class AgencyPerformance extends BaseWidget
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
+                    
+                // 💡 LA NOUVELLE COLONNE : Taux de marge (%)
+                Tables\Columns\TextColumn::make('taux_marge')
+                    ->label('Marge (%)')
+                    ->getStateUsing(function ($record) {
+                        $marge = $record->total_ca - $record->total_purchase;
+                        return $record->total_ca > 0 ? ($marge / $record->total_ca) * 100 : 0;
+                    })
+                    ->numeric(1)
+                    ->suffix('%')
+                    ->color(fn ($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger')),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
                     ->label('Marge Moy. / Dossier')

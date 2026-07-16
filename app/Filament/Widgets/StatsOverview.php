@@ -14,6 +14,7 @@ class StatsOverview extends BaseWidget
     use InteractsWithPageFilters; // 💡 Indispensable !
 
     protected static bool $isLazy = false; 
+    protected static bool $isDiscovered = false;
     protected ?string $pollingInterval = null; 
     protected int | string | array $columnSpan = 'full';
 

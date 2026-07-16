@@ -8,6 +8,7 @@ use App\Models\Folder;
 class PaxDemographicsChart extends ChartWidget
 {
     protected static bool $isLazy = false; 
+    protected static bool $isDiscovered = false;
     protected ?string $heading = 'Répartition Adultes / Enfants';
     protected int | string | array $columnSpan = 1;
     

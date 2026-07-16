@@ -12,6 +12,7 @@ class FolderPerformance extends BaseWidget
 {
     // 💡 Désactivation du Lazy Loading pour Windows
     protected static bool $isLazy = false; 
+    protected static bool $isDiscovered = false;
     
     protected int | string | array $columnSpan = 'full';
     
