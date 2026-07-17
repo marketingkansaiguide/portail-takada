@@ -361,7 +361,6 @@ class FolderResource extends Resource
                                     }),
                             ])->columns(1),
 
-                            // 💡 NOUVEAU BLOC : AFFICHAGE DE L'ACHAT, DE LA VENTE ET DE LA MARGE
                             Group::make()->schema([
                                 Placeholder::make('total_purchase_price_display')
                                     ->label(__('Coût d\'achat (Total)'))
@@ -784,8 +783,6 @@ class FolderResource extends Resource
                                                     ['件名：', $subject, '', '', '', '', '', '', ''],
                                                     [$body, '', '', '', '', '', '', '', ''],
                                                     ['', '', '', '', '', '', '', '', ''],
-                                                    ['', '', '', '', '', '', '', '', ''],
-                                                    ['', '', '', '', '', '', '', '', '敬具'],
                                                 ];
 
                                                 $bodyObj = new \Google\Service\Sheets\ValueRange(['values' => $values]);
@@ -973,20 +970,23 @@ class FolderResource extends Resource
                                             })
                                             ->columnSpan(4),
 
+                                        // SOLUTION GARANTIE - Modification apportée ici
                                         Select::make('item_status_id')
-                                            ->relationship('itemStatus', 'name')
+                                            ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
+                                                \App\Models\ItemStatus::firstOrCreate(
+                                                    ['name' => 'En attente de validation'],
+                                                    ['color' => 'warning']
+                                                );
+                                                return $query;
+                                            })
                                             ->label(__('Statut'))
-                                            ->preload()
                                             ->searchable()
+                                            ->preload()
                                             ->live()
-                                            ->default(fn () => \App\Models\ItemStatus::firstOrCreate(
-                                                ['name' => 'En attente de validation'],
-                                                ['color' => 'warning']
-                                            )->id)
+                                            ->default(fn () => \App\Models\ItemStatus::where('name', 'En attente de validation')->value('id'))
                                             ->columnSpan(4),
                                     ])->columns(12),
 
-                                    // 💡 NOUVELLE GRILLE INCLUANT LES PRIX D'ACHAT
                                     Group::make()->schema([
                                         DatePicker::make('service_date')
                                             ->label(__('Date'))

@@ -476,7 +476,6 @@ class ViewProduct extends Page
             throw $e;
         }
 
-        // 💡 NOUVEAU : Vérification stricte des dates du dossier avant l'ajout
         $folder = Folder::find($this->selectedFolderId);
         if ($folder && $folder->start_date && $folder->end_date) {
             $serviceDateObj = Carbon::parse($this->serviceDate)->startOfDay();
@@ -489,7 +488,7 @@ class ViewProduct extends Page
                     ->body("La date choisie (" . $serviceDateObj->format('d/m/Y') . ") est en dehors des dates du dossier sélectionné (du " . $folderStart->format('d/m/Y') . " au " . $folderEnd->format('d/m/Y') . ").")
                     ->danger()
                     ->send();
-                return; // On bloque l'ajout
+                return; 
             }
         }
 
@@ -503,14 +502,15 @@ class ViewProduct extends Page
             }
         }
 
+        // On crée le FolderItem SANS forcer l'ID de statut :
+        // Le modèle FolderItem gèrera le statut "En attente de validation" automatiquement !
         $folderItem = FolderItem::create([
             'folder_id' => $this->selectedFolderId,
             'product_id' => $this->product->id,
             'service_date' => $this->serviceDate,
             'quantity' => $this->quantity,
             'selected_options' => $formattedOptions, 
-            'custom_values' => $this->customValues,       
-            'item_status_id' => 1,                        
+            'custom_values' => $this->customValues,                            
             'unit_price' => 0,                            
             'total_price' => 0,
         ]);

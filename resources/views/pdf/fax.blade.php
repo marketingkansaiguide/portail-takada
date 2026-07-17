@@ -115,7 +115,6 @@
 
         <div class="footer">
             <div>{{ $writer_name }}</div>
-            <div>敬具</div>
         </div>
     </div>
 </body>

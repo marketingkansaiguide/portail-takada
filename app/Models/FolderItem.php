@@ -395,6 +395,18 @@ class FolderItem extends Model
 
     protected static function booted()
     {
+        // AJOUT SÉCURISÉ : Création automatique du statut par défaut lors de la création
+        static::creating(function ($item) {
+            if (empty($item->item_status_id)) {
+                $defaultStatus = \App\Models\ItemStatus::firstOrCreate(
+                    ['name' => 'En attente de validation'],
+                    ['color' => 'warning']
+                );
+                
+                $item->item_status_id = $defaultStatus->id;
+            }
+        });
+
         static::updated(function ($item) {
             static $processedUpdates = [];
 
