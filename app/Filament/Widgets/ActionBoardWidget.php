@@ -3,56 +3,79 @@
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
+use Filament\Actions\Action;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+
 use App\Models\Folder;
 use App\Models\FolderMessage;
 use App\Models\FolderTask;
 use App\Models\FolderHistory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 
-class ActionBoardWidget extends Widget
+class ActionBoardWidget extends Widget implements HasActions, HasForms
 {
+    use InteractsWithActions;
+    use InteractsWithForms;
+
     protected string $view = 'filament.widgets.action-board-widget';
     protected int | string | array $columnSpan = 'full';
     protected static ?int $sort = 1;
 
-    // 💡 Déclenché automatiquement à l'affichage du tableau de bord
     public function mount()
     {
-        $this->generateMissingTasks();
+        // Géré dynamiquement par #[Computed]
     }
 
-    /**
-     * Scanne les dossiers et génère les tâches si elles n'existent pas déjà.
-     */
     private function generateMissingTasks()
     {
-        $folders = Folder::with(['folderItems.product'])->whereNotIn('status', ['cancelled', 'completed'])->get();
+        // 1. On récupère les dossiers actifs
+        $folders = Folder::with(['folderItems.product', 'agency'])
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->get();
 
         foreach ($folders as $folder) {
-            // 1. Nouveau dossier
+            
+            // 2. Tâche générique de nouveau dossier
             if (in_array($folder->status, ['pending', 'new', 'draft'])) {
-                $this->createTaskIfMissing($folder->id, "new_folder_{$folder->id}", "Nouveau dossier à analyser et deviser.", 'heroicon-m-document-plus', 'text-blue-500');
+                $this->createTaskIfMissing($folder->id, "new_folder_{$folder->id}", "Nouveau dossier à analyser et deviser.", 'heroicon-m-document-plus', 'text-primary-500');
             }
 
-            // 2. Nouveau message de l'agence non lu
-            $lastMsg = FolderMessage::where('folder_id', $folder->id)->latest()->first();
-            if ($lastMsg && $lastMsg->sender_type === \App\Models\Agency::class && !$lastMsg->is_read) {
-                $this->createTaskIfMissing($folder->id, "unread_msg_{$lastMsg->id}", "Nouveau message de l'agence.", 'heroicon-m-chat-bubble-left-ellipsis', 'text-amber-500');
+            // 3. Détection des nouveaux messages de l'Agence
+            $lastMsg = FolderMessage::with('user')->where('folder_id', $folder->id)->latest()->first();
+            if ($lastMsg && $lastMsg->user && $lastMsg->user->role === 'agency') {
+                $this->createTaskIfMissing($folder->id, "unread_msg_{$lastMsg->id}", "Nouveau message de l'agence en attente.", 'heroicon-m-chat-bubble-left-ellipsis', 'text-warning-500');
             }
 
-            // 3. Prestations et Ouvertures des ventes
+            // 4. Analyse des prestations (FolderItems)
             foreach ($folder->folderItems as $item) {
-                if ($item->item_status_id === 5) { // 💡 ID de statut d'alerte (à adapter)
-                    $this->createTaskIfMissing($folder->id, "item_alert_{$item->id}", "Action requise sur la prestation : {$item->name}.", 'heroicon-m-exclamation-triangle', 'text-red-500');
+                $productName = $item->product ? $item->product->name : 'Prestation sur-mesure';
+
+                // Règle universelle : Dès qu'une prestation existe, on crée une tâche pour s'en occuper
+                $this->createTaskIfMissing(
+                    $folder->id, 
+                    "manage_item_{$item->id}", 
+                    "Traiter et valider la prestation : {$productName}", 
+                    'heroicon-m-sparkles', 
+                    'text-primary-500'
+                );
+
+                // Alertes spécifiques (ex: ID 5 = Action requise / Refus)
+                if ($item->item_status_id == 5) {
+                    $this->createTaskIfMissing($folder->id, "item_alert_{$item->id}", "Problème/Action requise sur : {$productName}.", 'heroicon-m-exclamation-triangle', 'text-danger-500');
                 }
 
-                if ($item->product && $item->status === 'pending') {
+                // Ouverture des ventes (J- délai)
+                if ($item->product) {
                     $delay = $item->product->booking_open_delay ?? null;
                     if ($delay !== null) {
                         $openDate = Carbon::parse($item->service_date)->subDays($delay);
                         if (now()->greaterThanOrEqualTo($openDate)) {
-                            $this->createTaskIfMissing($folder->id, "booking_open_{$item->id}", "Les réservations sont ouvertes pour : {$item->name}.", 'heroicon-m-calendar-days', 'text-emerald-500');
+                            $this->createTaskIfMissing($folder->id, "booking_open_{$item->id}", "Ouverture des réservations pour : {$productName}.", 'heroicon-m-calendar-days', 'text-success-500');
                         }
                     }
                 }
@@ -63,7 +86,7 @@ class ActionBoardWidget extends Widget
     private function createTaskIfMissing($folderId, $code, $desc, $icon, $color)
     {
         FolderTask::firstOrCreate(
-            ['action_code' => $code], // Si ce code existe (même déjà coché), il ne le recrée pas !
+            ['action_code' => $code],
             [
                 'folder_id' => $folderId,
                 'description' => $desc,
@@ -74,21 +97,44 @@ class ActionBoardWidget extends Widget
         );
     }
 
-    // 💡 Récupère les tâches non cochées, groupées par dossier
-    public function getPendingTasksByFolderProperty()
+    #[Computed]
+    public function pendingTasks()
     {
+        // Génération en temps réel
+        $this->generateMissingTasks();
+
+        // Récupération, groupement par dossier et tri par date de mise à jour (du plus ancien au plus récent)
         return FolderTask::where('is_completed', false)
             ->with(['folder.agency'])
             ->get()
-            ->groupBy('folder_id');
+            ->groupBy('folder_id')
+            ->sortBy(function ($tasks) {
+                return $tasks->first()->folder->updated_at;
+            });
     }
 
-    // 💡 L'action quand l'agent clique sur le bouton
+    // 💡 Déclaration de la Pop-in native de Filament
+    public function validateTaskAction(): Action
+    {
+        return Action::make('validateTask')
+            ->requiresConfirmation()
+            ->modalHeading('Tâche effectuée ?')
+            ->modalDescription('Confirmez-vous avoir bien effectué cette action ? Elle sera archivée dans l\'historique du dossier.')
+            ->modalSubmitActionLabel('Oui, valider')
+            ->modalCancelActionLabel('Annuler')
+            ->color('success')
+            ->icon('heroicon-o-check-circle')
+            ->action(function (array $arguments) {
+                $this->markAsDone($arguments['task_id']);
+            });
+    }
+
     public function markAsDone($taskId)
     {
         $task = FolderTask::find($taskId);
         
         if ($task && !$task->is_completed) {
+            
             // 1. On ferme la tâche
             $task->update([
                 'is_completed' => true,
@@ -96,12 +142,12 @@ class ActionBoardWidget extends Widget
                 'completed_at' => now(),
             ]);
 
-            // 2. On l'inscrit dans l'historique officiel du dossier
+            // 2. On écrit dans l'historique du dossier (JSON Payload)
             FolderHistory::create([
                 'folder_id' => $task->folder_id,
                 'user_id' => Auth::id(),
-                'action' => "Tâche traitée",
-                'details' => "Action effectuée : " . $task->description,
+                'action' => "Tâche traitée : " . $task->description,
+                'changes_payload' => json_encode(['task' => $task->description], JSON_UNESCAPED_UNICODE),
             ]);
         }
     }
