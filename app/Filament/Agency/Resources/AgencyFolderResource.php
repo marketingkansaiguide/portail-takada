@@ -24,6 +24,8 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Blade;
@@ -99,12 +101,12 @@ class AgencyFolderResource extends Resource
                             ->required(),
 
                         TextInput::make('lead_traveler_name')
-                            ->label('Nom du voyageur principal')
+                            ->label('Nom du pax principal')
                             ->required(),
 
                         TextInput::make('hotel_booking_name')
                             ->label('Nom réservation hôtel')
-                            ->placeholder('Si différent du voyageur principal')
+                            ->placeholder('Si différent du pax principal')
                             ->columnSpanFull(),
 
                         Select::make('main_seller_id')
@@ -114,9 +116,10 @@ class AgencyFolderResource extends Resource
                                 if (!$agencyId) return [];
                                 return \App\Models\User::where('agency_id', $agencyId)->pluck('name', 'id');
                             })
+                            ->default(fn () => Filament::auth()->id()) // 💡 Pré-sélectionne l'agent connecté
                             ->searchable()
                             ->preload()
-                            ->nullable(),
+                            ->required(),
 
                         DatePicker::make('start_date')
                             ->label('Date d\'arrivée au Japon')
@@ -128,10 +131,10 @@ class AgencyFolderResource extends Resource
                             ->label('Date de départ')
                             ->required()
                             ->live()
-                            ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
+                            ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
 
                         Repeater::make('contact_phones')
-                            ->label('Contact du voyageur pendant le séjour')
+                            ->label('Contact du pax pendant le séjour')
                             ->addable(false)
                             ->deletable(false)
                             ->reorderable(false)
@@ -145,27 +148,27 @@ class AgencyFolderResource extends Resource
                                 TextInput::make('email')
                                     ->label('Adresse E-mail')
                                     ->email()
-                                    ->placeholder('voyageur@email.com'),
+                                    ->placeholder('pax@email.com'),
                             ])
                             ->columnSpanFull()
                             ->columns(2),
                     ]),
 
-                Section::make('Liste des Voyageurs')
+                Section::make('Liste des Pax')
                     ->schema([
                         Repeater::make('folderPassengers')
                             ->relationship()
                             ->hiddenLabel()
-                            ->addActionLabel('Ajouter un voyageur')
+                            ->addActionLabel('Ajouter un pax')
                             ->itemLabel(function (array $state) {
-                                if (!empty($state['id'])) return new HtmlString("<span style='color:#096a61; font-weight:600;'>Passager enregistré</span>");
-                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>Nouveau passager...</span>");
+                                if (!empty($state['id'])) return new HtmlString("<span style='color:#096a61; font-weight:600;'>Pax enregistré</span>");
+                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>Nouveau pax...</span>");
                             })
                             ->schema([
                                 Placeholder::make('condensed_passenger')
                                     ->hiddenLabel()
-                                    ->visible(fn ($get) => !empty($get('id')))
-                                    ->content(function ($get) {
+                                    ->visible(fn (Get $get) => !empty($get('id')))
+                                    ->content(function (Get $get) {
                                         $pax = \App\Models\FolderPassenger::find($get('id'));
                                         if (!$pax) return '';
                                         $name = trim(($pax->first_name ?? '') . ' ' . ($pax->last_name ?? ''));
@@ -201,20 +204,19 @@ class AgencyFolderResource extends Resource
                                     ])->columns(4),
                                     Textarea::make('dietary_restrictions')->label('Allergies')->rows(1),
                                     Textarea::make('mobility_concerns')->label('Besoins PMR')->rows(1),
-                                ])->visible(fn ($get) => empty($get('id'))),
+                                ])->visible(fn (Get $get) => empty($get('id'))),
                             ])
                             ->deleteAction(fn ($action) => $action
                                 ->label('Annuler')
                                 ->icon('heroicon-m-x-mark')
                                 ->color('danger')
-                                ->hidden(fn ($get) => !empty($get('id')))
+                                ->hidden(fn (Get $get) => !empty($get('id')))
                             )
                     ]),
 
                 Section::make('Prestations demandées')
                     ->description('Vos prestations réservées et le suivi de leur statut.')
                     ->headerActions([
-                        // 💡 POP-IN (MODAL) D'AJOUT DE PRESTATION AVEC DÉTECTION DIRECTE DE LA RACINE DU FORMULAIRE
                         Action::make('addPrestationModal')
                             ->label('Ajouter une prestation')
                             ->icon('heroicon-m-plus')
@@ -234,9 +236,14 @@ class AgencyFolderResource extends Resource
                                     ->preload()
                                     ->live()
                                     ->required()
-                                    ->afterStateUpdated(function ($set) {
-                                        $set('options', []);
-                                        $set('custom_values', []);
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        if ($state) {
+                                            $options = \App\Models\ProductOption::where('product_id', $state)->get();
+                                            foreach ($options as $opt) {
+                                                $set("opt_enabled_{$opt->id}", false);
+                                                $set("opt_qty_{$opt->id}", 1);
+                                            }
+                                        }
                                     }),
 
                                 Group::make()->schema([
@@ -248,17 +255,17 @@ class AgencyFolderResource extends Resource
                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
                                     TextInput::make('quantity')
-                                        ->label('Participants')
+                                        ->label('Participants (Nombre de Pax)')
                                         ->numeric()
                                         ->default(1)
                                         ->minValue(1)
+                                        ->live()
                                         ->required(),
-                                ])->columns(2)->visible(fn ($get) => !empty($get('product_id'))),
+                                ])->columns(2)->visible(fn (Get $get) => !empty($get('product_id'))),
 
-                                // 💡 AFFICHAGE REACTIF DES OPTIONS RACINES (SANS STATEPATH NESTED CONFLIT)
                                 Group::make()
-                                    ->visible(fn ($get) => !empty($get('product_id')) && \App\Models\ProductOption::where('product_id', $get('product_id'))->exists())
-                                    ->schema(function ($get) {
+                                    ->visible(fn (Get $get) => !empty($get('product_id')) && \App\Models\ProductOption::where('product_id', $get('product_id'))->exists())
+                                    ->schema(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) return [];
 
@@ -267,35 +274,36 @@ class AgencyFolderResource extends Resource
 
                                         $schema = [];
                                         foreach ($options as $opt) {
+                                            $optId = $opt->id;
                                             $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
                                             
                                             $billingBadge = match ($opt->billing_type) {
-                                                'per_pax' => "{$formattedPrice} / voyageur",
+                                                'per_pax' => "{$formattedPrice} / pax",
                                                 'per_booking' => "{$formattedPrice} (Prix fixe)",
                                                 'manual' => "{$formattedPrice} / unité",
                                                 default => $formattedPrice,
                                             };
 
-                                            $fields = [
-                                                Toggle::make("options.{$opt->id}.enabled")
-                                                    ->label("{$opt->name} (+ {$billingBadge})")
-                                                    ->inline(false)
-                                                    ->live(),
-                                            ];
+                                            $toggle = Toggle::make("opt_enabled_{$optId}")
+                                                ->label("{$opt->name} (+ {$billingBadge})")
+                                                ->inline(false)
+                                                ->live();
 
                                             if ($opt->billing_type === 'manual') {
-                                                $fields[] = TextInput::make("options.{$opt->id}.quantity")
+                                                $qtyInput = TextInput::make("opt_qty_{$optId}")
                                                     ->label('Quantité au choix')
                                                     ->numeric()
                                                     ->default(1)
                                                     ->minValue(1)
-                                                    ->required()
-                                                    ->visible(fn ($get) => (bool) $get("options.{$opt->id}.enabled"));
-                                            }
+                                                    ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                    ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"));
 
-                                            $schema[] = Group::make()
-                                                ->schema($fields)
-                                                ->columns($opt->billing_type === 'manual' ? 2 : 1);
+                                                $schema[] = Group::make()
+                                                    ->schema([$toggle, $qtyInput])
+                                                    ->columns(2);
+                                            } else {
+                                                $schema[] = $toggle;
+                                            }
                                         }
 
                                         return [
@@ -306,34 +314,58 @@ class AgencyFolderResource extends Resource
                                     }),
 
                                 Group::make()
-                                    ->statePath('custom_values')
-                                    ->visible(fn ($get) => !empty($get('product_id')))
-                                    ->schema(function ($get) {
+                                    ->visible(fn (Get $get) => !empty($get('product_id')))
+                                    ->schema(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) return [];
 
                                         $product = \App\Models\Product::find($productId);
                                         if (!$product || empty($product->custom_field_definitions)) return [];
 
+                                        $paxCount = max(1, (int) ($get('quantity') ?? 1));
+
                                         $fields = [];
                                         foreach ($product->custom_field_definitions as $def) {
                                             $type = $def['type'] ?? 'text';
                                             $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                                            $label = $def['name'] ?? 'Information';
-                                            if ($def['is_per_passenger'] ?? false) $label .= ' (Par passager)';
+                                            $baseLabel = $def['name'] ?? 'Information';
+                                            $isPerPax = $def['is_per_passenger'] ?? false;
+                                            $isRequired = ($def['is_required'] ?? false) && $type !== 'toggle';
 
-                                            $field = match ($type) {
-                                                'textarea' => Textarea::make($key)->label($label)->rows(2),
-                                                'number' => TextInput::make($key)->numeric()->label($label),
-                                                'date' => DatePicker::make($key)->label($label),
-                                                'toggle' => Toggle::make($key)->label($label)->inline(false),
-                                                'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
-                                                default => TextInput::make($key)->label($label),
-                                            };
-                                            if (($def['is_required'] ?? false) && $type !== 'toggle') $field->required();
-                                            
-                                            $fields[] = $field;
+                                            if ($isPerPax) {
+                                                for ($i = 1; $i <= $paxCount; $i++) {
+                                                    $formKey = "custom_{$key}_pax_{$i}";
+                                                    $label = "{$baseLabel} (Pax {$i})";
+
+                                                    $field = match ($type) {
+                                                        'textarea' => Textarea::make($formKey)->label($label)->rows(2),
+                                                        'number' => TextInput::make($formKey)->numeric()->label($label),
+                                                        'date' => DatePicker::make($formKey)->label($label),
+                                                        'toggle' => Toggle::make($formKey)->label($label)->inline(false),
+                                                        'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                        default => TextInput::make($formKey)->label($label),
+                                                    };
+                                                    if ($isRequired) $field->required();
+                                                    $fields[] = $field;
+                                                }
+                                            } else {
+                                                $formKey = "custom_{$key}";
+                                                $label = $baseLabel;
+
+                                                $field = match ($type) {
+                                                    'textarea' => Textarea::make($formKey)->label($label)->rows(2),
+                                                    'number' => TextInput::make($formKey)->numeric()->label($label),
+                                                    'date' => DatePicker::make($formKey)->label($label),
+                                                    'toggle' => Toggle::make($formKey)->label($label)->inline(false),
+                                                    'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                    default => TextInput::make($formKey)->label($label),
+                                                };
+                                                if ($isRequired) $field->required();
+                                                $fields[] = $field;
+                                            }
                                         }
+                                        
+                                        if (empty($fields)) return [];
 
                                         return [
                                             Section::make('Informations requises par le fournisseur')
@@ -344,20 +376,48 @@ class AgencyFolderResource extends Resource
                             ->action(function (array $data, ?Model $record) {
                                 if (!$record) return;
 
-                                // Statut automatique "En attente de validation"
                                 $status = \App\Models\ItemStatus::firstOrCreate(
                                     ['name' => 'En attente de validation'],
                                     ['color' => 'warning']
                                 );
 
                                 $formattedOptions = [];
-                                if (!empty($data['options']) && is_array($data['options'])) {
-                                    foreach ($data['options'] as $optionId => $optData) {
-                                        if (is_array($optData) && !empty($optData['enabled'])) {
-                                            $formattedOptions[] = [
-                                                'product_option_id' => (int) $optionId,
-                                                'quantity' => (int) ($optData['quantity'] ?? 1),
-                                            ];
+                                $options = \App\Models\ProductOption::where('product_id', $data['product_id'])->get();
+                                foreach ($options as $opt) {
+                                    if (!empty($data["opt_enabled_{$opt->id}"])) {
+                                        $formattedOptions[] = [
+                                            'product_option_id' => $opt->id,
+                                            'quantity' => (int) ($data["opt_qty_{$opt->id}"] ?? 1),
+                                        ];
+                                    }
+                                }
+
+                                $customValues = [];
+                                $product = \App\Models\Product::find($data['product_id']);
+                                if ($product && !empty($product->custom_field_definitions)) {
+                                    foreach ($product->custom_field_definitions as $def) {
+                                        $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                        $isPerPax = $def['is_per_passenger'] ?? false;
+                                        $paxCount = max(1, (int) ($data['quantity'] ?? 1));
+
+                                        if ($isPerPax) {
+                                            $paxVals = [];
+                                            for ($i = 1; $i <= $paxCount; $i++) {
+                                                $fk = "custom_{$key}_pax_{$i}";
+                                                if (isset($data[$fk]) && $data[$fk] !== '') {
+                                                    $v = $data[$fk];
+                                                    if (is_bool($v)) $v = $v ? 'Oui' : 'Non';
+                                                    $paxVals[] = "Pax {$i}: {$v}";
+                                                }
+                                            }
+                                            if (!empty($paxVals)) {
+                                                $customValues[$key] = implode(', ', $paxVals);
+                                            }
+                                        } else {
+                                            $fk = "custom_{$key}";
+                                            if (isset($data[$fk])) {
+                                                $customValues[$key] = $data[$fk];
+                                            }
                                         }
                                     }
                                 }
@@ -368,7 +428,7 @@ class AgencyFolderResource extends Resource
                                     'service_date' => $data['service_date'],
                                     'quantity' => $data['quantity'] ?? 1,
                                     'selected_options' => $formattedOptions,
-                                    'custom_values' => $data['custom_values'] ?? [],
+                                    'custom_values' => $customValues,
                                     'item_status_id' => $status->id,
                                     'unit_price' => 0,
                                     'total_price' => 0,
@@ -402,7 +462,7 @@ class AgencyFolderResource extends Resource
                             ->schema([
                                 Placeholder::make('condensed_item')
                                     ->hiddenLabel()
-                                    ->content(function ($get) {
+                                    ->content(function (Get $get) {
                                         $item = \App\Models\FolderItem::with(['product', 'itemStatus'])->find($get('id'));
                                         if (!$item) return '';
 
@@ -506,7 +566,7 @@ class AgencyFolderResource extends Resource
 
                         Placeholder::make('total_price_display')
                             ->label('Montant total estimé (¥)')
-                            ->content(function ($get) {
+                            ->content(function (Get $get) {
                                 $items = $get('folderItems') ?? [];
                                 $total = array_sum(array_map(fn($i) => (float)($i['total_price'] ?? 0), $items));
                                 return number_format($total, 0, '.', ' ') . ' ¥';
@@ -527,8 +587,8 @@ class AgencyFolderResource extends Resource
                         DatePicker::make('first_hotel_check_in')
                             ->label('Date Check-in 1er Hôtel')
                             ->live()
-                            ->minDate(fn ($get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
-                            ->maxDate(fn ($get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                            ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                            ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
                             ->afterOrEqual('start_date')
                             ->beforeOrEqual('end_date')
                             ->validationMessages([
@@ -565,7 +625,7 @@ class AgencyFolderResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('reference')->label('Réf.')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('folder_name')->label('Nom du dossier')->searchable(),
-                Tables\Columns\TextColumn::make('lead_traveler_name')->label('Voyageur')->searchable(),
+                Tables\Columns\TextColumn::make('lead_traveler_name')->label('Pax Principal')->searchable(),
                 Tables\Columns\TextColumn::make('mainSeller.name')->label('Vendeur Principal')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('start_date')->label('Arrivée')->date('d/m/Y')->sortable(),
                 Tables\Columns\TextColumn::make('status')
