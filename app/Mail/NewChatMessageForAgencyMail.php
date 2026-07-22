@@ -20,7 +20,7 @@ class NewChatMessageForAgencyMail extends Mailable
 
     public function build()
     {
-        return $this->subject('Nouveau message sur votre dossier ' . ($this->folder->reference ?? $this->folder->folder_name))
+        return $this->subject('Nouveau message sur votre dossier ' . $this->folder->folder_name)
                     ->view('emails.new-chat-message-agency');
     }
 }

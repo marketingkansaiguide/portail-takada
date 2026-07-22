@@ -26,7 +26,7 @@ class FolderChat extends Component
     }
 
     /**
-     * 💡 MÉTHODE BLINDÉE : Identifie l'utilisateur selon le panel où il se trouve (Admin vs Agency)
+     * Identifie l'utilisateur selon le panel où il se trouve (Admin vs Agency)
      */
     protected function getActiveUserId()
     {
@@ -71,23 +71,39 @@ class FolderChat extends Component
             'attachment_path' => $attachmentPath,
         ]);
 
-        // 💡 IDENTIFICATION DU RÔLE DE L'EXPÉDITEUR ET ENVOI DE L'EMAIL
+        // IDENTIFICATION DU RÔLE DE L'EXPÉDITEUR ET ENVOI DE L'EMAIL
         $sender = User::find($userId);
         
         if ($sender) {
             // Si c'est un ADMIN Takada qui écrit
             if (in_array($sender->role, ['super_admin', 'admin'])) {
-                // On envoie le mail au Vendeur Principal (l'agence)
                 if ($this->folder->mainSeller && $this->folder->mainSeller->email) {
                     Mail::to($this->folder->mainSeller->email)->send(new NewChatMessageForAgencyMail($this->folder));
                 }
             } 
             // Si c'est l'AGENCE qui écrit
             else {
-                // On envoie le mail à l'adresse de réception globale de Takada
-                // Tu peux modifier l'adresse email ci-dessous par la tienne.
-                $adminEmail = env('MAIL_FROM_ADDRESS', 'contact@takada.com'); 
-                Mail::to($adminEmail)->send(new NewChatMessageForAdminMail($this->folder));
+                $setting = \App\Models\Setting::first();
+                $adminEmails = [];
+                
+                // 💡 On récupère la liste des e-mails et on la transforme en tableau (array)
+                if ($setting && !empty($setting->admin_email_notifications)) {
+                    $adminEmails = explode(',', $setting->admin_email_notifications);
+                    // On nettoie les éventuels espaces inutiles
+                    $adminEmails = array_map('trim', $adminEmails);
+                    // On retire les entrées vides
+                    $adminEmails = array_filter($adminEmails);
+                }
+                
+                // Si aucune adresse n'est configurée, on utilise celle du .env par défaut
+                if (empty($adminEmails)) {
+                    $adminEmails = [env('MAIL_FROM_ADDRESS')];
+                }
+                
+                // Envoi à toutes les adresses récoltées
+                if (!empty($adminEmails)) {
+                    Mail::to($adminEmails)->send(new NewChatMessageForAdminMail($this->folder));
+                }
             }
         }
 

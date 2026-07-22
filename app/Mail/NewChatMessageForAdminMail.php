@@ -20,7 +20,7 @@ class NewChatMessageForAdminMail extends Mailable
 
     public function build()
     {
-        return $this->subject('L\'agence a répondu sur le dossier ' . ($this->folder->reference ?? $this->folder->folder_name))
+        return $this->subject('L\'agence a répondu sur le dossier ' . $this->folder->folder_name)
                     ->view('emails.new-chat-message-admin');
     }
 }

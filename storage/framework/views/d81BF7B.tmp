@@ -2,9 +2,8 @@
 
 $__newAttributes = [];
 $__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames(([
-    'alias' => null,
-    'icon' => null,
-    'size' => null,
+    'inlinePrefix' => false,
+    'inlineSuffix' => false,
 ]));
 
 foreach ($attributes->all() as $__key => $__value) {
@@ -21,9 +20,8 @@ unset($__propNames);
 unset($__newAttributes);
 
 foreach (array_filter(([
-    'alias' => null,
-    'icon' => null,
-    'size' => null,
+    'inlinePrefix' => false,
+    'inlineSuffix' => false,
 ]), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
     $$__key = $$__key ?? $__value;
 }
@@ -36,6 +34,12 @@ foreach ($attributes->all() as $__key => $__value) {
 
 unset($__defined_vars, $__key, $__value); ?>
 
-<?php echo e(\Filament\Support\generate_icon_html($icon, $alias, $attributes, $size)); ?>
+<input
+    <?php echo e($attributes->class([
+            'fi-input',
+            'fi-input-has-inline-prefix' => $inlinePrefix,
+            'fi-input-has-inline-suffix' => $inlineSuffix,
+        ])); ?>
 
-<?php /**PATH C:\Users\marke\Herd\portail-takada\vendor\filament\support\resources\views/components/icon.blade.php ENDPATH**/ ?>
+/>
+<?php /**PATH C:\Users\marke\Herd\portail-takada\vendor\filament\support\resources\views/components/input/index.blade.php ENDPATH**/ ?>
