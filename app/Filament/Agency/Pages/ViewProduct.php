@@ -502,15 +502,20 @@ class ViewProduct extends Page
             }
         }
 
-        // On crée le FolderItem SANS forcer l'ID de statut :
-        // Le modèle FolderItem gèrera le statut "En attente de validation" automatiquement !
+        // 💡 RÉCUPÉRATION DYNAMIQUE DU STATUT "En attente de validation"
+        $status = \App\Models\ItemStatus::firstOrCreate(
+            ['name' => 'En attente de validation'],
+            ['color' => 'warning']
+        );
+
         $folderItem = FolderItem::create([
             'folder_id' => $this->selectedFolderId,
             'product_id' => $this->product->id,
             'service_date' => $this->serviceDate,
             'quantity' => $this->quantity,
             'selected_options' => $formattedOptions, 
-            'custom_values' => $this->customValues,                            
+            'custom_values' => $this->customValues,
+            'item_status_id' => $status->id,
             'unit_price' => 0,                            
             'total_price' => 0,
         ]);
@@ -524,7 +529,7 @@ class ViewProduct extends Page
 
         Notification::make()
             ->title('Demande ajoutée au dossier !')
-            ->body('La prestation ainsi que ses options et configurations logistiques ont été enregistrées.')
+            ->body('La prestation ainsi que ses options et configurations logistiques ont été enregistrées avec le statut "En attente de validation".')
             ->success()
             ->send();
 
