@@ -4,6 +4,10 @@ namespace App\Livewire;
 
 use App\Models\Folder;
 use App\Models\FolderMessage;
+use App\Models\User;
+use App\Mail\NewChatMessageForAgencyMail;
+use App\Mail\NewChatMessageForAdminMail;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Filament\Facades\Filament;
@@ -58,12 +62,34 @@ class FolderChat extends Component
             $attachmentPath = $this->attachment->store('chat-attachments', 'public');
         }
 
+        $userId = $this->getActiveUserId();
+
         FolderMessage::create([
             'folder_id' => $this->folder->id,
-            'user_id' => $this->getActiveUserId(), // 💡 Utilisation du bon ID !
+            'user_id' => $userId, 
             'message' => $this->newMessage ?? '',
             'attachment_path' => $attachmentPath,
         ]);
+
+        // 💡 IDENTIFICATION DU RÔLE DE L'EXPÉDITEUR ET ENVOI DE L'EMAIL
+        $sender = User::find($userId);
+        
+        if ($sender) {
+            // Si c'est un ADMIN Takada qui écrit
+            if (in_array($sender->role, ['super_admin', 'admin'])) {
+                // On envoie le mail au Vendeur Principal (l'agence)
+                if ($this->folder->mainSeller && $this->folder->mainSeller->email) {
+                    Mail::to($this->folder->mainSeller->email)->send(new NewChatMessageForAgencyMail($this->folder));
+                }
+            } 
+            // Si c'est l'AGENCE qui écrit
+            else {
+                // On envoie le mail à l'adresse de réception globale de Takada
+                // Tu peux modifier l'adresse email ci-dessous par la tienne.
+                $adminEmail = env('MAIL_FROM_ADDRESS', 'contact@takada.com'); 
+                Mail::to($adminEmail)->send(new NewChatMessageForAdminMail($this->folder));
+            }
+        }
 
         $this->reset(['newMessage', 'attachment']);
         $this->folder->refresh();
