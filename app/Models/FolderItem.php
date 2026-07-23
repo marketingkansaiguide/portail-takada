@@ -47,13 +47,13 @@ class FolderItem extends Model
     {
         $productSupplier = $this->getProductSupplierData();
         
-        $template = "ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]"; // Défaut
+        $template = "ご予約依頼 : [DOSSIER_REF] / [LEAD_NAME]"; 
         if ($productSupplier && !empty($productSupplier->email_subject)) {
             $template = $productSupplier->email_subject;
         }
 
         $folder = $this->folder;
-        $dossierRef = $folder ? $folder->reference : 'N/A';
+        $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
         $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
         $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
@@ -79,14 +79,14 @@ class FolderItem extends Model
     public function parseSupplierFaxHeader(): string
     {
         $productSupplier = $this->getProductSupplierData();
-        $templateData = "ご担当者様"; // Défaut
+        $templateData = "ご担当者様"; 
         
         if ($productSupplier && !empty($productSupplier->fax_header)) {
             $templateData = is_array($productSupplier->fax_header) ? ($productSupplier->fax_header['to_contact_name'] ?? 'ご担当者様') : $productSupplier->fax_header;
         }
 
         $folder = $this->folder;
-        $dossierRef = $folder ? $folder->reference : 'N/A';
+        $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
         $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
         $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
@@ -125,7 +125,7 @@ class FolderItem extends Model
 
         $folder = $this->folder;
 
-        $dossierRef = $folder ? $folder->reference : 'N/A';
+        $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
         $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
         $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
@@ -375,20 +375,19 @@ class FolderItem extends Model
         return trim($emailRendered);
     }
 
-    // 💡 Synchronisation avec l'agenda Google (AVEC TRACEURS LOG)
     public function syncGoogleCalendar()
     {
-        Log::info("=== CALENDAR : Début syncGoogleCalendar pour FolderItem ID: {$this->id} ===");
+        Log::info("CALENDAR : ----- TENTATIVE DE SYNCHRONISATION -----");
 
         $calendarId = env('GOOGLE_CALENDAR_ID');
         if (!$calendarId) {
-            Log::warning("CALENDAR : Arrêt -> GOOGLE_CALENDAR_ID manquant dans le fichier .env");
+            Log::warning("CALENDAR : ARRÊT -> L'ID du calendrier (GOOGLE_CALENDAR_ID) est introuvable. Pense à faire php artisan config:clear");
             return;
         }
 
         $keyFilePath = storage_path('app/google-credentials.json');
         if (!file_exists($keyFilePath)) {
-            Log::warning("CALENDAR : Arrêt -> Le fichier credentials ({$keyFilePath}) est introuvable.");
+            Log::warning("CALENDAR : ARRÊT -> Le fichier JSON Google est introuvable au chemin : {$keyFilePath}");
             return;
         }
 
@@ -397,66 +396,62 @@ class FolderItem extends Model
         
         $hasDate = $this->service_date ? 'OUI' : 'NON';
         $hasProduct = $product ? 'OUI' : 'NON';
-        $delay = $product->booking_open_delay ?? 'NULL';
+        $delay = $product->days_before_opening ?? 'NULL';
         $status = $folder->status ?? 'INCONNU';
+        $itemStatusName = $this->itemStatus ? mb_strtolower(trim($this->itemStatus->name), 'UTF-8') : 'inconnu';
 
-        Log::info("CALENDAR : Check des données -> Date:{$hasDate} | Produit:{$hasProduct} | Délai d'achat:{$delay} | Statut dossier:{$status}");
+        Log::info("CALENDAR : Check des données -> Date:{$hasDate} | Produit:{$hasProduct} | Délai d'achat:{$delay} | Statut dossier:{$status} | Statut prestation:{$itemStatusName}");
 
-        if (!$this->service_date || !$product || $product->booking_open_delay === null || ($folder && in_array($folder->status, ['cancelled', 'completed']))) {
-            Log::info("CALENDAR : Arrêt -> Condition non remplie. (Pas de date, pas de délai, ou dossier annulé/terminé). Appel de la fonction Delete.");
+        // 💡 AJOUT : On inclut "en cours de traitement" pour supprimer l'événement dès que l'équipe s'en occupe
+        $stopItemStatuses = ['confirmé', 'confirme', 'annulé', 'annule', 'pas de disponibilité', 'pas de disponibilite', 'indisponible', 'en cours de traitement'];
+
+        if (!$this->service_date || !$product || $product->days_before_opening === null || ($folder && in_array($folder->status, ['cancelled', 'completed'])) || in_array($itemStatusName, $stopItemStatuses)) {
+            Log::info("CALENDAR : ARRÊT -> Condition non remplie (Pas de date/délai, ou prestation en cours/confirmée/annulée/indisponible). Appel suppression.");
             $this->deleteGoogleCalendarEvent();
             return;
         }
 
-        Log::info("CALENDAR : Toutes les conditions métiers sont valides. Préparation de l'événement API...");
-
-        // Calcul de la date d'ouverture théorique des achats
-        $openDate = Carbon::parse($this->service_date)->subDays($product->booking_open_delay)->startOfDay();
-        
-        // Si la date théorique est déjà passée, on force l'événement à AUJOURD'HUI
-        if ($openDate->lessThan(Carbon::today())) {
-            Log::info("CALENDAR : La date théorique d'ouverture ({$openDate->format('d/m/Y')}) est dépassée, événement forcé à AUJOURD'HUI.");
-            $openDate = Carbon::today();
-        }
-        
-        $folderName = $folder ? $folder->folder_name : 'N/A';
-        $productName = $product->name;
-        $supplierName = $this->getTargetSupplier()?->name ?? 'Aucun fournisseur';
-        $qty = $this->quantity ?? 1;
-
-        $client = new \Google\Client();
-        $client->setAuthConfig($keyFilePath);
-        $client->addScope(\Google\Service\Calendar::CALENDAR);
-        $service = new \Google\Service\Calendar($client);
-
-        $event = new \Google\Service\Calendar\Event([
-            'summary' => "🛒 ACHAT : {$productName} ({$folderName})",
-            'description' => "Dossier : {$folderName}\nPrestation : {$productName}\nFournisseur : {$supplierName}\nQuantité/Pax : {$qty}\nDate de la prestation : {$this->service_date->format('d/m/Y')}\n\nOuvrir le dossier : " . route('filament.admin.resources.folders.edit', ['record' => $this->folder_id]),
-            'start' => ['date' => $openDate->format('Y-m-d')],
-            'end' => ['date' => $openDate->copy()->addDay()->format('Y-m-d')],
-        ]);
+        Log::info("CALENDAR : Toutes les conditions sont valides. Requête API en cours...");
 
         try {
+            $client = new \Google\Client();
+            $client->setAuthConfig($keyFilePath);
+            $client->addScope(\Google\Service\Calendar::CALENDAR);
+            $service = new \Google\Service\Calendar($client);
+
+            $openDate = Carbon::parse($this->service_date)->subDays($product->days_before_opening)->startOfDay();
+            if ($openDate->lessThan(Carbon::today())) {
+                $openDate = Carbon::today();
+            }
+            
+            $folderName = $folder ? $folder->folder_name : 'N/A';
+            $productName = $product->name;
+            $supplierName = $this->getTargetSupplier()?->name ?? 'Aucun fournisseur';
+            $qty = $this->quantity ?? 1;
+
+            $event = new \Google\Service\Calendar\Event([
+                'summary' => "🛒 ACHAT : {$productName} ({$folderName})",
+                'description' => "Dossier : {$folderName}\nPrestation : {$productName}\nFournisseur : {$supplierName}\nQuantité/Pax : {$qty}\nDate de la prestation : {$this->service_date->format('d/m/Y')}\n\nOuvrir le dossier : " . route('filament.admin.resources.folders.edit', ['record' => $this->folder_id]),
+                'start' => ['date' => $openDate->format('Y-m-d')],
+                'end' => ['date' => $openDate->copy()->addDay()->format('Y-m-d')],
+            ]);
+
             if ($this->google_calendar_event_id) {
-                Log::info("CALENDAR : Événement déjà existant (ID: {$this->google_calendar_event_id}), tentative de mise à jour...");
                 try {
                     $service->events->update($calendarId, $this->google_calendar_event_id, $event);
-                    Log::info("CALENDAR : Mise à jour réussie !");
+                    Log::info("CALENDAR : SUCCÈS -> Événement mis à jour.");
                 } catch (\Exception $e) {
-                    Log::info("CALENDAR : La mise à jour a échoué (probablement supprimé manuellement). Tentative de recréation...");
                     $created = $service->events->insert($calendarId, $event);
                     DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
-                    Log::info("CALENDAR : Recréation réussie (ID: {$created->id}) !");
+                    Log::info("CALENDAR : SUCCÈS -> Événement recréé (l'ancien était introuvable).");
                 }
             } else {
-                Log::info("CALENDAR : Nouvel événement, tentative de création...");
                 $created = $service->events->insert($calendarId, $event);
                 DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
-                Log::info("CALENDAR : Création réussie (ID: {$created->id}) !");
+                Log::info("CALENDAR : SUCCÈS -> Nouvel événement créé ! ID: " . $created->id);
             }
         } catch (\Exception $e) {
-            Log::error("CALENDAR : Erreur CRITIQUE de l'API Google -> " . $e->getMessage());
-            throw $e; 
+            Log::error("CALENDAR ERREUR GOOGLE API : " . $e->getMessage());
         }
     }
 
@@ -475,9 +470,9 @@ class FolderItem extends Model
                 $service = new \Google\Service\Calendar($client);
 
                 $service->events->delete($calendarId, $this->google_calendar_event_id);
-                Log::info("CALENDAR : Événement supprimé avec succès de Google Agenda.");
+                Log::info("CALENDAR : Événement supprimé avec succès.");
             } catch (\Exception $e) {
-                Log::warning("CALENDAR : Impossible de supprimer l'événement (peut-être déjà effacé manuellement).");
+                Log::error("CALENDAR Erreur suppression : " . $e->getMessage());
             }
         }
 
@@ -510,14 +505,10 @@ class FolderItem extends Model
                     if (isset($processedUpdates[$fingerprint])) return;
                     $processedUpdates[$fingerprint] = true;
 
-                    // 💡 AJOUT : Mise à jour de l'agenda Google avec Logs
-                    if (array_intersect_key($changes, array_flip(['service_date', 'product_id', 'supplier_id', 'quantity']))) {
-                        Log::info("CALENDAR : Hook 'updated' déclenché pour FolderItem ID: {$item->id}");
-                        try { 
-                            $item->syncGoogleCalendar(); 
-                        } catch (\Exception $e) {
-                            Log::error("CALENDAR : Échec global lors du Hook (Update) -> " . $e->getMessage());
-                        }
+                    try { 
+                        $item->syncGoogleCalendar(); 
+                    } catch (\Exception $e) {
+                        Log::error("CALENDAR Erreur d'appel hook updated : " . $e->getMessage());
                     }
 
                     $productName = $item->product ? $item->product->name : 'Une prestation';
@@ -620,12 +611,10 @@ class FolderItem extends Model
             if (isset($processedCreations[$item->id])) return;
             $processedCreations[$item->id] = true;
 
-            // 💡 AJOUT : Création sur l'agenda Google avec Logs
-            Log::info("CALENDAR : Hook 'created' déclenché pour FolderItem ID: {$item->id}");
             try { 
                 $item->syncGoogleCalendar(); 
             } catch (\Exception $e) {
-                Log::error("CALENDAR : Échec global lors du Hook (Create) -> " . $e->getMessage());
+                Log::error("CALENDAR Erreur d'appel hook created : " . $e->getMessage());
             }
 
             $productName = $item->product ? $item->product->name : 'Une prestation';
@@ -637,10 +626,22 @@ class FolderItem extends Model
         });
 
         static::deleted(function ($item) {
-            // 💡 AJOUT : Suppression de l'agenda Google
             try { 
                 $item->deleteGoogleCalendarEvent(); 
-            } catch (\Exception $e) {}
+            } catch (\Exception $e) {
+                Log::error("CALENDAR Erreur d'appel hook deleted : " . $e->getMessage());
+            }
+
+            try {
+                \App\Models\FolderTask::where('action_code', "manage_item_{$item->id}")
+                    ->orWhere('action_code', "item_alert_{$item->id}")
+                    ->orWhere('action_code', "invoice_missing_{$item->id}")
+                    ->orWhere('action_code', "booking_open_{$item->id}")
+                    ->orWhere('action_code', "missing_purchase_price_{$item->id}")
+                    ->delete();
+            } catch (\Exception $e) {
+                Log::error("TÂCHES Erreur suppression hook deleted : " . $e->getMessage());
+            }
 
             $productName = $item->product ? $item->product->name : 'Une prestation';
             if ($item->service_date) {

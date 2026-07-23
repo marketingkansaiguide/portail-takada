@@ -10,11 +10,13 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 
 use App\Models\Folder;
+use App\Models\FolderItem;
 use App\Models\FolderMessage;
 use App\Models\FolderTask;
 use App\Models\FolderHistory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 
 class ActionBoardWidget extends Widget implements HasActions, HasForms
@@ -33,59 +35,112 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
 
     private function generateMissingTasks()
     {
-        // 1. On récupère les dossiers actifs
-        $folders = Folder::with(['folderItems.product', 'agency'])
+        $activeTasks = FolderTask::where('is_completed', false)->get();
+        foreach ($activeTasks as $task) {
+            if (preg_match('/^(manage_item|item_alert|invoice_missing|booking_open|missing_purchase_price)_(\d+)$/', $task->action_code, $matches)) {
+                $itemId = $matches[2];
+                if (!FolderItem::find($itemId)) {
+                    $task->delete();
+                }
+            }
+        }
+
+        $folders = Folder::with(['folderItems.product', 'folderItems.itemStatus', 'agency'])
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
         foreach ($folders as $folder) {
             
-            // 2. Tâche générique de nouveau dossier
             if (in_array($folder->status, ['pending', 'new', 'draft'])) {
                 $this->createTaskIfMissing($folder->id, "new_folder_{$folder->id}", "Nouveau dossier à analyser et deviser.", 'heroicon-m-document-plus', 'text-primary-500');
             }
 
-            // 3. Détection des nouveaux messages de l'Agence
             $lastMsg = FolderMessage::with('user')->where('folder_id', $folder->id)->latest()->first();
             if ($lastMsg && $lastMsg->user && $lastMsg->user->role === 'agency') {
                 $this->createTaskIfMissing($folder->id, "unread_msg_{$lastMsg->id}", "Nouveau message de l'agence en attente.", 'heroicon-m-chat-bubble-left-ellipsis', 'text-warning-500');
             }
 
-            // 4. Analyse des prestations (FolderItems)
             foreach ($folder->folderItems as $item) {
                 $productName = $item->product ? $item->product->name : 'Prestation sur-mesure';
+                
+                $dateStr = $item->service_date ? ' du ' . Carbon::parse($item->service_date)->format('d/m/Y') : '';
+                $prestaLabel = $productName . $dateStr;
 
-                // Règle universelle : Dès qu'une prestation existe, on crée une tâche
-                if ($folder->status !== 'completed') {
+                // 💡 AJOUT : Lecture du statut pour auto-nettoyage des tâches
+                $itemStatusName = $item->itemStatus ? mb_strtolower(trim($item->itemStatus->name), 'UTF-8') : 'inconnu';
+                $stopItemStatuses = ['confirmé', 'confirme', 'annulé', 'annule', 'pas de disponibilité', 'pas de disponibilite', 'indisponible', 'en cours de traitement'];
+
+                // 1. Tâche "Traiter et valider la prestation"
+                $manageTaskCode = "manage_item_{$item->id}";
+                if ($folder->status !== 'completed' && !in_array($itemStatusName, $stopItemStatuses)) {
                     $this->createTaskIfMissing(
                         $folder->id, 
-                        "manage_item_{$item->id}", 
-                        "Traiter et valider la prestation : {$productName}", 
+                        $manageTaskCode, 
+                        "Traiter et valider la prestation : {$prestaLabel}", 
                         'heroicon-m-sparkles', 
                         'text-primary-500'
                     );
+                } else {
+                    // Si on est en cours de traitement ou + : Auto-clôture
+                    FolderTask::where('action_code', $manageTaskCode)
+                        ->where('is_completed', false)
+                        ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
                 }
 
-                // Alertes spécifiques (ex: ID 5 = Action requise / Refus)
+                // 2. Alerte Spécifique (Problème / Action requise = ID 5 par exemple)
+                $alertTaskCode = "item_alert_{$item->id}";
                 if ($item->item_status_id == 5) {
-                    $this->createTaskIfMissing($folder->id, "item_alert_{$item->id}", "Problème/Action requise sur : {$productName}.", 'heroicon-m-exclamation-triangle', 'text-danger-500');
+                    $this->createTaskIfMissing($folder->id, $alertTaskCode, "Problème/Action requise sur : {$prestaLabel}.", 'heroicon-m-exclamation-triangle', 'text-danger-500');
+                    // On rouvre si c'était fermé
+                    FolderTask::where('action_code', $alertTaskCode)->where('is_completed', true)->update(['is_completed' => false, 'completed_at' => null, 'completed_by' => null]);
+                } else {
+                    // Si on change de statut, on supprime l'alerte
+                    FolderTask::where('action_code', $alertTaskCode)
+                        ->where('is_completed', false)
+                        ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
                 }
 
-                // 💡 ALERTE FACTURE MANQUANTE (avec requires_invoice)
+                // 3. Alerte Prix d'achat manquant
+                $priceTaskCode = "missing_purchase_price_{$item->id}";
+                if (empty($item->purchase_total_price) || $item->purchase_total_price == 0) {
+                    $this->createTaskIfMissing(
+                        $folder->id, 
+                        $priceTaskCode, 
+                        "Saisir le prix d'achat pour : {$prestaLabel}", 
+                        'heroicon-m-banknotes', 
+                        'text-warning-600'
+                    );
+
+                    FolderTask::where('action_code', $priceTaskCode)
+                        ->where('is_completed', true)
+                        ->update([
+                            'is_completed' => false,
+                            'completed_at' => null,
+                            'completed_by' => null,
+                        ]);
+                } else {
+                    FolderTask::where('action_code', $priceTaskCode)
+                        ->where('is_completed', false)
+                        ->update([
+                            'is_completed' => true,
+                            'completed_at' => now(),
+                            'completed_by' => Auth::id() ?? 1,
+                        ]);
+                }
+
+                // 4. Alerte Facture Manquante
                 $invoiceTaskCode = "invoice_missing_{$item->id}";
                 $targetSupplier = $item->getTargetSupplier();
                 
-                // On vérifie que la case requires_invoice est bien cochée chez le fournisseur
                 if (in_array($folder->status, ['confirmed', 'completed']) && empty($item->invoice_received_at) && $targetSupplier && $targetSupplier->requires_invoice) {
                     $this->createTaskIfMissing(
                         $folder->id, 
                         $invoiceTaskCode, 
-                        "Facture en attente (🏢 {$targetSupplier->name}) : {$productName}", 
+                        "Facture en attente (🏢 {$targetSupplier->name}) : {$prestaLabel}", 
                         'heroicon-m-document-currency-yen', 
                         'text-danger-600'
                     );
 
-                    // 💡 CORRECTION DU BUG : On force la réouverture si la tâche avait été clôturée
                     FolderTask::where('action_code', $invoiceTaskCode)
                         ->where('is_completed', true)
                         ->update([
@@ -95,7 +150,6 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                         ]);
 
                 } else {
-                    // Si on a reçu la facture ou que la condition n'est plus remplie, on clôture la tâche
                     FolderTask::where('action_code', $invoiceTaskCode)
                         ->where('is_completed', false)
                         ->update([
@@ -105,14 +159,20 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                         ]);
                 }
 
-                // Ouverture des ventes (J- délai)
+                // 5. Ouverture des réservations (J- délai)
+                $bookingTaskCode = "booking_open_{$item->id}";
                 if ($item->product) {
-                    $delay = $item->product->booking_open_delay ?? null;
-                    if ($delay !== null && $item->service_date) {
+                    $delay = $item->product->days_before_opening ?? null;
+                    if ($delay !== null && $item->service_date && !in_array($itemStatusName, $stopItemStatuses) && $folder->status !== 'completed') {
                         $openDate = Carbon::parse($item->service_date)->subDays($delay);
-                        if (now()->greaterThanOrEqualTo($openDate) && $folder->status !== 'completed') {
-                            $this->createTaskIfMissing($folder->id, "booking_open_{$item->id}", "Ouverture des réservations pour : {$productName}.", 'heroicon-m-calendar-days', 'text-success-500');
+                        if (now()->greaterThanOrEqualTo($openDate)) {
+                            $this->createTaskIfMissing($folder->id, $bookingTaskCode, "Ouverture des réservations pour : {$prestaLabel}.", 'heroicon-m-calendar-days', 'text-success-500');
                         }
+                    } else {
+                        // Si le statut passe en cours de traitement/confirmé/annulé, on clôture la tâche d'ouverture
+                        FolderTask::where('action_code', $bookingTaskCode)
+                            ->where('is_completed', false)
+                            ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
                     }
                 }
             }
@@ -121,7 +181,7 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
 
     private function createTaskIfMissing($folderId, $code, $desc, $icon, $color)
     {
-        FolderTask::firstOrCreate(
+        $task = FolderTask::firstOrCreate(
             ['action_code' => $code],
             [
                 'folder_id' => $folderId,
@@ -131,15 +191,17 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                 'is_completed' => false,
             ]
         );
+
+        if ($task->description !== $desc) {
+            $task->update(['description' => $desc]);
+        }
     }
 
     #[Computed]
     public function pendingTasks()
     {
-        // Génération en temps réel
         $this->generateMissingTasks();
 
-        // Récupération, groupement par dossier et tri
         return FolderTask::where('is_completed', false)
             ->with(['folder.agency'])
             ->get()
@@ -170,14 +232,23 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
         
         if ($task && !$task->is_completed) {
             
-            // 1. On ferme la tâche
             $task->update([
                 'is_completed' => true,
                 'completed_by' => Auth::id(),
                 'completed_at' => now(),
             ]);
 
-            // 2. On écrit dans l'historique du dossier
+            if (preg_match('/^booking_open_(\d+)$/', $task->action_code, $matches)) {
+                $item = FolderItem::find($matches[1]);
+                if ($item) {
+                    try {
+                        $item->deleteGoogleCalendarEvent();
+                    } catch (\Exception $e) {
+                        Log::error("CALENDAR Erreur suppression depuis widget : " . $e->getMessage());
+                    }
+                }
+            }
+
             FolderHistory::create([
                 'folder_id' => $task->folder_id,
                 'user_id' => Auth::id(),

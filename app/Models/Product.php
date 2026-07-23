@@ -6,26 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    protected $fillable = [
-        'supplier_id',
-        'category_id',
-        'name',
-        'images',
-        'description',
-        'child_age_limit',
-        'available_days',
-        'blackout_dates',
-        'cancellation_type',
-        'cancellation_specifics',
-        'is_lottery',
-        'is_on_demand',
-        'days_before_opening',
-        'custom_field_definitions',
-        'supplier_email_subject', 
-        'supplier_fax_header',
-        'supplier_email_template'
-    ];
+    // 💡 LA CORRECTION EST ICI : 
+    // On autorise Filament à enregistrer TOUS les champs dans la base, sans blocage.
+    protected $guarded = [];
 
+    // 💡 RESTAURATION DES CASTS (C'est l'absence de ceci qui faisait planter ton dossier)
     protected $casts = [
         'images' => 'array',
         'child_age_limit' => 'integer',
@@ -34,6 +19,7 @@ class Product extends Model
         'custom_field_definitions' => 'array',
         'is_lottery' => 'boolean',
         'is_on_demand' => 'boolean',
+        'is_public' => 'boolean',
         'supplier_fax_header' => 'array',
     ];
 
