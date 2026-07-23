@@ -145,8 +145,8 @@ class FolderResource extends Resource
         $set('total_price', $totalPrice);
 
         // --- 2. CALCUL DU PRIX D'ACHAT ---
-        $purchaseUnitPrice = (float) ($get('purchase_unit_price') ?? 0);
-        $set('purchase_total_price', $purchaseUnitPrice * $itemQuantity);
+        // $purchaseUnitPrice = (float) ($get('purchase_unit_price') ?? 0);
+        // $set('purchase_total_price', $purchaseUnitPrice * $itemQuantity);
     }
 
     public static function form(Schema $schema): Schema
@@ -509,7 +509,6 @@ class FolderResource extends Resource
                                         $supplierName = $supplier?->name ?? '';
                                         $supplierText = "  |  🏢 {$supplierName}";
 
-                                        // 💡 UTILISATION DE requires_invoice AU LIEU DE furikomi
                                         if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
                                             $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
                                         }
@@ -523,7 +522,6 @@ class FolderResource extends Resource
                                             $supplierName = $supplier?->name ?? '';
                                             $supplierText = "  |  🏢 {$supplierName}";
 
-                                            // 💡 UTILISATION DE requires_invoice AU LIEU DE furikomi
                                             if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
                                                 $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
                                             }
@@ -997,7 +995,6 @@ class FolderResource extends Resource
                                             ->columnSpan(4),
                                     ])->columns(12),
 
-                                    // 💡 UTILISATION DE requires_invoice
                                     Group::make()->schema([
                                         Placeholder::make('invoice_alert')
                                             ->label('')
@@ -1049,21 +1046,13 @@ class FolderResource extends Resource
                                             ->columnSpan(1),
 
                                         // --- LIGNES D'ACHAT ---
-                                        TextInput::make('purchase_unit_price')
-                                            ->label(__('Achat Unit. (¥)'))
-                                            ->numeric()
-                                            ->default(0)
-                                            ->live()
-                                            ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                            ->columnSpan(1),
-
                                         TextInput::make('purchase_total_price')
                                             ->label(__('Total Achat (¥)'))
                                             ->numeric()
                                             ->default(0)
-                                            ->readOnly()
-                                            ->dehydrated()
-                                            ->columnSpan(1),
+                                            ->live()
+                                            ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get))
+                                            ->columnSpan(2),
 
                                         // --- LIGNES DE VENTE ---
                                         TextInput::make('unit_price')
