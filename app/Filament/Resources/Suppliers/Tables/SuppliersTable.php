@@ -23,6 +23,12 @@ class SuppliersTable
                 TextColumn::make('phone')
                     ->label('Téléphone'),
 
+                // 💡 NOUVELLE COLONNE
+                TextColumn::make('payment_type')
+                    ->label('Paiement')
+                    ->searchable()
+                    ->sortable(),
+
                 TextColumn::make('commission')
                     ->label('Commission')
                     ->suffix(' %')

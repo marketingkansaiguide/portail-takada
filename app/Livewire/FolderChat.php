@@ -19,6 +19,9 @@ class FolderChat extends Component
     public Folder $folder;
     public string $newMessage = '';
     public $attachment;
+    
+    // Ajout de la variable pour la case à cocher
+    public bool $isActionRequired = false;
 
     public function mount(Folder $folder)
     {
@@ -69,6 +72,7 @@ class FolderChat extends Component
             'user_id' => $userId, 
             'message' => $this->newMessage ?? '',
             'attachment_path' => $attachmentPath,
+            'is_action_required' => $this->isActionRequired, // Enregistrement du statut Action Requise
         ]);
 
         // IDENTIFICATION DU RÔLE DE L'EXPÉDITEUR ET ENVOI DE L'EMAIL
@@ -77,6 +81,7 @@ class FolderChat extends Component
         if ($sender) {
             // Si c'est un ADMIN Takada qui écrit
             if (in_array($sender->role, ['super_admin', 'admin'])) {
+                // On envoie le mail au Vendeur Principal (l'agence)
                 if ($this->folder->mainSeller && $this->folder->mainSeller->email) {
                     Mail::to($this->folder->mainSeller->email)->send(new NewChatMessageForAgencyMail($this->folder));
                 }
@@ -86,18 +91,16 @@ class FolderChat extends Component
                 $setting = \App\Models\Setting::first();
                 $adminEmails = [];
                 
-                // 💡 On récupère la liste des e-mails et on la transforme en tableau (array)
+                // On récupère la liste des e-mails et on la transforme en tableau (array)
                 if ($setting && !empty($setting->admin_email_notifications)) {
                     $adminEmails = explode(',', $setting->admin_email_notifications);
-                    // On nettoie les éventuels espaces inutiles
                     $adminEmails = array_map('trim', $adminEmails);
-                    // On retire les entrées vides
                     $adminEmails = array_filter($adminEmails);
                 }
                 
                 // Si aucune adresse n'est configurée, on utilise celle du .env par défaut
                 if (empty($adminEmails)) {
-                    $adminEmails = [env('MAIL_FROM_ADDRESS')];
+                    $adminEmails = [env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS'))];
                 }
                 
                 // Envoi à toutes les adresses récoltées
@@ -107,7 +110,7 @@ class FolderChat extends Component
             }
         }
 
-        $this->reset(['newMessage', 'attachment']);
+        $this->reset(['newMessage', 'attachment', 'isActionRequired']);
         $this->folder->refresh();
     }
 

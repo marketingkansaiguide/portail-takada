@@ -7,7 +7,7 @@ use App\Models\Setting;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
-use Filament\Forms\Components\TagsInput; // 💡 Import du champ TagsInput
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
@@ -50,12 +50,11 @@ class SettingResource extends Resource
                     Section::make(__('Notifications & Alertes'))
                         ->description(__('Gérez les e-mails de l\'administration et les délais de relance.'))
                         ->schema([
-                            // 💡 Utilisation de TagsInput pour plusieurs e-mails
                             TagsInput::make('admin_email_notifications')
                                 ->label(__('E-mails de réception des alertes Admin'))
                                 ->placeholder(__('Tapez un e-mail puis appuyez sur Entrée'))
                                 ->helperText(__('Vous pouvez ajouter plusieurs adresses (validez chaque adresse avec la touche Entrée).'))
-                                ->separator(',') // Enregistre en base comme une simple chaîne avec des virgules
+                                ->separator(',')
                                 ->columnSpanFull(),
 
                             TextInput::make('chat_reminder_hours')

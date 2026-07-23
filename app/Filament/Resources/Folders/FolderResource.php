@@ -88,7 +88,6 @@ class FolderResource extends Resource
         $fee = (float) ($get('folder_fee') ?? 0);
         
         $set('total_price', $totalSale + $fee);
-        // Note: La marge est calculée à la volée dans le Placeholder
     }
 
     public static function updateItemPrices($set, $get)
@@ -506,16 +505,28 @@ class FolderResource extends Resource
 
                                     $supplierText = "";
                                     if (!empty($state['supplier_id'])) {
-                                        $supplierName = \App\Models\Supplier::find($state['supplier_id'])?->name ?? '';
+                                        $supplier = \App\Models\Supplier::find($state['supplier_id']);
+                                        $supplierName = $supplier?->name ?? '';
                                         $supplierText = "  |  🏢 {$supplierName}";
+
+                                        // 💡 UTILISATION DE requires_invoice AU LIEU DE furikomi
+                                        if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
+                                            $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
+                                        }
                                     } elseif (!empty($state['product_id'])) {
                                         $suppliersCount = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->count();
                                         if ($suppliersCount > 1) {
                                             $supplierText = "  |  <span style='background-color: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-weight: bold; border: 1px solid #f87171;'>⚠️ SÉLECTIONNER UN FOURNISSEUR</span>";
                                         } elseif ($suppliersCount === 1) {
                                             $ps = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->first();
-                                            $supplierName = \App\Models\Supplier::find($ps->supplier_id)?->name ?? '';
+                                            $supplier = \App\Models\Supplier::find($ps->supplier_id);
+                                            $supplierName = $supplier?->name ?? '';
                                             $supplierText = "  |  🏢 {$supplierName}";
+
+                                            // 💡 UTILISATION DE requires_invoice AU LIEU DE furikomi
+                                            if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
+                                                $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
+                                            }
                                         }
                                     }
 
@@ -970,7 +981,6 @@ class FolderResource extends Resource
                                             })
                                             ->columnSpan(4),
 
-                                        // SOLUTION GARANTIE - Modification apportée ici
                                         Select::make('item_status_id')
                                             ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
                                                 \App\Models\ItemStatus::firstOrCreate(
@@ -985,6 +995,38 @@ class FolderResource extends Resource
                                             ->live()
                                             ->default(fn () => \App\Models\ItemStatus::where('name', 'En attente de validation')->value('id'))
                                             ->columnSpan(4),
+                                    ])->columns(12),
+
+                                    // 💡 UTILISATION DE requires_invoice
+                                    Group::make()->schema([
+                                        Placeholder::make('invoice_alert')
+                                            ->label('')
+                                            ->content(new \Illuminate\Support\HtmlString('<div style="display:flex; align-items:center; gap:0.5rem; background-color: #fef2f2; color: #dc2626; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #f87171; font-weight: bold; font-size: 0.85rem;">⚠️ En attente de facture</div>'))
+                                            ->hidden(function ($get) { 
+                                                if ($get('invoice_received_at') !== null) {
+                                                    return true;
+                                                }
+                                                $supplierId = $get('supplier_id');
+                                                if (!$supplierId) {
+                                                    return true;
+                                                }
+                                                $supplier = \App\Models\Supplier::find($supplierId);
+                                                return !($supplier && $supplier->requires_invoice);
+                                            })
+                                            ->columnSpan(6),
+
+                                        DatePicker::make('invoice_received_at')
+                                            ->label(__('Date de réception de la facture'))
+                                            ->native(false)
+                                            ->displayFormat('d/m/Y')
+                                            ->live() 
+                                            ->visible(function ($get) { 
+                                                $supplierId = $get('supplier_id');
+                                                if (!$supplierId) return false;
+                                                $supplier = \App\Models\Supplier::find($supplierId);
+                                                return $supplier && $supplier->requires_invoice;
+                                            })
+                                            ->columnSpan(6),
                                     ])->columns(12),
 
                                     Group::make()->schema([

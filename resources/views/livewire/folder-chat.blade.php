@@ -41,6 +41,12 @@
 
                     <div style="padding: 0.85rem 1.15rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'background-color: #ffffff; color: #1f2937; border-top-left-radius: 0; border: 1px solid #e2e8f0;' : 'background-color: #096a61; color: #ffffff; border-top-right-radius: 0;' }}">
                         
+                        @if($msg->is_action_required ?? false)
+                            <div style="display: inline-block; background-color: #fef2f2; color: #dc2626; border: 1px solid #f87171; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 99px; margin-bottom: 0.5rem;">
+                                ⚠️ ACTION REQUISE
+                            </div>
+                        @endif
+
                         @if(!empty($msg->message))
                             <div style="word-break: break-word;">{!! nl2br(e($msg->message)) !!}</div>
                         @endif
@@ -71,48 +77,73 @@
     </div>
 
     <div style="padding: 1rem; border-top: 1px solid #e5e7eb; background-color: #ffffff;">
-        <div style="display: flex; gap: 0.75rem; width: 100%; align-items: center; box-sizing: border-box;">
-            
-            <label style="cursor: pointer; padding: 0.5rem; color: #94a3b8; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseover="this.style.color='#096a61'" onmouseout="this.style.color='#94a3b8'" title="Joindre un fichier">
-                <svg style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                <input type="file" wire:model="attachment" id="chat-attachment" style="opacity: 0; position: absolute; z-index: -1; width: 0; height: 0;" />
-            </label>
-
-            <input 
-                type="text" 
-                wire:model="newMessage" 
-                wire:keydown.enter.prevent="sendMessage"
-                placeholder="Écrivez votre message à l'équipe Takada..." 
-                style="flex: 1 1 auto; min-width: 0; padding: 0.75rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 99px; font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02); box-sizing: border-box; background-color: #f8fafc; color: #1e293b; transition: all 0.2s;"
-                onfocus="this.style.borderColor='#096a61'; this.style.backgroundColor='#ffffff';"
-                onblur="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';"
-            >
-            
-            <button 
-                type="button" 
-                wire:click="sendMessage"
-                style="flex: 0 0 auto; background-color: #096a61; color: white; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px rgba(9, 106, 97, 0.2); display: flex; align-items: center; gap: 0.5rem;"
-                onmouseover="this.style.backgroundColor='#07534c'; this.style.transform='translateY(-1px)';"
-                onmouseout="this.style.backgroundColor='#096a61'; this.style.transform='translateY(0)';"
-                wire:loading.attr="disabled"
-            >
-                <span wire:loading.remove wire:target="sendMessage, attachment">Envoyer</span>
-                <span wire:loading wire:target="sendMessage, attachment">Envoi...</span>
-            </button>
-        </div>
         
-        @if($attachment)
-            <div style="font-size: 0.8rem; color: #096a61; margin-top: 0.75rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
-                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Fichier prêt : {{ $attachment->getClientOriginalName() }}
+        @php
+            // 💡 Détermination très stricte : on vérifie que nous sommes bel et bien sur le portail administrateur
+            $isAdminSide = false;
+            try {
+                if ($panel = \Filament\Facades\Filament::getCurrentPanel()) {
+                    $isAdminSide = ($panel->getId() === 'admin');
+                } elseif (str_contains(request()->headers->get('referer', ''), '/admin')) {
+                    $isAdminSide = true;
+                }
+            } catch (\Exception $e) {}
+        @endphp
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; box-sizing: border-box;">
+            
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                <label style="cursor: pointer; padding: 0.5rem; color: #94a3b8; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseover="this.style.color='#096a61'" onmouseout="this.style.color='#94a3b8'" title="Joindre un fichier">
+                    <svg style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    <input type="file" wire:model="attachment" id="chat-attachment" style="opacity: 0; position: absolute; z-index: -1; width: 0; height: 0;" />
+                </label>
+
+                <input 
+                    type="text" 
+                    wire:model="newMessage" 
+                    wire:keydown.enter.prevent="sendMessage"
+                    placeholder="Écrivez votre message..." 
+                    style="flex: 1 1 auto; min-width: 0; padding: 0.75rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 99px; font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02); box-sizing: border-box; background-color: #f8fafc; color: #1e293b; transition: all 0.2s;"
+                    onfocus="this.style.borderColor='#096a61'; this.style.backgroundColor='#ffffff';"
+                    onblur="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';"
+                >
+                
+                <button 
+                    type="button" 
+                    wire:click="sendMessage"
+                    style="flex: 0 0 auto; background-color: #096a61; color: white; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px rgba(9, 106, 97, 0.2); display: flex; align-items: center; gap: 0.5rem;"
+                    onmouseover="this.style.backgroundColor='#07534c'; this.style.transform='translateY(-1px)';"
+                    onmouseout="this.style.backgroundColor='#096a61'; this.style.transform='translateY(0)';"
+                    wire:loading.attr="disabled"
+                >
+                    <span wire:loading.remove wire:target="sendMessage, attachment">Envoyer</span>
+                    <span wire:loading wire:target="sendMessage, attachment">Envoi...</span>
+                </button>
             </div>
-        @endif
-        @error('attachment') <span style="font-size: 0.8rem; color: #ef4444; margin-top: 0.5rem; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
-        @error('newMessage') <span style="font-size: 0.8rem; color: #ef4444; margin-top: 0.5rem; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
+
+            {{-- 💡 La case n'apparaît QUE si on est sur la page Admin ET que l'on a les droits --}}
+            @if($isAdminSide && in_array(auth()->user()->role ?? '', ['super_admin', 'admin']))
+                <div style="display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
+                    <input type="checkbox" wire:model="isActionRequired" id="actionRequired" style="cursor: pointer;">
+                    <label for="actionRequired" style="font-size: 0.8rem; color: #dc2626; font-weight: 600; cursor: pointer;">
+                        Marquer ce message comme nécessitant une action (Action Requise)
+                    </label>
+                </div>
+            @endif
+            
+            @if($attachment)
+                <div style="font-size: 0.8rem; color: #096a61; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
+                    <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Fichier prêt : {{ $attachment->getClientOriginalName() }}
+                </div>
+            @endif
+            @error('attachment') <span style="font-size: 0.8rem; color: #ef4444; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
+            @error('newMessage') <span style="font-size: 0.8rem; color: #ef4444; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
+        </div>
     </div>
 </div>
 

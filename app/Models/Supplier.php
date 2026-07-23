@@ -14,8 +14,14 @@ class Supplier extends Model
         'contact_name',
         'phone',
         'fax',
+        'payment_type',
+        'requires_invoice', // 💡 Nouveau
         'address',
         'commission',
         'notes',
+    ];
+
+    protected $casts = [
+        'requires_invoice' => 'boolean',
     ];
 }

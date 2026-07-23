@@ -44,13 +44,11 @@ class EditFolder extends EditRecord
     {
         $components = parent::form($schema)->getComponents();
         
-        // 💡 CORRECTION DÉFINITIVE : On utilise un Group sur 2 colonnes qui prend toute la largeur
         $components[] = Group::make()
             ->columns(['default' => 1, 'xl' => 2])
-            ->columnSpanFull() // Force la prise de 100% de la largeur disponible
+            ->columnSpanFull() 
             ->schema([
                 
-                // 1. BLOC SUIVI DE MODIFICATION (À GAUCHE)
                 Section::make(__('Suivi de modification'))
                     ->description(__('Ajoutez une note contextuelle pour l\'historique du dossier.'))
                     ->columnSpan(1)
@@ -58,12 +56,11 @@ class EditFolder extends EditRecord
                         Textarea::make('history_note')
                             ->hiddenLabel()
                             ->placeholder(__('Ex: Changement de statut suite au mail de confirmation...'))
-                            ->rows(17) // Hauteur pour s'aligner avec le composant de chat
+                            ->rows(17) 
                             ->maxLength(1000)
                             ->dehydrated(false),
                     ]),
 
-                // 2. BLOC MESSAGERIE (À DROITE)
                 Section::make(__('Messagerie Agence'))
                     ->description(__('Échangez directement avec l\'agence en temps réel.'))
                     ->columnSpan(1)
@@ -204,24 +201,20 @@ class EditFolder extends EditRecord
                 $finalSummary .= "\n\n📝 " . __('Note ajoutée') . " :\n" . trim($this->historyNote);
             }
 
-            \App\Models\FolderHistory::create([
-                'folder_id' => $this->getRecord()->id,
-                'user_id' => auth()->id(),
-                'action' => __('Mise à jour'),
-                'changes_payload' => [
-                    'summary' => $finalSummary
-                ]
-            ]);
+            // 💡 On utilise logConsolidated pour fusionner !
+            \App\Models\FolderHistory::logConsolidated(
+                $this->getRecord()->id,
+                __('Mise à jour'),
+                $finalSummary
+            );
         } 
         elseif (!empty($this->historyNote)) {
-            \App\Models\FolderHistory::create([
-                'folder_id' => $this->getRecord()->id,
-                'user_id' => auth()->id(),
-                'action' => __('Note'),
-                'changes_payload' => [
-                    'summary' => "📝 " . __('Note ajoutée au dossier') . " :\n" . trim($this->historyNote)
-                ]
-            ]);
+            // 💡 On utilise logConsolidated pour fusionner !
+            \App\Models\FolderHistory::logConsolidated(
+                $this->getRecord()->id,
+                __('Note'),
+                "📝 " . __('Note ajoutée au dossier') . " :\n" . trim($this->historyNote)
+            );
         }
     }
 

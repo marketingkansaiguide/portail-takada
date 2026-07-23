@@ -11,7 +11,7 @@ class FolderItem extends Model
     protected $fillable = [
         'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
         'service_date', 'quantity', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values', 
-        'selected_options',
+        'selected_options', 'invoice_received_at',
     ];
 
     protected $casts = [
@@ -19,11 +19,9 @@ class FolderItem extends Model
         'purchase_unit_price' => 'integer', 'purchase_total_price' => 'integer',
         'unit_price' => 'integer', 'total_price' => 'integer', 
         'custom_values' => 'array', 'selected_options' => 'array',
+        'invoice_received_at' => 'date',
     ];
 
-    /**
-     * Helper pour récupérer la configuration spécifique du fournisseur sélectionné (ou le premier par défaut)
-     */
     public function getProductSupplierData()
     {
         if ($this->supplier_id) {
@@ -34,9 +32,6 @@ class FolderItem extends Model
         return \App\Models\ProductSupplier::where('product_id', $this->product_id)->first();
     }
 
-    /**
-     * Helper pour identifier le fournisseur cible réel
-     */
     public function getTargetSupplier()
     {
         if ($this->supplier_id) {
@@ -46,9 +41,6 @@ class FolderItem extends Model
         return $ps ? \App\Models\Supplier::find($ps->supplier_id) : null;
     }
 
-    /**
-     * Moteur de parsing de l'OBJET de l'e-mail
-     */
     public function parseSupplierEmailSubject(): string
     {
         $productSupplier = $this->getProductSupplierData();
@@ -82,9 +74,6 @@ class FolderItem extends Model
         return trim(str_replace(array_keys($replacements), array_values($replacements), $template));
     }
 
-    /**
-     * Moteur de parsing pour l'EN-TÊTE DU FAX
-     */
     public function parseSupplierFaxHeader(): string
     {
         $productSupplier = $this->getProductSupplierData();
@@ -119,9 +108,6 @@ class FolderItem extends Model
         return trim(str_replace(array_keys($replacements), array_values($replacements), $templateString));
     }
 
-    /**
-     * Moteur de parsing des Shortcodes & Conditions : Génère l'e-mail formaté
-     */
     public function parseSupplierEmail(): string
     {
         $product = $this->product;
@@ -137,7 +123,6 @@ class FolderItem extends Model
 
         $folder = $this->folder;
 
-        // --- 1. PRÉPARATION DES VARIABLES GÉNÉRALES ---
         $dossierRef = $folder ? $folder->reference : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
         $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
@@ -150,7 +135,6 @@ class FolderItem extends Model
 
         $selectedOpts = is_string($this->selected_options) ? json_decode($this->selected_options, true) : $this->selected_options;
 
-        // --- 2. CALCUL ANTICIPÉ DES PASSAGERS ---
         $paxAdults = 0;
         $paxChildren = 0;
         $childLimit = $product->child_age_limit ?? 11;
@@ -183,7 +167,6 @@ class FolderItem extends Model
             $paxAdults = $quantite;
         }
 
-        // --- 3. MOTEUR DE CONDITIONS LOGIQUES ---
         if (preg_match_all('/\[IF_OPTION:([^\]]+)\](.*?)\[\/IF_OPTION\]/is', $emailRendered, $matches)) {
             foreach ($matches[1] as $index => $optionCode) {
                 $optionCode = trim($optionCode);
@@ -292,7 +275,6 @@ class FolderItem extends Model
             }
         }
 
-        // --- 4. RÉSOLUTION DES SHORTCODES DE TEXTE ---
         $optionNames = [];
         if (!empty($selectedOpts) && is_array($selectedOpts)) {
             foreach ($selectedOpts as $optData) {
@@ -330,7 +312,6 @@ class FolderItem extends Model
 
         $emailRendered = str_replace(array_keys($replacements), array_values($replacements), $emailRendered);
 
-        // --- 5. RÉSOUUTION AVANCÉE DES FORMULAIRES DYNAMIQUES [CUSTOM:cle] ---
         if (is_array($this->custom_values)) {
             foreach ($this->custom_values as $key => $val) {
                 if (is_bool($val)) {
@@ -347,7 +328,6 @@ class FolderItem extends Model
             }
         }
 
-        // --- 6. Remplacement des shortcodes d'options [OPTION:cle] ---
         if (preg_match_all('/\[OPTION:([^\]]+)\]/', $emailRendered, $matches)) {
             foreach ($matches[1] as $index => $optionCode) {
                 $optionCode = trim($optionCode);
@@ -395,7 +375,6 @@ class FolderItem extends Model
 
     protected static function booted()
     {
-        // 💡 GARANTIE DE STATUT PAR DÉFAUT "En attente de validation" AVEC MAJUSCULE
         static::creating(function ($item) {
             if (empty($item->item_status_id)) {
                 $defaultStatus = \App\Models\ItemStatus::firstOrCreate(
@@ -420,7 +399,14 @@ class FolderItem extends Model
                     if (isset($processedUpdates[$fingerprint])) return;
                     $processedUpdates[$fingerprint] = true;
 
+                    // 💡 CLARTÉ : Ajout de la date (ou de l'ID) au nom de la prestation pour différencier les lignes identiques !
                     $productName = $item->product ? $item->product->name : 'Une prestation';
+                    if ($item->service_date) {
+                        $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
+                    } elseif ($item->id) {
+                        $productName .= ' (Réf: #' . $item->id . ')';
+                    }
+
                     $changesText = [];
                     
                     $labels = [
@@ -433,6 +419,7 @@ class FolderItem extends Model
                         'unit_price' => 'Prix de vente unitaire',
                         'total_price' => 'Prix de vente total',
                         'selected_options' => 'Options sélectionnées',
+                        'invoice_received_at' => 'Date de réception facture',
                     ];
 
                     foreach ($changes as $key => $newValue) {
@@ -483,7 +470,7 @@ class FolderItem extends Model
                             continue;
                         }
 
-                        if ($key === 'service_date') {
+                        if ($key === 'service_date' || $key === 'invoice_received_at') {
                             $oldDate = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : 'Non renseignée';
                             $newDate = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : 'Vide';
                             $changesText[] = "• {$labels[$key]} : '{$oldDate}' ➔ '{$newDate}'";
@@ -502,13 +489,8 @@ class FolderItem extends Model
 
                     if (!empty($changesText)) {
                         $summary = "La prestation '{$productName}' a été modifiée :\n" . implode("\n", $changesText);
-
-                        \App\Models\FolderHistory::create([
-                            'folder_id' => $item->folder_id,
-                            'user_id' => auth()->id(),
-                            'action' => 'Mise à jour Prestation',
-                            'changes_payload' => ['summary' => $summary]
-                        ]);
+                        // 💡 Appel à la fonction fusionnée
+                        \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Mise à jour Prestation', $summary);
                     }
                 }
             }
@@ -520,22 +502,22 @@ class FolderItem extends Model
             $processedCreations[$item->id] = true;
 
             $productName = $item->product ? $item->product->name : 'Une prestation';
-            \App\Models\FolderHistory::create([
-                'folder_id' => $item->folder_id,
-                'user_id' => auth()->id(),
-                'action' => 'Ajout Prestation',
-                'changes_payload' => ['summary' => "La prestation '{$productName}' a été ajoutée au dossier."]
-            ]);
+            if ($item->service_date) {
+                $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
+            }
+
+            // 💡 Appel à la fonction fusionnée
+            \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Ajout Prestation', "La prestation '{$productName}' a été ajoutée au dossier.");
         });
 
         static::deleted(function ($item) {
             $productName = $item->product ? $item->product->name : 'Une prestation';
-            \App\Models\FolderHistory::create([
-                'folder_id' => $item->folder_id,
-                'user_id' => auth()->id(),
-                'action' => 'Suppression Prestation',
-                'changes_payload' => ['summary' => "La prestation '{$productName}' a été retirée du dossier."]
-            ]);
+            if ($item->service_date) {
+                $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
+            }
+
+            // 💡 Appel à la fonction fusionnée
+            \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Suppression Prestation', "La prestation '{$productName}' a été retirée du dossier.");
         });
     }
 
