@@ -29,6 +29,9 @@ use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn; 
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Support\HtmlString;
 
 class FolderResource extends Resource
 {
@@ -97,23 +100,34 @@ class FolderResource extends Resource
         $itemQuantity = (int) ($get('quantity') ?? 1);
         $selectedOptions = $get('selected_options') ?? [];
 
-        // --- 1. CALCUL DU PRIX DE VENTE ---
         $basePrice = 0;
         if ($productId && $serviceDate) {
-            $date = Carbon::parse($serviceDate);
-            $period = \App\Models\ProductPeriod::where('product_id', $productId)
-                ->whereDate('start_date', '<=', $date)
-                ->whereDate('end_date', '>=', $date)
-                ->first();
-
-            if ($period) {
-                $priceRow = \App\Models\ProductPrice::where('product_period_id', $period->id)
-                    ->where('min_pax', '<=', $itemQuantity)
-                    ->where('max_pax', '>=', $itemQuantity)
-                    ->first();
-                if ($priceRow) {
-                    $basePrice = (float) $priceRow->price;
+            $mdStr = Carbon::parse($serviceDate)->format('m-d');
+            $product = \App\Models\Product::with('productPeriods.productPrices')->find($productId);
+            
+            if ($product && $product->productPeriods) {
+                $matchedPrice = null;
+                foreach ($product->productPeriods as $period) {
+                    if (!$period->start_date || !$period->end_date) continue;
+                    
+                    $inPeriod = false;
+                    if ($period->start_date <= $period->end_date) {
+                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
+                    } else {
+                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    }
+                    
+                    if ($inPeriod && $period->productPrices) {
+                        $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity);
+                        if ($validPrices->isNotEmpty()) {
+                            $matchedPrice = $validPrices->first()->price;
+                        } else {
+                            $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                        }
+                        break;
+                    }
                 }
+                $basePrice = $matchedPrice ?? 0;
             }
         }
 
@@ -143,10 +157,6 @@ class FolderResource extends Resource
 
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
-
-        // --- 2. CALCUL DU PRIX D'ACHAT ---
-        // $purchaseUnitPrice = (float) ($get('purchase_unit_price') ?? 0);
-        // $set('purchase_total_price', $purchaseUnitPrice * $itemQuantity);
     }
 
     public static function form(Schema $schema): Schema
@@ -1036,10 +1046,23 @@ class FolderResource extends Resource
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
                                             ->columnSpan(1),
 
+                                        // 💡 COMBINAISON PARFAITE : Validation Backend + Blocage Frontend Javascript
                                         TextInput::make('quantity')
                                             ->label(__('Total Pax'))
                                             ->numeric()
                                             ->default(1)
+                                            ->minValue(1)
+                                            ->maxValue(fn (Get $get) => \App\Models\Product::find($get('product_id'))?->max_pax)
+                                            ->extraInputAttributes(function (Get $get) {
+                                                $max = \App\Models\Product::find($get('product_id'))?->max_pax;
+                                                if ($max) {
+                                                    return [
+                                                        'max' => $max,
+                                                        'oninput' => "if(parseInt(this.value) > $max) this.value = $max;"
+                                                    ];
+                                                }
+                                                return [];
+                                            })
                                             ->required()
                                             ->live()
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
@@ -1112,9 +1135,13 @@ class FolderResource extends Resource
                                                     return $opt && $opt->billing_type === 'manual';
                                                 })
                                                 ->afterStateUpdated(function ($state, $set, $get) {
-                                                    $set('quantity', $state);
                                                     $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                    $parentGet = function($k) use ($get, $state) { 
+                                                        if ($k === 'selected_options') {
+                                                            return $get('../../selected_options') ?? [];
+                                                        }
+                                                        return $get('../../'.$k); 
+                                                    };
                                                     self::updateItemPrices($parentSet, $parentGet);
                                                 }),
                                         ])
@@ -1148,23 +1175,27 @@ class FolderResource extends Resource
 
                                                 if ($perPax) {
                                                     $label .= ' (' . __('Par passager') . ')';
+                                                    $field = match ($type) {
+                                                        'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(3),
+                                                        default => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
+                                                    };
+                                                } else {
+                                                    $field = match ($type) {
+                                                        'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
+                                                        'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
+                                                        'date' => DatePicker::make($key)->label($label),
+                                                        'toggle' => Toggle::make($key)->label($label)->inline(false),
+                                                        'select' => TextInput::make($key)
+                                                            ->label($label)
+                                                            ->placeholder($placeholder ?: __('Sélectionnez ou tapez librement...'))
+                                                            ->datalist(function() use ($def) {
+                                                                return $def['choices'] ?? [];
+                                                            }),
+                                                        default => TextInput::make($key)->label($label)->placeholder($placeholder),
+                                                    };
                                                 }
 
-                                                $field = match ($type) {
-                                                    'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
-                                                    'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
-                                                    'date' => DatePicker::make($key)->label($label),
-                                                    'toggle' => Toggle::make($key)->label($label)->inline(false),
-                                                    'select' => TextInput::make($key)
-                                                        ->label($label)
-                                                        ->placeholder($placeholder ?: __('Sélectionnez ou tapez librement...'))
-                                                        ->datalist(function() use ($def) {
-                                                            return $def['choices'] ?? [];
-                                                        }),
-                                                    default => TextInput::make($key)->label($label)->placeholder($placeholder),
-                                                };
-
-                                                if ($isRequired && $type !== 'toggle') {
+                                                if ($isRequired && (!isset($type) || $type !== 'toggle')) {
                                                     $field->rules(['required']);
                                                 }
 

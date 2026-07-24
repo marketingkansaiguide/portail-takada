@@ -254,11 +254,23 @@ class AgencyFolderResource extends Resource
                                         ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
+                                    // 💡 COMBINAISON PARFAITE : Validation Backend + Blocage Frontend Javascript
                                     TextInput::make('quantity')
                                         ->label('Participants (Nombre de Pax)')
                                         ->numeric()
                                         ->default(1)
                                         ->minValue(1)
+                                        ->maxValue(fn (Get $get) => \App\Models\Product::find($get('product_id'))?->max_pax)
+                                        ->extraInputAttributes(function (Get $get) {
+                                            $max = \App\Models\Product::find($get('product_id'))?->max_pax;
+                                            if ($max) {
+                                                return [
+                                                    'max' => $max,
+                                                    'oninput' => "if(parseInt(this.value) > $max) this.value = $max;"
+                                                ];
+                                            }
+                                            return [];
+                                        })
                                         ->live()
                                         ->required(),
                                 ])->columns(2)->visible(fn (Get $get) => !empty($get('product_id'))),
@@ -296,7 +308,8 @@ class AgencyFolderResource extends Resource
                                                     ->default(1)
                                                     ->minValue(1)
                                                     ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
-                                                    ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"));
+                                                    ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                    ->live();
 
                                                 $schema[] = Group::make()
                                                     ->schema([$toggle, $qtyInput])
@@ -372,6 +385,75 @@ class AgencyFolderResource extends Resource
                                                 ->schema($fields)->columns(2)
                                         ];
                                     }),
+
+                                // 💡 AJOUT : BLOC ESTIMATION DE PRIX DYNAMIQUE
+                                Group::make()
+                                    ->visible(fn (Get $get) => !empty($get('product_id')) && !empty($get('service_date')))
+                                    ->schema([
+                                        Placeholder::make('estimated_price_display')
+                                            ->hiddenLabel()
+                                            ->content(function (Get $get) {
+                                                $productId = $get('product_id');
+                                                $date = $get('service_date');
+                                                $qty = (int) ($get('quantity') ?? 1);
+                                                
+                                                if (!$productId || !$date) return new HtmlString('<span class="text-gray-500">Sélectionnez une date pour estimer le prix.</span>');
+                                                
+                                                $product = \App\Models\Product::with(['productPeriods.productPrices', 'productOptions'])->find($productId);
+                                                if (!$product) return 'Produit introuvable.';
+                                                
+                                                $mdStr = Carbon::parse($date)->format('m-d');
+                                                $matchedPrice = null;
+                                                if ($product->productPeriods) {
+                                                    foreach ($product->productPeriods as $period) {
+                                                        if (!$period->start_date || !$period->end_date) continue;
+                                                        
+                                                        $inPeriod = false;
+                                                        if ($period->start_date <= $period->end_date) {
+                                                            $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
+                                                        } else {
+                                                            $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                                                        }
+                                                        
+                                                        if ($inPeriod && $period->productPrices) {
+                                                            $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
+                                                            if ($validPrices->isNotEmpty()) {
+                                                                $matchedPrice = $validPrices->first()->price;
+                                                            } else {
+                                                                $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                                                            }
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                $basePrice = $matchedPrice ?? 0;
+                                                $totalPrice = $basePrice * $qty;
+                                                
+                                                if ($product->productOptions) {
+                                                    foreach ($product->productOptions as $opt) {
+                                                        if ($get("opt_enabled_{$opt->id}")) {
+                                                            $mod = $opt->price_modifier ?? 0;
+                                                            if ($opt->billing_type === 'per_pax') {
+                                                                $totalPrice += $mod * $qty;
+                                                            } elseif ($opt->billing_type === 'per_booking') {
+                                                                $totalPrice += $mod;
+                                                            } elseif ($opt->billing_type === 'manual') {
+                                                                $optQty = (int) ($get("opt_qty_{$opt->id}") ?? 1);
+                                                                $totalPrice += $mod * $optQty;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                return new HtmlString("
+                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; text-align: center; margin-top: 1rem;'>
+                                                        <p style='margin: 0; font-size: 0.875rem; color: #166534;'>Prix total estimé pour cette prestation</p>
+                                                        <p style='margin: 0; font-size: 1.5rem; font-weight: bold; color: #15803d;'>" . number_format($totalPrice, 0, '.', ' ') . " ¥</p>
+                                                    </div>
+                                                ");
+                                            })
+                                    ]),
                             ])
                             ->action(function (array $data, ?Model $record) {
                                 if (!$record) return;
@@ -411,7 +493,7 @@ class AgencyFolderResource extends Resource
                                                 }
                                             }
                                             if (!empty($paxVals)) {
-                                                $customValues[$key] = implode(', ', $paxVals);
+                                                $customValues[$key] = implode("\n", $paxVals);
                                             }
                                         } else {
                                             $fk = "custom_{$key}";
@@ -448,6 +530,8 @@ class AgencyFolderResource extends Resource
                                     ->body('La prestation a été enregistrée avec le statut "En attente de validation".')
                                     ->success()
                                     ->send();
+
+                                return redirect(request()->header('Referer'));
                             })
                     ])
                     ->schema([

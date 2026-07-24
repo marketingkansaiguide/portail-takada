@@ -510,6 +510,15 @@ class ProductForm
                     // 💡 Section dépliée
                     Section::make(__('Paramètres de Vente'))
                         ->schema([
+                            
+                            // 💡 NOUVEAU CHAMP : LIMITE DE PAX
+                            TextInput::make('max_pax')
+                                ->label(__('Capacité maximale (Pax)'))
+                                ->placeholder(__('Ex: 10 (Laissez vide si illimité)'))
+                                ->helperText(__('Empêchera l\'agence de réserver pour un nombre supérieur à cette limite.'))
+                                ->numeric()
+                                ->minValue(1),
+
                             Toggle::make('is_public')
                                 ->label(__('Produit public (Vitrine)'))
                                 ->helperText(__('Si activé, l\'activité s\'affiche sur le catalogue sans authentification (prix masqué).'))

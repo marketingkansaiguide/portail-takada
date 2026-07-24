@@ -22,6 +22,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
+use Illuminate\Support\HtmlString;
 
 class ViewProduct extends Page
 {
@@ -84,6 +85,25 @@ class ViewProduct extends Page
                 } else {
                     $this->customValues[$key] = $def['type'] === 'toggle' ? false : '';
                 }
+            }
+        }
+    }
+
+    // 💡 INTERCEPTEUR LIVEWIRE AVEC NOTIFICATION PÉDAGOGIQUE ET LIEN DYNAMIQUE
+    public function updatedQuantity($value)
+    {
+        if ($this->product && $this->product->max_pax !== null) {
+            if ((int)$value > $this->product->max_pax) {
+                $this->quantity = $this->product->max_pax;
+                
+                // On récupère automatiquement la bonne URL générée par Filament
+                $contactUrl = \App\Filament\Agency\Pages\Contact::getUrl();
+                
+                Notification::make()
+                    ->title(__('Quantité maximale atteinte'))
+                    ->body(new HtmlString("Cette prestation est disponible à l'achat rapide pour <strong>{$this->product->max_pax} pax maximum</strong>.<br>Pour une demande sur-mesure, veuillez <a href='{$contactUrl}' style='text-decoration: underline; font-weight: bold;'>nous contacter</a>."))
+                    ->warning()
+                    ->send();
             }
         }
     }
@@ -337,6 +357,11 @@ class ViewProduct extends Page
         if (!$this->product) return [];
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
+        
+        if ($this->product->max_pax && $qty > $this->product->max_pax) {
+            $qty = $this->product->max_pax;
+        }
+
         $basePricePerUnit = 0;
         $hasDate = !empty($this->serviceDate);
         $isOnDemand = $this->product->is_on_demand ?? false;
@@ -359,11 +384,10 @@ class ViewProduct extends Page
                         $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
                         if ($validPrices->isNotEmpty()) {
                             $matchedPrice = $validPrices->first()->price;
-                            break;
                         } else {
                             $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                            break;
                         }
+                        break;
                     }
                 }
             }
@@ -438,6 +462,11 @@ class ViewProduct extends Page
             'quantity.min' => 'Il faut au minimum 1 personne.',
         ];
 
+        if ($this->product && $this->product->max_pax) {
+            $rules['quantity'] .= '|max:' . $this->product->max_pax;
+            $messages['quantity.max'] = 'Cette prestation est limitée à ' . $this->product->max_pax . ' participants au maximum.';
+        }
+
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
 
         if (!empty($this->product->custom_field_definitions)) {
@@ -502,7 +531,6 @@ class ViewProduct extends Page
             }
         }
 
-        // 💡 RÉCUPÉRATION DYNAMIQUE DU STATUT "En attente de validation"
         $status = \App\Models\ItemStatus::firstOrCreate(
             ['name' => 'En attente de validation'],
             ['color' => 'warning']

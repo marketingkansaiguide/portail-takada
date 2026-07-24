@@ -14,6 +14,7 @@ class Product extends Model
     protected $casts = [
         'images' => 'array',
         'child_age_limit' => 'integer',
+        'max_pax' => 'integer', // 💡 NOUVEAU : Cast en entier
         'available_days' => 'array',
         'blackout_dates' => 'array',
         'custom_field_definitions' => 'array',
