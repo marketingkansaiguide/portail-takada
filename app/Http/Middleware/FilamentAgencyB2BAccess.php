@@ -24,15 +24,15 @@ class FilamentAgencyB2BAccess
         if ($route) {
             $routeName = $route->getName();
             
-            // 💡 LISTE BLANCHE ENRICHIE : On autorise la consultation de la fiche produit publique
+            // 💡 ON MET À JOUR LE NOM DE LA ROUTE ICI
             $publicRoutes = [
-                'filament.agency.pages.catalogue',    // La liste du catalogue
-                'filament.agency.pages.view-product', // La fiche produit détaillée
-                'filament.agency.auth.login',         // La page de connexion
-                'filament.agency.auth.logout',        // La déconnexion
+                'filament.agency.pages.catalogue',    
+                'filament.agency.pages.view-product', 
+                'filament.agency.pages.assistance-sur-mesure', // Nouvelle route
+                'filament.agency.auth.login',         
+                'filament.agency.auth.logout',        
             ];
 
-            // On autorise l'accès si la route est publique ou s'il s'agit de requêtes Livewire (indispensables au catalogue)
             if (in_array($routeName, $publicRoutes) || str_contains($request->path(), 'livewire')) {
                 return $next($request);
             }

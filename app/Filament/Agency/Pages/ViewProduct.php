@@ -89,15 +89,13 @@ class ViewProduct extends Page
         }
     }
 
-    // 💡 INTERCEPTEUR LIVEWIRE AVEC NOTIFICATION PÉDAGOGIQUE ET LIEN DYNAMIQUE
     public function updatedQuantity($value)
     {
         if ($this->product && $this->product->max_pax !== null) {
             if ((int)$value > $this->product->max_pax) {
                 $this->quantity = $this->product->max_pax;
                 
-                // On récupère automatiquement la bonne URL générée par Filament
-                $contactUrl = \App\Filament\Agency\Pages\Contact::getUrl();
+                $contactUrl = route('contact.index');
                 
                 Notification::make()
                     ->title(__('Quantité maximale atteinte'))

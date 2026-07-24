@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Agency\Pages\Catalogue;
+use App\Filament\Agency\Pages\Contact; // 💡 1. IMPORT AJOUTÉ ICI
 use App\Filament\Agency\Resources\AgencyFolderResource;
 use App\Filament\Agency\Resources\AgencyUserResource;
 use App\Http\Middleware\FilamentAgencyB2BAccess;
@@ -54,6 +55,7 @@ class AgencyPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Agency/Pages'), for: 'App\\Filament\\Agency\\Pages')
             ->pages([
                 Catalogue::class,
+                Contact::class, // 💡 2. DÉCLARATION EXPLICITE AJOUTÉE POUR GÉNÉRER LA ROUTE
             ])
             ->discoverWidgets(in: app_path('Filament/Agency/Widgets'), for: 'App\\Filament\\Agency\\Widgets')
             ->widgets([])
