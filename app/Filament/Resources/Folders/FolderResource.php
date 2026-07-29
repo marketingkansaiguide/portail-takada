@@ -23,6 +23,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Hidden; 
 use Filament\Forms\Components\Placeholder; 
+use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -422,6 +423,29 @@ class FolderResource extends Resource
                                     }),
                             ])->columns(3),
                         ]),
+                        
+                    Section::make(__('📂 Documents du dossier'))
+                        ->description(__('Fichiers partagés avec l\'agence'))
+                        ->schema([
+                            FileUpload::make('documents')
+                                ->hiddenLabel()
+                                ->multiple()
+                                ->directory('folders/documents') 
+                                ->preserveFilenames()
+                                ->downloadable()
+                                ->openable()
+                                ->reorderable()
+                                ->acceptedFileTypes([
+                                    'application/pdf', 
+                                    'image/jpeg', 
+                                    'image/png', 
+                                    'application/msword', 
+                                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                                ])
+                                ->maxSize(10240),
+                        ])
+                        ->collapsible(),
+                        
                 ])->columnSpan(['lg' => 1]),
 
                 Group::make()->schema([
@@ -1046,7 +1070,6 @@ class FolderResource extends Resource
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
                                             ->columnSpan(1),
 
-                                        // 💡 COMBINAISON PARFAITE : Validation Backend + Blocage Frontend Javascript
                                         TextInput::make('quantity')
                                             ->label(__('Total Pax'))
                                             ->numeric()
@@ -1068,7 +1091,6 @@ class FolderResource extends Resource
                                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
                                             ->columnSpan(1),
 
-                                        // --- LIGNES D'ACHAT ---
                                         TextInput::make('purchase_total_price')
                                             ->label(__('Total Achat (¥)'))
                                             ->numeric()
@@ -1077,7 +1099,6 @@ class FolderResource extends Resource
                                             ->afterStateUpdated(fn ($set, $get) => self::updateFolderTotal($set, $get))
                                             ->columnSpan(2),
 
-                                        // --- LIGNES DE VENTE ---
                                         TextInput::make('unit_price')
                                             ->label(__('Vente Unit. (¥)'))
                                             ->numeric()
@@ -1177,6 +1198,14 @@ class FolderResource extends Resource
                                                     $label .= ' (' . __('Par passager') . ')';
                                                     $field = match ($type) {
                                                         'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(3),
+                                                        'file' => \Filament\Forms\Components\FileUpload::make($key)
+                                                            ->label($label)
+                                                            ->directory('folders/custom_fields')
+                                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                                                            ->maxSize(10240)
+                                                            ->preserveFilenames()
+                                                            ->downloadable()
+                                                            ->openable(),
                                                         default => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
                                                     };
                                                 } else {
@@ -1191,6 +1220,14 @@ class FolderResource extends Resource
                                                             ->datalist(function() use ($def) {
                                                                 return $def['choices'] ?? [];
                                                             }),
+                                                        'file' => \Filament\Forms\Components\FileUpload::make($key)
+                                                            ->label($label)
+                                                            ->directory('folders/custom_fields')
+                                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                                                            ->maxSize(10240)
+                                                            ->preserveFilenames()
+                                                            ->downloadable()
+                                                            ->openable(),
                                                         default => TextInput::make($key)->label($label)->placeholder($placeholder),
                                                     };
                                                 }

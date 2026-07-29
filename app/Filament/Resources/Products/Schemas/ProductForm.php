@@ -30,7 +30,6 @@ class ProductForm
                 // -------------------------------------------------------------
                 Group::make()->schema([
                     
-                    // 💡 Section dépliée (pas de ->collapsed())
                     Section::make(__('Présentation de la prestation'))
                         ->description(__('Renseignez le titre, la description détaillée et ajoutez les visuels.'))
                         ->schema([
@@ -57,11 +56,9 @@ class ProductForm
                                 ->columnSpanFull(),
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Informations requises lors de l\'achat'))
                         ->description(__('Configurez les questions spécifiques que l\'agence devra remplir pour valider la réservation.'))
                         ->schema([
-                            // 💡 Repeater interne replié
                             Repeater::make('custom_field_definitions')
                                 ->hiddenLabel() 
                                 ->addActionLabel(__('Demander une information spécifique'))
@@ -91,6 +88,8 @@ class ProductForm
                                                 'date' => __('Date'),
                                                 'toggle' => __('Case à cocher (Oui/Non)'),
                                                 'select' => __('Liste de choix (Menu déroulant)'),
+                                                // 💡 L'OPTION "FICHIER" EST AJOUTÉE ICI :
+                                                'file' => __('Fichier joint (Image / PDF)'), 
                                             ])
                                             ->live()
                                             ->required(),
@@ -106,7 +105,8 @@ class ProductForm
                                     Group::make()->schema([
                                         TextInput::make('placeholder')
                                             ->label(__('Exemple d\'aide (Placeholder)'))
-                                            ->placeholder(__('Ex: M, L, XL ou 175cm...')),
+                                            ->placeholder(__('Ex: M, L, XL ou 175cm...'))
+                                            ->visible(fn (Get $get) => in_array($get('type'), ['text', 'textarea', 'number', 'select'])),
 
                                         Toggle::make('is_required')
                                             ->label(__('Rendre obligatoire'))
@@ -122,11 +122,9 @@ class ProductForm
                                 ])
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Options & Déclinaisons tarifaires'))
                         ->description(__('Ajoutez des variantes ou des services optionnels payants applicables à ce produit.'))
                         ->schema([
-                            // 💡 Repeater interne replié
                             Repeater::make('productOptions')
                                 ->relationship()
                                 ->hiddenLabel()
@@ -166,7 +164,6 @@ class ProductForm
                                 ])
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Calendrier & Grilles Tarifaires (Prix NETS)'))
                         ->description(__('Définissez vos saisons annuelles de validité, l\'âge limite des enfants et vos prix.'))
                         ->schema([
@@ -177,7 +174,6 @@ class ProductForm
                                 ->default(11)
                                 ->required(),
 
-                            // 💡 Repeater interne replié
                             Repeater::make('productPeriods')
                                 ->relationship()
                                 ->hiddenLabel() 
@@ -247,7 +243,6 @@ class ProductForm
                                             ->required(),
                                     ])->columns(2),
                                     
-                                    // 💡 Repeater de prix replié
                                     Repeater::make('productPrices')
                                         ->relationship()
                                         ->label(__('Grille tarifaire (Pax & Âges)'))
@@ -275,11 +270,9 @@ class ProductForm
                                 ])
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Modèles de communication par Fournisseur'))
                         ->description(__('Personnalisez les e-mails et fax pour chaque fournisseur rattaché. La liste ci-dessous se met à jour automatiquement en fonction des fournisseurs cochés dans la colonne de droite.'))
                         ->schema([
-                            // 💡 Repeater interne replié
                             Repeater::make('productSuppliers')
                                 ->relationship()
                                 ->hiddenLabel() 
@@ -306,7 +299,7 @@ class ProductForm
                                         ->statePath('fax_header')
                                         ->schema([
                                             Section::make('En-tête visuelle du document FAX')
-                                                ->collapsed() // Section avancée dans le repeater (laissée repliée pour gain de place)
+                                                ->collapsed() 
                                                 ->columns(2)
                                                 ->schema([
                                                     Group::make()->schema([
@@ -370,7 +363,6 @@ class ProductForm
                                         ->columnSpanFull(),
                                 ]),
 
-                            // L'aide reste repliée
                             Section::make(__('Aide : Liste des Shortcodes & Moteur Logique'))
                                 ->icon('heroicon-o-information-circle')
                                 ->collapsed() 
@@ -421,7 +413,6 @@ class ProductForm
                 // -------------------------------------------------------------
                 Group::make()->schema([
                     
-                    // 💡 Section dépliée
                     Section::make(__('Classification & Fournisseurs'))
                         ->schema([
                             Select::make('category_id')
@@ -477,7 +468,6 @@ class ProductForm
                                 }),
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Planning & Fermetures'))
                         ->description(__('Gérez les jours d\'exploitation hebdomadaires et les dates d\'exclusion.'))
                         ->schema([
@@ -498,7 +488,7 @@ class ProductForm
                                 ->label(__('Dates de fermeture exceptionnelle'))
                                 ->addActionLabel(__('Bloquer une date spécifique'))
                                 ->collapsible()
-                                ->collapsed() // 💡 Repeater interne replié
+                                ->collapsed() 
                                 ->schema([
                                     DatePicker::make('date')
                                         ->label(__('Date exclue'))
@@ -507,11 +497,8 @@ class ProductForm
                                 ->defaultItems(0),
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Paramètres de Vente'))
                         ->schema([
-                            
-                            // 💡 NOUVEAU CHAMP : LIMITE DE PAX
                             TextInput::make('max_pax')
                                 ->label(__('Capacité maximale (Pax)'))
                                 ->placeholder(__('Ex: 10 (Laissez vide si illimité)'))
@@ -539,7 +526,6 @@ class ProductForm
                                 ->suffix(__('jours')),
                         ]),
 
-                    // 💡 Section dépliée
                     Section::make(__('Politique d\'annulation'))
                         ->schema([
                             Select::make('cancellation_type')

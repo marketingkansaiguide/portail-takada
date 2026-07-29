@@ -379,6 +379,17 @@ class FolderItem extends Model
     {
         Log::info("CALENDAR : ----- TENTATIVE DE SYNCHRONISATION -----");
 
+        // 💡 RÉSOLUTION DÉFINITIVE DU BUG DES TRIPLONS (MÉMOIRE VS BASE DE DONNÉES)
+        // On force la lecture en temps réel de l'ID depuis la base de données.
+        // Si Filament redéclenche ce script en boucle en l'espace de 10 millisecondes,
+        // les instances suivantes sauront que l'événement a DÉJÀ été créé par la première.
+        if ($this->exists) {
+            $freshEventId = DB::table('folder_items')->where('id', $this->id)->value('google_calendar_event_id');
+            if ($freshEventId) {
+                $this->google_calendar_event_id = $freshEventId;
+            }
+        }
+
         $calendarId = env('GOOGLE_CALENDAR_ID');
         if (!$calendarId) {
             Log::warning("CALENDAR : ARRÊT -> L'ID du calendrier (GOOGLE_CALENDAR_ID) est introuvable. Pense à faire php artisan config:clear");
@@ -402,7 +413,6 @@ class FolderItem extends Model
 
         Log::info("CALENDAR : Check des données -> Date:{$hasDate} | Produit:{$hasProduct} | Délai d'achat:{$delay} | Statut dossier:{$status} | Statut prestation:{$itemStatusName}");
 
-        // 💡 AJOUT : On inclut "en cours de traitement" pour supprimer l'événement dès que l'équipe s'en occupe
         $stopItemStatuses = ['confirmé', 'confirme', 'annulé', 'annule', 'pas de disponibilité', 'pas de disponibilite', 'indisponible', 'en cours de traitement'];
 
         if (!$this->service_date || !$product || $product->days_before_opening === null || ($folder && in_array($folder->status, ['cancelled', 'completed'])) || in_array($itemStatusName, $stopItemStatuses)) {
@@ -438,16 +448,22 @@ class FolderItem extends Model
 
             if ($this->google_calendar_event_id) {
                 try {
-                    $service->events->update($calendarId, $this->google_calendar_event_id, $event);
+                    $service->events->patch($calendarId, $this->google_calendar_event_id, $event);
                     Log::info("CALENDAR : SUCCÈS -> Événement mis à jour.");
                 } catch (\Exception $e) {
                     $created = $service->events->insert($calendarId, $event);
-                    DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
+                    $this->google_calendar_event_id = $created->id; 
+                    if ($this->exists) {
+                        DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
+                    }
                     Log::info("CALENDAR : SUCCÈS -> Événement recréé (l'ancien était introuvable).");
                 }
             } else {
                 $created = $service->events->insert($calendarId, $event);
-                DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
+                $this->google_calendar_event_id = $created->id;
+                if ($this->exists) {
+                    DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => $created->id]);
+                }
                 Log::info("CALENDAR : SUCCÈS -> Nouvel événement créé ! ID: " . $created->id);
             }
         } catch (\Exception $e) {
@@ -457,26 +473,68 @@ class FolderItem extends Model
 
     public function deleteGoogleCalendarEvent()
     {
-        if (!$this->google_calendar_event_id) return;
-        
-        $calendarId = env('GOOGLE_CALENDAR_ID');
-        $keyFilePath = storage_path('app/google-credentials.json');
-        
-        if ($calendarId && file_exists($keyFilePath)) {
-            try {
-                $client = new \Google\Client();
-                $client->setAuthConfig($keyFilePath);
-                $client->addScope(\Google\Service\Calendar::CALENDAR);
-                $service = new \Google\Service\Calendar($client);
-
-                $service->events->delete($calendarId, $this->google_calendar_event_id);
-                Log::info("CALENDAR : Événement supprimé avec succès.");
-            } catch (\Exception $e) {
-                Log::error("CALENDAR Erreur suppression : " . $e->getMessage());
+        // 💡 LECTURE BDD : Garantie d'avoir le bon ID si la suppression est appelée depuis une mise à jour de statut
+        if ($this->exists) {
+            $freshEventId = DB::table('folder_items')->where('id', $this->id)->value('google_calendar_event_id');
+            if ($freshEventId) {
+                $this->google_calendar_event_id = $freshEventId;
             }
         }
 
-        DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => null]);
+        $calendarId = env('GOOGLE_CALENDAR_ID');
+        $keyFilePath = storage_path('app/google-credentials.json');
+        
+        if (!$calendarId || !file_exists($keyFilePath)) {
+            return;
+        }
+
+        try {
+            $client = new \Google\Client();
+            $client->setAuthConfig($keyFilePath);
+            $client->addScope(\Google\Service\Calendar::CALENDAR);
+            $service = new \Google\Service\Calendar($client);
+
+            // 1. Suppression ciblée de l'événement lié
+            if ($this->google_calendar_event_id) {
+                try {
+                    $service->events->delete($calendarId, $this->google_calendar_event_id);
+                    Log::info("CALENDAR : Événement principal supprimé.");
+                } catch (\Exception $e) {
+                    Log::warning("CALENDAR Erreur suppression ID officiel : " . $e->getMessage());
+                }
+            }
+
+            // 2. NETTOYAGE AU KÄRCHER : Suppression absolue des doublons fantômes (créés par l'ancien bug)
+            $folderName = $this->folder ? $this->folder->folder_name : 'N/A';
+            $productName = $this->product ? $this->product->name : '';
+            
+            if ($productName) {
+                $searchQuery = "🛒 ACHAT : {$productName} ({$folderName})";
+                
+                $optParams = [
+                    'q' => $searchQuery,
+                    'timeMin' => now()->subYears(1)->toRfc3339String(), // Permet de trouver même les vieux doublons
+                ];
+
+                $results = $service->events->listEvents($calendarId, $optParams);
+
+                foreach ($results->getItems() as $event) {
+                    try {
+                        $service->events->delete($calendarId, $event->getId());
+                        Log::info("CALENDAR : Doublon/Fantôme supprimé (ID: " . $event->getId() . ")");
+                    } catch (\Exception $e) {
+                        // Ignore silencieusement s'il n'arrive pas à supprimer le fantôme
+                    }
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error("CALENDAR Erreur suppression globale : " . $e->getMessage());
+        }
+
+        if ($this->exists) {
+            DB::table('folder_items')->where('id', $this->id)->update(['google_calendar_event_id' => null]);
+        }
     }
 
     protected static function booted()
@@ -505,10 +563,13 @@ class FolderItem extends Model
                     if (isset($processedUpdates[$fingerprint])) return;
                     $processedUpdates[$fingerprint] = true;
 
-                    try { 
-                        $item->syncGoogleCalendar(); 
-                    } catch (\Exception $e) {
-                        Log::error("CALENDAR Erreur d'appel hook updated : " . $e->getMessage());
+                    // 💡 SÉCURITÉ : La synchronisation est filtrée pour ne pas se lancer pour rien
+                    if ($item->wasChanged(['service_date', 'quantity', 'product_id', 'supplier_id', 'item_status_id'])) {
+                        try { 
+                            $item->syncGoogleCalendar(); 
+                        } catch (\Exception $e) {
+                            Log::error("CALENDAR Erreur d'appel hook updated : " . $e->getMessage());
+                        }
                     }
 
                     $productName = $item->product ? $item->product->name : 'Une prestation';

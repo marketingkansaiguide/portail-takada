@@ -116,7 +116,7 @@ class AgencyFolderResource extends Resource
                                 if (!$agencyId) return [];
                                 return \App\Models\User::where('agency_id', $agencyId)->pluck('name', 'id');
                             })
-                            ->default(fn () => Filament::auth()->id()) // 💡 Pré-sélectionne l'agent connecté
+                            ->default(fn () => Filament::auth()->id())
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -254,7 +254,6 @@ class AgencyFolderResource extends Resource
                                         ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
-                                    // 💡 COMBINAISON PARFAITE : Validation Backend + Blocage Frontend Javascript
                                     TextInput::make('quantity')
                                         ->label('Participants (Nombre de Pax)')
                                         ->numeric()
@@ -356,6 +355,14 @@ class AgencyFolderResource extends Resource
                                                         'date' => DatePicker::make($formKey)->label($label),
                                                         'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                         'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                        'file' => \Filament\Forms\Components\FileUpload::make($formKey)
+                                                            ->label($label)
+                                                            ->directory('folders/custom_fields')
+                                                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                                                            ->maxSize(10240)
+                                                            ->preserveFilenames()
+                                                            ->downloadable()
+                                                            ->openable(),
                                                         default => TextInput::make($formKey)->label($label),
                                                     };
                                                     if ($isRequired) $field->required();
@@ -371,6 +378,14 @@ class AgencyFolderResource extends Resource
                                                     'date' => DatePicker::make($formKey)->label($label),
                                                     'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                     'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                    'file' => \Filament\Forms\Components\FileUpload::make($formKey)
+                                                        ->label($label)
+                                                        ->directory('folders/custom_fields')
+                                                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                                                        ->maxSize(10240)
+                                                        ->preserveFilenames()
+                                                        ->downloadable()
+                                                        ->openable(),
                                                     default => TextInput::make($formKey)->label($label),
                                                 };
                                                 if ($isRequired) $field->required();
@@ -386,7 +401,6 @@ class AgencyFolderResource extends Resource
                                         ];
                                     }),
 
-                                // 💡 AJOUT : BLOC ESTIMATION DE PRIX DYNAMIQUE
                                 Group::make()
                                     ->visible(fn (Get $get) => !empty($get('product_id')) && !empty($get('service_date')))
                                     ->schema([
@@ -603,6 +617,14 @@ class AgencyFolderResource extends Resource
                                                         $val = implode(', ', \Illuminate\Support\Arr::flatten($val));
                                                     }
                                                     
+                                                    // 💡 NOUVEAU : Si c'est un fichier, on crée un joli lien
+                                                    if (($def['type'] ?? '') === 'file') {
+                                                        $val = preg_replace_callback('/([a-zA-Z0-9_\-\.\/]+\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
+                                                            $url = \Illuminate\Support\Facades\Storage::url($m[1]);
+                                                            return "<a href=\"{$url}\" target=\"_blank\" style=\"color:#059669; text-decoration:underline; font-weight:bold;\">📄 Voir le fichier joint</a>";
+                                                        }, (string)$val);
+                                                    }
+                                                    
                                                     $cvs[] = "<b>{$label} :</b> {$val}";
                                                 }
                                             }
@@ -684,6 +706,44 @@ class AgencyFolderResource extends Resource
                             ->label('Adresse du premier hôtel')
                             ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
                             ->rows(2),
+                    ]),
+
+                Section::make('📂 Documents partagés')
+                    ->description('Fichiers mis à disposition par l\'équipe Takada.')
+                    ->schema([
+                        Placeholder::make('documents_display')
+                            ->hiddenLabel()
+                            ->content(function (?Model $record) {
+                                if (!$record || empty($record->documents) || !is_array($record->documents)) {
+                                    return new HtmlString('<span style="color: #6b7280; font-style: italic; font-size: 0.875rem;">Aucun document partagé pour le moment.</span>');
+                                }
+
+                                $html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                                foreach ($record->documents as $document) {
+                                    $url = \Illuminate\Support\Facades\Storage::url($document);
+                                    $name = basename($document);
+                                    
+                                    $html .= "
+                                    <div style=\"display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem;\">
+                                        <div style=\"display: flex; align-items: center; gap: 0.75rem; overflow: hidden;\">
+                                            <svg style=\"width: 1.25rem; height: 1.25rem; color: #9ca3af; flex-shrink: 0;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\">
+                                                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z\" />
+                                            </svg>
+                                            <a href=\"{$url}\" target=\"_blank\" style=\"font-size: 0.875rem; font-weight: 500; color: #059669; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\">
+                                                {$name}
+                                            </a>
+                                        </div>
+                                        <a href=\"{$url}\" download style=\"color: #6b7280; padding: 0.25rem; flex-shrink: 0;\">
+                                            <svg style=\"width: 1.25rem; height: 1.25rem;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\">
+                                                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3\" />
+                                            </svg>
+                                        </a>
+                                    </div>";
+                                }
+                                $html .= '</div>';
+
+                                return new HtmlString($html);
+                            }),
                     ]),
 
             ])->columnSpan(['lg' => 1]),

@@ -23,9 +23,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\HtmlString;
+use Livewire\WithFileUploads; // 💡 IMPORT NÉCESSAIRE POUR LES FICHIERS
 
 class ViewProduct extends Page
 {
+    use WithFileUploads; // 💡 ACTIVATION DE L'UPLOAD LIVEWIRE
+
     protected static string|BackedEnum|null $navigationIcon = null; 
 
     protected string $view = 'filament.agency.pages.view-product';
@@ -83,7 +86,8 @@ class ViewProduct extends Page
                 if ($isPerPax) {
                     $this->customValues[$key] = [];
                 } else {
-                    $this->customValues[$key] = $def['type'] === 'toggle' ? false : '';
+                    // Les fichiers doivent commencer avec une valeur nulle, pas un string vide
+                    $this->customValues[$key] = $def['type'] === 'toggle' ? false : null; 
                 }
             }
         }
@@ -467,21 +471,34 @@ class ViewProduct extends Page
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
 
+        // 💡 MODIFICATION CLÉ : Validation des fichiers (10Mo max)
         if (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
                 $isRequired = $def['is_required'] ?? false;
                 $isPerPax = $def['is_per_passenger'] ?? false;
 
+                $baseRule = (($def['type'] ?? '') === 'file') ? 'file|max:10240' : '';
+
                 if ($isRequired && $def['type'] !== 'toggle') {
                     if ($isPerPax) {
                         for ($i = 0; $i < $qty; $i++) {
-                            $rules["customValues.{$key}.{$i}"] = 'required';
+                            $rules["customValues.{$key}.{$i}"] = $baseRule ? "required|{$baseRule}" : 'required';
                             $messages["customValues.{$key}.{$i}.required"] = "Le champ '{$def['name']}' (Pax " . ($i + 1) . ") est requis.";
                         }
                     } else {
-                        $rules["customValues.{$key}"] = 'required';
+                        $rules["customValues.{$key}"] = $baseRule ? "required|{$baseRule}" : 'required';
                         $messages["customValues.{$key}.required"] = "Le champ '{$def['name']}' est requis.";
+                    }
+                } else {
+                    if ($baseRule) {
+                        if ($isPerPax) {
+                            for ($i = 0; $i < $qty; $i++) {
+                                $rules["customValues.{$key}.{$i}"] = "nullable|{$baseRule}";
+                            }
+                        } else {
+                            $rules["customValues.{$key}"] = "nullable|{$baseRule}";
+                        }
                     }
                 }
 
@@ -501,6 +518,28 @@ class ViewProduct extends Page
                 ->send();
                 
             throw $e;
+        }
+
+        // 💡 MODIFICATION CLÉ : Déplacement physique des fichiers vers le stockage final public
+        if (!empty($this->product->custom_field_definitions)) {
+            foreach ($this->product->custom_field_definitions as $def) {
+                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                $isPerPax = $def['is_per_passenger'] ?? false;
+
+                if (($def['type'] ?? '') === 'file') {
+                    if ($isPerPax) {
+                        for ($i = 0; $i < $qty; $i++) {
+                            if (isset($this->customValues[$key][$i]) && $this->customValues[$key][$i] instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+                                $this->customValues[$key][$i] = $this->customValues[$key][$i]->store('folders/custom_fields', 'public');
+                            }
+                        }
+                    } else {
+                        if (isset($this->customValues[$key]) && $this->customValues[$key] instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+                            $this->customValues[$key] = $this->customValues[$key]->store('folders/custom_fields', 'public');
+                        }
+                    }
+                }
+            }
         }
 
         $folder = Folder::find($this->selectedFolderId);

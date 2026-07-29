@@ -1,50 +1,63 @@
-<x-filament-widgets::widget>
-    <x-filament::section>
+<x-filament-widgets::widget class="h-full flex flex-col">
+    {{-- On s'assure que la section Filament prend toute la hauteur disponible --}}
+    <x-filament::section style="height: 100%; display: flex; flex-direction: column;">
         <x-slot name="heading">
-            <div class="flex items-center gap-2">
-                <x-heroicon-o-calendar class="w-6 h-6 text-primary-500" />
-                {{ __('Planning du jour (Google Calendar)') }}
+            <div style="display: flex; align-items: center; gap: 8px;">
+                {{-- L'icône avec sa taille stricte restaurée --}}
+                <x-heroicon-o-calendar style="width: 20px; height: 20px; color: #f59e0b; flex-shrink: 0;" />
+                <span style="font-size: 1rem; font-weight: 600;">{{ __('Agenda (7 j)') }}</span>
             </div>
         </x-slot>
 
         @php
-            $events = $this->getTodayEvents();
+            $groupedEvents = $this->getUpcomingEventsGroupedByDate();
+            \Carbon\Carbon::setLocale(app()->getLocale());
         @endphp
 
-        <div class="space-y-4">
-            @forelse($events as $event)
-                <div class="flex items-start gap-4 p-4 rounded-lg bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10">
-                    
-                    {{-- Horaires --}}
-                    <div class="flex flex-col items-center justify-center w-16 shrink-0 text-primary-600 dark:text-primary-400">
-                        @if($event->isAllDayEvent())
-                            <span class="text-sm font-bold uppercase">{{ __('Toute la journée') }}</span>
-                        @else
-                            <span class="text-lg font-bold">{{ Carbon\Carbon::parse($event->startDateTime)->format('H:i') }}</span>
-                            <span class="text-xs text-gray-500">- {{ Carbon\Carbon::parse($event->endDateTime)->format('H:i') }}</span>
-                        @endif
-                    </div>
+        <div style="display: flex; flex-direction: column; gap: 16px; flex: 1; overflow-y: auto; padding-right: 8px;">
+            @forelse($groupedEvents as $date => $events)
+                @php
+                    $carbonDate = \Carbon\Carbon::parse($date);
+                    $dateTitle = $carbonDate->isToday() ? __('Aujourd\'hui') : ($carbonDate->isTomorrow() ? __('Demain') : ucfirst($carbonDate->translatedFormat('D d M')));
+                @endphp
 
-                    {{-- Ligne de séparation visuelle --}}
-                    <div class="w-1 h-12 rounded-full bg-primary-500"></div>
+                <div style="position: relative;">
+                    <h3 style="display: flex; align-items: center; gap: 8px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-bottom: 8px;">
+                        <span style="{{ $carbonDate->isToday() ? 'color: #d97706;' : '' }}">{{ $dateTitle }}</span>
+                        <div style="height: 1px; flex: 1; background-color: #e5e7eb;"></div>
+                    </h3>
 
-                    {{-- Détails de l'événement --}}
-                    <div class="flex-1">
-                        <h4 class="text-base font-semibold text-gray-900 dark:text-white">
-                            {{ $event->name }}
-                        </h4>
-                        @if($event->description)
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                                {{ strip_tags($event->description) }}
-                            </p>
-                        @endif
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        @foreach($events as $event)
+                            @php
+                                $isAllDay = !empty($event->start->date);
+                                $start = \Carbon\Carbon::parse($isAllDay ? $event->start->date : $event->start->dateTime);
+                            @endphp
+
+                            <div style="display: flex; align-items: flex-start; gap: 8px;">
+                                <div style="width: 35px; flex-shrink: 0; text-align: right; padding-top: 2px;">
+                                    @if($isAllDay)
+                                        <span style="font-size: 0.65rem; font-weight: 700; color: #9ca3af;">{{ __('Jour') }}</span>
+                                    @else
+                                        <div style="font-size: 0.75rem; font-weight: 700; color: #111827;">{{ $start->format('H:i') }}</div>
+                                    @endif
+                                </div>
+                                <div style="position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 6px;">
+                                    <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #f59e0b; flex-shrink: 0;"></div>
+                                </div>
+                                <div style="flex: 1;">
+                                    {{-- 💡 Le titre complet s'affiche et passe à la ligne au lieu d'être coupé ! --}}
+                                    <h4 style="font-size: 0.8rem; font-weight: 600; color: #111827; margin: 0; line-height: 1.3; word-break: break-word;">
+                                        {{ $event->summary }}
+                                    </h4>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                    
                 </div>
             @empty
-                <div class="flex flex-col items-center justify-center py-6 text-center text-gray-500 dark:text-gray-400">
-                    <x-heroicon-o-face-smile class="w-12 h-12 mb-2 text-gray-400" />
-                    <p>{{ __('Aucun événement prévu dans l\'agenda aujourd\'hui.') }}</p>
+                <div style="text-align: center; padding: 20px 0; color: #9ca3af; font-size: 0.8rem;">
+                    {{ __('Aucun événement à venir.') }}
                 </div>
             @endforelse
         </div>

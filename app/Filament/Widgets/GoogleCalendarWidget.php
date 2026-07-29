@@ -3,25 +3,56 @@
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
-use Spatie\GoogleCalendar\Event;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class GoogleCalendarWidget extends Widget
 {
-    protected static string $view = 'filament.widgets.google-calendar-widget';
+    protected string $view = 'filament.widgets.google-calendar-widget';
+    // Force le widget à prendre exactement 1 colonne sur les 3
+    protected int | string | array $columnSpan = 1;
+    protected static ?int $sort = 3;
 
-    protected int | string | array $columnSpan = 'full';
-    
-    protected static ?int $sort = 1;
-
-    // Cette fonction sera appelée par la vue pour récupérer les événements
-    public function getTodayEvents(): array|iterable
+    public function getUpcomingEventsGroupedByDate(): array
     {
+        $calendarId = env('GOOGLE_CALENDAR_ID');
+        $keyFilePath = storage_path('app/google-credentials.json');
+
+        if (!$calendarId || !file_exists($keyFilePath)) {
+            return [];
+        }
+
         try {
-            // On récupère tous les événements entre minuit et 23h59 aujourd'hui
-            return Event::get(Carbon::today(), Carbon::today()->endOfDay());
+            $client = new \Google\Client();
+            $client->setAuthConfig($keyFilePath);
+            $client->addScope(\Google\Service\Calendar::CALENDAR_READONLY);
+            
+            $service = new \Google\Service\Calendar($client);
+
+            $optParams = [
+                'timeMin' => now()->startOfDay()->toRfc3339String(),
+                'timeMax' => now()->addDays(7)->endOfDay()->toRfc3339String(),
+                'singleEvents' => true,
+                'orderBy' => 'startTime',
+                'maxResults' => 20,
+            ];
+
+            $results = $service->events->listEvents($calendarId, $optParams);
+            $events = $results->getItems() ?? [];
+
+            $grouped = [];
+            foreach ($events as $event) {
+                $isAllDay = !empty($event->start->date);
+                $start = Carbon::parse($isAllDay ? $event->start->date : $event->start->dateTime);
+                
+                $dateKey = $start->format('Y-m-d');
+                $grouped[$dateKey][] = $event;
+            }
+
+            return $grouped;
+
         } catch (\Exception $e) {
-            // En cas de problème d'API ou de configuration
+            Log::error('Erreur Lecture Google Calendar Widget : ' . $e->getMessage());
             return [];
         }
     }

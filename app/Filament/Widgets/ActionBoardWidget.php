@@ -25,8 +25,9 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
     use InteractsWithForms;
 
     protected string $view = 'filament.widgets.action-board-widget';
+    // Prend les 3 colonnes de la ligne d'en dessous
     protected int | string | array $columnSpan = 'full';
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 4;
 
     public function mount()
     {
@@ -66,11 +67,9 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                 $dateStr = $item->service_date ? ' du ' . Carbon::parse($item->service_date)->format('d/m/Y') : '';
                 $prestaLabel = $productName . $dateStr;
 
-                // 💡 AJOUT : Lecture du statut pour auto-nettoyage des tâches
                 $itemStatusName = $item->itemStatus ? mb_strtolower(trim($item->itemStatus->name), 'UTF-8') : 'inconnu';
                 $stopItemStatuses = ['confirmé', 'confirme', 'annulé', 'annule', 'pas de disponibilité', 'pas de disponibilite', 'indisponible', 'en cours de traitement'];
 
-                // 1. Tâche "Traiter et valider la prestation"
                 $manageTaskCode = "manage_item_{$item->id}";
                 if ($folder->status !== 'completed' && !in_array($itemStatusName, $stopItemStatuses)) {
                     $this->createTaskIfMissing(
@@ -81,26 +80,21 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                         'text-primary-500'
                     );
                 } else {
-                    // Si on est en cours de traitement ou + : Auto-clôture
                     FolderTask::where('action_code', $manageTaskCode)
                         ->where('is_completed', false)
                         ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
                 }
 
-                // 2. Alerte Spécifique (Problème / Action requise = ID 5 par exemple)
                 $alertTaskCode = "item_alert_{$item->id}";
                 if ($item->item_status_id == 5) {
                     $this->createTaskIfMissing($folder->id, $alertTaskCode, "Problème/Action requise sur : {$prestaLabel}.", 'heroicon-m-exclamation-triangle', 'text-danger-500');
-                    // On rouvre si c'était fermé
                     FolderTask::where('action_code', $alertTaskCode)->where('is_completed', true)->update(['is_completed' => false, 'completed_at' => null, 'completed_by' => null]);
                 } else {
-                    // Si on change de statut, on supprime l'alerte
                     FolderTask::where('action_code', $alertTaskCode)
                         ->where('is_completed', false)
                         ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
                 }
 
-                // 3. Alerte Prix d'achat manquant
                 $priceTaskCode = "missing_purchase_price_{$item->id}";
                 if (empty($item->purchase_total_price) || $item->purchase_total_price == 0) {
                     $this->createTaskIfMissing(
@@ -128,7 +122,6 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                         ]);
                 }
 
-                // 4. Alerte Facture Manquante
                 $invoiceTaskCode = "invoice_missing_{$item->id}";
                 $targetSupplier = $item->getTargetSupplier();
                 
@@ -159,7 +152,6 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                         ]);
                 }
 
-                // 5. Ouverture des réservations (J- délai)
                 $bookingTaskCode = "booking_open_{$item->id}";
                 if ($item->product) {
                     $delay = $item->product->days_before_opening ?? null;
@@ -169,7 +161,6 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                             $this->createTaskIfMissing($folder->id, $bookingTaskCode, "Ouverture des réservations pour : {$prestaLabel}.", 'heroicon-m-calendar-days', 'text-success-500');
                         }
                     } else {
-                        // Si le statut passe en cours de traitement/confirmé/annulé, on clôture la tâche d'ouverture
                         FolderTask::where('action_code', $bookingTaskCode)
                             ->where('is_completed', false)
                             ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
