@@ -23,11 +23,11 @@ use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\HtmlString;
-use Livewire\WithFileUploads; // 💡 IMPORT NÉCESSAIRE POUR LES FICHIERS
+use Livewire\WithFileUploads;
 
 class ViewProduct extends Page
 {
-    use WithFileUploads; // 💡 ACTIVATION DE L'UPLOAD LIVEWIRE
+    use WithFileUploads;
 
     protected static string|BackedEnum|null $navigationIcon = null; 
 
@@ -86,8 +86,7 @@ class ViewProduct extends Page
                 if ($isPerPax) {
                     $this->customValues[$key] = [];
                 } else {
-                    // Les fichiers doivent commencer avec une valeur nulle, pas un string vide
-                    $this->customValues[$key] = $def['type'] === 'toggle' ? false : null; 
+                    $this->customValues[$key] = $def['type'] === 'toggle' ? false : null;
                 }
             }
         }
@@ -471,14 +470,13 @@ class ViewProduct extends Page
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
 
-        // 💡 MODIFICATION CLÉ : Validation des fichiers (10Mo max)
         if (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
                 $isRequired = $def['is_required'] ?? false;
                 $isPerPax = $def['is_per_passenger'] ?? false;
-
-                $baseRule = (($def['type'] ?? '') === 'file') ? 'file|max:10240' : '';
+                $isFileType = ($def['type'] ?? '') === 'file';
+                $baseRule = $isFileType ? 'file|max:10240' : '';
 
                 if ($isRequired && $def['type'] !== 'toggle') {
                     if ($isPerPax) {
@@ -490,15 +488,13 @@ class ViewProduct extends Page
                         $rules["customValues.{$key}"] = $baseRule ? "required|{$baseRule}" : 'required';
                         $messages["customValues.{$key}.required"] = "Le champ '{$def['name']}' est requis.";
                     }
-                } else {
-                    if ($baseRule) {
-                        if ($isPerPax) {
-                            for ($i = 0; $i < $qty; $i++) {
-                                $rules["customValues.{$key}.{$i}"] = "nullable|{$baseRule}";
-                            }
-                        } else {
-                            $rules["customValues.{$key}"] = "nullable|{$baseRule}";
+                } elseif ($baseRule) {
+                    if ($isPerPax) {
+                        for ($i = 0; $i < $qty; $i++) {
+                            $rules["customValues.{$key}.{$i}"] = "nullable|{$baseRule}";
                         }
+                    } else {
+                        $rules["customValues.{$key}"] = "nullable|{$baseRule}";
                     }
                 }
 
@@ -520,7 +516,6 @@ class ViewProduct extends Page
             throw $e;
         }
 
-        // 💡 MODIFICATION CLÉ : Déplacement physique des fichiers vers le stockage final public
         if (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');

@@ -2,60 +2,88 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Folder extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
-        'agency_id', 'main_seller_id', 'reference', 'folder_name', 'lead_traveler_name',
-        'hotel_booking_name', 'contact_phones', 'pax_adults', 'pax_children',
-        'start_date', 'end_date', 'status', 'folder_fee', 'total_price',
-        'flight_info', 'first_hotel_check_in', 'first_hotel_name',
-        'first_hotel_address', 'ticket_dispatch_method', 'ticket_dispatch_other',
-        'documents' // 💡 AJOUT INDISPENSABLE ICI
+        'reference',
+        'folder_name',
+        'lead_traveler_name',
+        'hotel_booking_name',
+        'agency_id',
+        'main_seller_id',
+        'pax_adults',
+        'pax_children',
+        'ticket_dispatch_method',
+        'ticket_dispatch_other',
+        'contact_phones',
+        'first_hotel_name',
+        'first_hotel_check_in',
+        'first_hotel_address',
+        'start_date',
+        'end_date',
+        'flight_info',
+        'status',
+        'folder_fee',
+        'total_price',
+        'documents',
     ];
 
     protected $casts = [
-        'start_date' => 'date', 'end_date' => 'date',
-        'first_hotel_check_in' => 'date', 'contact_phones' => 'array',
+        'contact_phones' => 'array',
         'documents' => 'array',
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'first_hotel_check_in' => 'date',
     ];
 
-    protected static function booted()
+    public function agency(): BelongsTo
     {
-        static::creating(function ($folder) {
-            $year = date('Y');
-            $latestFolder = static::whereYear('created_at', $year)->latest()->first();
-            $nextNumber = $latestFolder ? ((int) substr($latestFolder->reference, -4)) + 1 : 1;
-            $folder->reference = 'TAK-' . $year . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-        });
-
-        static::updated(function ($folder) {
-            if ($folder->wasChanged(['status', 'folder_name', 'lead_traveler_name'])) {
-                $items = $folder->folderItems()->get();
-                foreach ($items as $item) {
-                    try {
-                        $item->syncGoogleCalendar();
-                    } catch (\Exception $e) {
-                        \Illuminate\Support\Facades\Log::error("CALENDAR Erreur cascade dossier -> item : " . $e->getMessage());
-                    }
-                }
-            }
-        });
+        return $this->belongsTo(Agency::class);
     }
 
-    public function agency() { return $this->belongsTo(Agency::class); }
-    public function folderItems() { return $this->hasMany(FolderItem::class)->orderBy('service_date', 'asc'); }
-    public function folderPassengers() { return $this->hasMany(FolderPassenger::class); }
-    public function mainSeller() { return $this->belongsTo(User::class, 'main_seller_id'); }
-
-    public function activitiesAsSubject()
+    public function mainSeller(): BelongsTo
     {
-        return $this->morphMany(\Spatie\Activitylog\Models\Activity::class, 'subject');
+        return $this->belongsTo(User::class, 'main_seller_id');
     }
 
-    public function histories()
+    public function folderPassengers(): HasMany
     {
-        return $this->hasMany(FolderHistory::class)->latest();
+        return $this->hasMany(FolderPassenger::class);
+    }
+
+    /**
+     * Prestations visibles par les agences et affichées sur les pré-factures (is_internal = false)
+     */
+    public function folderItems(): HasMany
+    {
+        return $this->hasMany(FolderItem::class)->where('is_internal', false);
+    }
+
+    /**
+     * Prestations internes confidentielles pour l'équipe Admin (is_internal = true)
+     */
+    public function internalItems(): HasMany
+    {
+        return $this->hasMany(FolderItem::class)->where('is_internal', true);
+    }
+
+    /**
+     * Toutes les prestations confondues
+     */
+    public function allFolderItems(): HasMany
+    {
+        return $this->hasMany(FolderItem::class);
+    }
+
+    public function histories(): HasMany
+    {
+        return $this->hasMany(FolderHistory::class);
     }
 }

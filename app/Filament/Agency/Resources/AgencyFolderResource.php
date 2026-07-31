@@ -59,7 +59,9 @@ class AgencyFolderResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return false;
+        return Filament::auth()->check() 
+            && $record->agency_id === Filament::auth()->user()->agency_id 
+            && $record->status === 'draft';
     }
 
     public static function getNavigationLabel(): string
@@ -92,6 +94,23 @@ class AgencyFolderResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            
+            Section::make()
+                ->visible(fn (?Model $record) => $record && $record->status === 'draft')
+                ->schema([
+                    Placeholder::make('draft_notice')
+                        ->hiddenLabel()
+                        ->content(new HtmlString("
+                            <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; color: #92400e;'>
+                                <div>
+                                    <strong style='font-size: 1rem;'>✏️ Dossier en cours de rédaction (Brouillon)</strong>
+                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
+                                </div>
+                            </div>
+                        "))
+                ])
+                ->columnSpanFull(),
+
             Group::make()->schema([
                 Section::make('Informations Principales')
                     ->columns(2)
@@ -154,30 +173,72 @@ class AgencyFolderResource extends Resource
                             ->columns(2),
                     ]),
 
+                Section::make('Informations du Premier Hôtel')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('first_hotel_name')
+                            ->label('1er Hôtel (Nom)')
+                            ->placeholder('Ex: Hotel Gracery Shinjuku'),
+
+                        DatePicker::make('first_hotel_check_in')
+                            ->label('Date Check-in 1er Hôtel')
+                            ->live()
+                            ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
+                            ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
+                            ->afterOrEqual('start_date')
+                            ->beforeOrEqual('end_date')
+                            ->validationMessages([
+                                'after_or_equal' => 'Doit être après ou le jour de l\'arrivée.',
+                                'before_or_equal' => 'Doit être avant ou le jour du départ.',
+                            ]),
+
+                        Textarea::make('first_hotel_address')
+                            ->label('Adresse du premier hôtel')
+                            ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ]),
+
                 Section::make('Liste des Pax')
                     ->schema([
                         Repeater::make('folderPassengers')
                             ->relationship()
                             ->hiddenLabel()
-                            ->addActionLabel('Ajouter un pax')
+                            ->addActionLabel('Ajouter un passager')
+                            ->addable(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('status') === 'draft')
+                            ->deletable(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('status') === 'draft')
+                            ->reorderable(false)
                             ->itemLabel(function (array $state) {
-                                if (!empty($state['id'])) return new HtmlString("<span style='color:#096a61; font-weight:600;'>Pax enregistré</span>");
-                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>Nouveau pax...</span>");
+                                $name = trim(($state['first_name'] ?? '') . ' ' . ($state['last_name'] ?? ''));
+                                if (!empty($name)) {
+                                    return new HtmlString("<span style='color:#096a61; font-weight:600;'>👤 {$name}</span>");
+                                }
+                                if (!empty($state['id'])) {
+                                    return new HtmlString("<span style='color:#096a61; font-weight:600;'>👤 Passager</span>");
+                                }
+                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>👤 Nouveau passager</span>");
                             })
                             ->schema([
+                                // Mode résumé pour dossiers déjà validés / transmis
                                 Placeholder::make('condensed_passenger')
                                     ->hiddenLabel()
-                                    ->visible(fn (Get $get) => !empty($get('id')))
+                                    ->visible(fn (?Model $record, Get $get) => $record !== null && $record->status !== 'draft' && $get('../../status') !== 'draft')
                                     ->content(function (Get $get) {
-                                        $pax = \App\Models\FolderPassenger::find($get('id'));
-                                        if (!$pax) return '';
-                                        $name = trim(($pax->first_name ?? '') . ' ' . ($pax->last_name ?? ''));
-                                        $age = $pax->birth_date ? \Carbon\Carbon::parse($pax->birth_date)->age . ' ans' : '';
-                                        $nat = $pax->nationality ?? '';
+                                        $paxId = $get('id');
+                                        $pax = $paxId ? \App\Models\FolderPassenger::find($paxId) : null;
+                                        $firstName = $get('first_name') ?? $pax?->first_name ?? '';
+                                        $lastName = $get('last_name') ?? $pax?->last_name ?? '';
+                                        $birthDate = $get('birth_date') ?? $pax?->birth_date;
+                                        $nat = $get('nationality') ?? $pax?->nationality ?? '';
+                                        $diet = $get('dietary_restrictions') ?? $pax?->dietary_restrictions;
+                                        $mobility = $get('mobility_concerns') ?? $pax?->mobility_concerns;
+
+                                        $name = trim($firstName . ' ' . $lastName);
+                                        $age = $birthDate ? \Carbon\Carbon::parse($birthDate)->age . ' ans' : '';
 
                                         $warns = [];
-                                        if (!empty($pax->dietary_restrictions)) $warns[] = "🚫 Allergies: {$pax->dietary_restrictions}";
-                                        if (!empty($pax->mobility_concerns)) $warns[] = "♿ PMR: {$pax->mobility_concerns}";
+                                        if (!empty($diet)) $warns[] = "🚫 Allergies: {$diet}";
+                                        if (!empty($mobility)) $warns[] = "♿ PMR: {$mobility}";
                                         $warnHtml = '';
                                         if (count($warns) > 0) {
                                             $warnHtml = "<div style='margin-top:0.5rem; font-size:0.8rem; color:#dc2626; font-weight:600;'>" . implode('<br>', $warns) . "</div>";
@@ -185,12 +246,13 @@ class AgencyFolderResource extends Resource
 
                                         return new HtmlString("
                                             <div style='padding:0.75rem 1rem; border-left:4px solid #096a61; background:#f9fafb; border-radius:0 0.5rem 0.5rem 0;'>
-                                                <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>({$age}) - {$nat}</span></div>
+                                                <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>(" . ($age ? "{$age} - " : "") . "{$nat})</span></div>
                                                 {$warnHtml}
                                             </div>
                                         ");
                                     }),
 
+                                // Formulaire d'édition pour mode Brouillon ou création
                                 Group::make()->schema([
                                     Group::make()->schema([
                                         TextInput::make('last_name')->label('Nom')->required(),
@@ -204,18 +266,19 @@ class AgencyFolderResource extends Resource
                                     ])->columns(4),
                                     Textarea::make('dietary_restrictions')->label('Allergies')->rows(1),
                                     Textarea::make('mobility_concerns')->label('Besoins PMR')->rows(1),
-                                ])->visible(fn (Get $get) => empty($get('id'))),
+                                ])->visible(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('../../status') === 'draft'),
                             ])
                             ->deleteAction(fn ($action) => $action
                                 ->label('Annuler')
                                 ->icon('heroicon-m-x-mark')
                                 ->color('danger')
-                                ->hidden(fn (Get $get) => !empty($get('id')))
+                                ->visible(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('../../status') === 'draft')
                             )
                     ]),
 
                 Section::make('Prestations demandées')
                     ->description('Vos prestations réservées et le suivi de leur statut.')
+                    ->visible(fn (?Model $record) => $record !== null)
                     ->headerActions([
                         Action::make('addPrestationModal')
                             ->label('Ajouter une prestation')
@@ -357,6 +420,7 @@ class AgencyFolderResource extends Resource
                                                         'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
                                                         'file' => \Filament\Forms\Components\FileUpload::make($formKey)
                                                             ->label($label)
+                                                            ->disk('public')
                                                             ->directory('folders/custom_fields')
                                                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                                             ->maxSize(10240)
@@ -380,6 +444,7 @@ class AgencyFolderResource extends Resource
                                                     'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
                                                     'file' => \Filament\Forms\Components\FileUpload::make($formKey)
                                                         ->label($label)
+                                                        ->disk('public')
                                                         ->directory('folders/custom_fields')
                                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                                         ->maxSize(10240)
@@ -441,29 +506,51 @@ class AgencyFolderResource extends Resource
                                                     }
                                                 }
                                                 
-                                                $basePrice = $matchedPrice ?? 0;
-                                                $totalPrice = $basePrice * $qty;
+                                                $baseUnitPrice = $matchedPrice ?? 0;
+                                                $baseTotal = $baseUnitPrice * $qty;
                                                 
+                                                $optionsTotal = 0;
+                                                $optRows = [];
                                                 if ($product->productOptions) {
                                                     foreach ($product->productOptions as $opt) {
                                                         if ($get("opt_enabled_{$opt->id}")) {
                                                             $mod = $opt->price_modifier ?? 0;
                                                             if ($opt->billing_type === 'per_pax') {
-                                                                $totalPrice += $mod * $qty;
+                                                                $optTotal = $mod * $qty;
+                                                                $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
                                                             } elseif ($opt->billing_type === 'per_booking') {
-                                                                $totalPrice += $mod;
+                                                                $optTotal = $mod;
+                                                                $calcText = "forfait fixe";
                                                             } elseif ($opt->billing_type === 'manual') {
                                                                 $optQty = (int) ($get("opt_qty_{$opt->id}") ?? 1);
-                                                                $totalPrice += $mod * $optQty;
+                                                                $optTotal = $mod * $optQty;
+                                                                $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$optQty}";
                                                             }
+                                                            $optionsTotal += $optTotal;
+                                                            $optRows[] = "
+                                                                <div style='display:flex; justify-content:space-between; color:#475569; padding-left:12px; margin-top:2px; font-size:0.825rem;'>
+                                                                    <span>└ <i>Option : " . e($opt->name) . "</i> ({$calcText})</span>
+                                                                    <span style='color:#0284c7; font-weight:600;'>+ " . number_format($optTotal, 0, '.', ' ') . " ¥</span>
+                                                                </div>
+                                                            ";
                                                         }
                                                     }
                                                 }
                                                 
+                                                $grandTotal = $baseTotal + $optionsTotal;
+                                                
                                                 return new HtmlString("
-                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; text-align: center; margin-top: 1rem;'>
-                                                        <p style='margin: 0; font-size: 0.875rem; color: #166534;'>Prix total estimé pour cette prestation</p>
-                                                        <p style='margin: 0; font-size: 1.5rem; font-weight: bold; color: #15803d;'>" . number_format($totalPrice, 0, '.', ' ') . " ¥</p>
+                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 1rem;'>
+                                                        <div style='font-weight:600; color:#166534; font-size:0.9rem; margin-bottom:0.35rem;'>Calcul estimatif du prix :</div>
+                                                        <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#15803d;'>
+                                                            <span>• Tarif de base (" . number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax)</span>
+                                                            <span><b>" . number_format($baseTotal, 0, '.', ' ') . " ¥</b></span>
+                                                        </div>
+                                                        " . implode('', $optRows) . "
+                                                        <div style='border-top:1px solid #86efac; margin-top:0.5rem; padding-top:0.35rem; display:flex; justify-content:space-between; align-items:center;'>
+                                                            <span style='font-weight:bold; color:#166534;'>Prix total estimé :</span>
+                                                            <span style='font-size:1.35rem; font-weight:bold; color:#15803d;'>" . number_format($grandTotal, 0, '.', ' ') . " ¥</span>
+                                                        </div>
                                                     </div>
                                                 ");
                                             })
@@ -541,7 +628,7 @@ class AgencyFolderResource extends Resource
 
                                 \Filament\Notifications\Notification::make()
                                     ->title('Prestation ajoutée au dossier !')
-                                    ->body('La prestation a été enregistrée avec le statut "En attente de validation".')
+                                    ->body('La prestation a été enregistrée.')
                                     ->success()
                                     ->send();
 
@@ -551,9 +638,37 @@ class AgencyFolderResource extends Resource
                     ->schema([
                         Repeater::make('folderItems')
                             ->relationship()
+                            ->saveRelationshipsUsing(null)
+                            ->dehydrated(false)
                             ->hiddenLabel()
                             ->addable(false)
                             ->deletable(false)
+                            ->extraItemActions([
+                                Action::make('deleteItem')
+                                    ->label('Supprimer')
+                                    ->icon('heroicon-m-trash')
+                                    ->color('danger')
+                                    ->requiresConfirmation()
+                                    ->modalHeading('Supprimer cette prestation ?')
+                                    ->modalSubheading('Cette action retirera la prestation de votre dossier.')
+                                    ->visible(fn ($record, Get $get) => ($record?->status === 'draft') || ($get('../../status') === 'draft'))
+                                    ->action(function (array $arguments, Repeater $component) {
+                                        $state = $component->getState();
+                                        $itemData = $state[$arguments['item']] ?? [];
+                                        if (!empty($itemData['id'])) {
+                                            $item = \App\Models\FolderItem::find($itemData['id']);
+                                            if ($item) {
+                                                $folder = $item->folder;
+                                                $item->delete();
+                                                if ($folder) {
+                                                    $record = $folder->fresh();
+                                                    $totalSale = $record->folderItems->sum('total_price') + ($record->folder_fee ?? 0);
+                                                    $record->update(['total_price' => $totalSale]);
+                                                }
+                                            }
+                                        }
+                                    }),
+                            ])
                             ->itemLabel(function (array $state) {
                                 return new HtmlString("<span style='color:#096a61; font-weight:600;'>Prestation enregistrée</span>");
                             })
@@ -580,24 +695,62 @@ class AgencyFolderResource extends Resource
                                         };
                                         $statusBadge = "<span style='background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
 
-                                        $optionsHtml = '';
+                                        // Décomposition tarifaire
+                                        $optionsTotal = 0;
+                                        $optRows = [];
                                         $selectedOptions = $item->selected_options ?? [];
+
                                         if (is_array($selectedOptions) && count($selectedOptions) > 0) {
-                                            $opts = [];
                                             foreach ($selectedOptions as $optData) {
                                                 if (!empty($optData['product_option_id'])) {
                                                     $optModel = \App\Models\ProductOption::find($optData['product_option_id']);
                                                     if ($optModel) {
-                                                        $optQty = $optData['quantity'] ?? 1;
-                                                        $qtyStr = $optModel->billing_type === 'manual' ? " (x{$optQty})" : "";
-                                                        $opts[] = "• " . $optModel->name . $qtyStr;
+                                                        $mod = (float) ($optModel->price_modifier ?? 0);
+                                                        $optQty = (int) ($optData['quantity'] ?? 1);
+
+                                                        if ($optModel->billing_type === 'per_pax') {
+                                                            $optTotal = $mod * $qty;
+                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                        } elseif ($optModel->billing_type === 'manual') {
+                                                            $optTotal = $mod * $optQty;
+                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$optQty}";
+                                                        } else {
+                                                            $optTotal = $mod;
+                                                            $calcText = "forfait fixe";
+                                                        }
+                                                        $optionsTotal += $optTotal;
+
+                                                        $optRows[] = "
+                                                            <div style='display:flex; justify-content:space-between; color:#475569; padding-left:12px; margin-top:2px; font-size:0.825rem;'>
+                                                                <span>└ <i>Option : " . e($optModel->name) . "</i> <span style='color:#6b7280;'>({$calcText})</span></span>
+                                                                <span style='color:#0284c7; font-weight:600;'>+ " . number_format($optTotal, 0, '.', ' ') . " ¥</span>
+                                                            </div>
+                                                        ";
                                                     }
                                                 }
                                             }
-                                            if (count($opts) > 0) {
-                                                $optionsHtml = "<div style='margin-top:1rem; font-size:0.85rem; color:#4b5563;'><b>Options incluses :</b><br>" . implode('<br>', $opts) . "</div>";
-                                            }
                                         }
+
+                                        $itemTotal = (float) ($item->total_price ?? 0);
+                                        $baseTotal = max(0, $itemTotal - $optionsTotal);
+                                        $baseUnitPrice = $qty > 0 ? ($baseTotal / $qty) : 0;
+
+                                        $priceBreakdownHtml = "
+                                            <div style='margin-top:0.85rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.75rem;'>
+                                                <div style='font-weight:600; color:#1e3a8a; font-size:0.85rem; margin-bottom:0.35rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.25rem;'>
+                                                    📊 Décomposition du tarif :
+                                                </div>
+                                                <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#374151;'>
+                                                    <span>• <b>Tarif de base :</b> " . number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax</span>
+                                                    <span><b>" . number_format($baseTotal, 0, '.', ' ') . " ¥</b></span>
+                                                </div>
+                                                " . implode('', $optRows) . "
+                                                <div style='display:flex; justify-content:space-between; border-top:1px solid #cbd5e1; margin-top:0.5rem; padding-top:0.35rem; font-weight:bold; color:#096a61; font-size:0.95rem;'>
+                                                    <span>Total de la prestation :</span>
+                                                    <span>" . number_format($itemTotal, 0, '.', ' ') . " ¥</span>
+                                                </div>
+                                            </div>
+                                        ";
 
                                         $customValuesHtml = '';
                                         $customValues = $item->custom_values ?? [];
@@ -617,11 +770,11 @@ class AgencyFolderResource extends Resource
                                                         $val = implode(', ', \Illuminate\Support\Arr::flatten($val));
                                                     }
                                                     
-                                                    // 💡 NOUVEAU : Si c'est un fichier, on crée un joli lien
                                                     if (($def['type'] ?? '') === 'file') {
-                                                        $val = preg_replace_callback('/([a-zA-Z0-9_\-\.\/]+\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
-                                                            $url = \Illuminate\Support\Facades\Storage::url($m[1]);
-                                                            return "<a href=\"{$url}\" target=\"_blank\" style=\"color:#059669; text-decoration:underline; font-weight:bold;\">📄 Voir le fichier joint</a>";
+                                                        $val = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
+                                                            $path = trim($m[1]);
+                                                            $url = route('file.download', ['path' => $path]);
+                                                            return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
                                                         }, (string)$val);
                                                     }
                                                     
@@ -643,7 +796,7 @@ class AgencyFolderResource extends Resource
                                                     <span>📅 Date : <b>{$date}</b></span>
                                                     <span>👥 Pax : <b>{$qty}</b></span>
                                                 </div>
-                                                {$optionsHtml}
+                                                {$priceBreakdownHtml}
                                                 {$customValuesHtml}
                                             </div>
                                         ");
@@ -658,11 +811,11 @@ class AgencyFolderResource extends Resource
                         Placeholder::make('status_display')
                             ->label('Statut du dossier')
                             ->content(function ($record) {
-                                if (!$record || !$record->status) return 'EN ATTENTE (NOUVEAU)';
+                                if (!$record || !$record->status) return 'BROUILLON (NOUVEAU)';
                                 return match ($record->status) {
                                     'draft' => 'BROUILLON',
                                     'pending' => 'EN ATTENTE DE VALIDATION',
-                                    'confirmed' => 'CONFIRMÉ / VALIDÉ',
+                                    'confirmed' => 'CONFIRMÉ / TRANSMIS',
                                     'completed' => 'VOYAGE TERMINÉ',
                                     'cancelled' => 'ANNULÉ',
                                     default => strtoupper($record->status),
@@ -679,33 +832,18 @@ class AgencyFolderResource extends Resource
                             })
                             ->extraAttributes(['class' => 'text-xl font-bold']),
                             
+                        Hidden::make('status')->default('draft'),
                         Hidden::make('total_price')->default(0),
-                        Hidden::make('status')->default('pending'),
                         Hidden::make('folder_fee')->default(0),
                         Hidden::make('agency_id')->default(fn () => Filament::auth()->user()->agency_id),
                     ]),
 
-                Section::make('Logistique d\'arrivée')
+                Section::make('Informations de Vol')
                     ->schema([
-                        Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
-                        TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
-
-                        DatePicker::make('first_hotel_check_in')
-                            ->label('Date Check-in 1er Hôtel')
-                            ->live()
-                            ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
-                            ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
-                            ->afterOrEqual('start_date')
-                            ->beforeOrEqual('end_date')
-                            ->validationMessages([
-                                'after_or_equal' => 'Doit être après ou le jour de l\'arrivée.',
-                                'before_or_equal' => 'Doit être avant ou le jour du départ.',
-                            ]),
-
-                        Textarea::make('first_hotel_address')
-                            ->label('Adresse du premier hôtel')
-                            ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
-                            ->rows(2),
+                        Textarea::make('flight_info')
+                            ->label('Vols (Arrivée/Départ)')
+                            ->placeholder('Ex: Vol AF276 Arrivée Haneda 10:30...')
+                            ->rows(3),
                     ]),
 
                 Section::make('📂 Documents partagés')
@@ -767,11 +905,26 @@ class AgencyFolderResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('reference')->label('Réf.')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('folder_name')->label('Nom du dossier')->searchable(),
-                Tables\Columns\TextColumn::make('lead_traveler_name')->label('Pax Principal')->searchable(),
-                Tables\Columns\TextColumn::make('mainSeller.name')->label('Vendeur Principal')->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('start_date')->label('Arrivée')->date('d/m/Y')->sortable(),
+                Tables\Columns\TextColumn::make('folder_name')
+                    ->label('Dossier / Réf.')
+                    ->description(fn (Folder $record): string => "Réf: {$record->reference}")
+                    ->searchable(['folder_name', 'reference'])
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('lead_traveler_name')
+                    ->label('Pax Leader')
+                    ->searchable(),
+
+                Tables\Columns\TextColumn::make('mainSeller.name')
+                    ->label('Vendeur')
+                    ->searchable()
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('start_date')
+                    ->label('Arrivée')
+                    ->date('d/m/Y')
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('status')
                     ->label('Statut')
                     ->badge()
@@ -791,11 +944,37 @@ class AgencyFolderResource extends Resource
                         'cancelled' => 'danger',
                         default => 'gray'
                     }),
-                Tables\Columns\TextColumn::make('total_price')->label('Total Estimé')->money('JPY'),
+
+                Tables\Columns\TextColumn::make('total_price')
+                    ->label('Total Estimé')
+                    ->money('JPY')
+                    ->sortable(),
             ])
             ->filters([])
             ->recordActions([
-                EditAction::make()->label('Suivi / Modifier'),
+                EditAction::make()
+                    ->label('Modifier')
+                    ->icon('heroicon-o-pencil-square'),
+
+                Action::make('cancelDraftTable')
+                    ->label('Annuler')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Annuler et supprimer ce dossier brouillon ?')
+                    ->modalDescription('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.')
+                    ->modalSubmitActionLabel('Oui, supprimer le brouillon')
+                    ->modalCancelActionLabel('Conserver le brouillon')
+                    ->visible(fn ($record) => $record && $record->status === 'draft')
+                    ->action(function ($record) {
+                        $record->delete();
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Brouillon supprimé')
+                            ->body('Le dossier brouillon a été annulé avec succès.')
+                            ->success()
+                            ->send();
+                    }),
             ]);
     }
 

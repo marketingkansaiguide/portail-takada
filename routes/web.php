@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request; // 💡 IMPORT AJOUTÉ POUR LE TÉLÉCHARGEMENT
 use App\Models\Folder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ContactController; // 💡 IMPORT AJOUTÉ POUR QUE LA CLASSE SOIT RECONNUE
@@ -112,6 +113,46 @@ Route::get('/storage/{path}', function (string $path) {
 })->where('path', '.*');
 
 
+/*
+|--------------------------------------------------------------------------
+| ROUTE DE TÉLÉCHARGEMENT UNIVERSELLE (PARFEITE POUR WINDOWS / HERD)
+|--------------------------------------------------------------------------
+*/
+Route::get('/download-file', function (Illuminate\Http\Request $request) {
+    $path = $request->query('path');
+    
+    if (!$path) {
+        abort(404, 'Le chemin du fichier est manquant.');
+    }
+
+    // 1. Nettoyage des slashs Windows et des préfixes inutiles
+    $cleanPath = str_replace(['\\', '//'], '/', $path);
+    $cleanPath = preg_replace('#^/?(storage/|public/)#', '', $cleanPath);
+    $cleanPath = ltrim($cleanPath, '/');
+
+    // 2. Recherche sur le disque public (storage/app/public/...)
+    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+        return \Illuminate\Support\Facades\Storage::disk('public')->download($cleanPath);
+    }
+
+    // 3. Recherche sur le disque local (storage/app/...)
+    if (\Illuminate\Support\Facades\Storage::disk('local')->exists($cleanPath)) {
+        return \Illuminate\Support\Facades\Storage::disk('local')->download($cleanPath);
+    }
+
+    // 4. Vérification physique directe des fichiers sur le disque dur
+    $pubFile = storage_path('app/public/' . $cleanPath);
+    if (file_exists($pubFile)) {
+        return response()->download($pubFile);
+    }
+
+    $locFile = storage_path('app/' . $cleanPath);
+    if (file_exists($locFile)) {
+        return response()->download($locFile);
+    }
+
+    abort(404, "Fichier introuvable sur le serveur ($cleanPath).");
+})->name('file.download');
 /*
 |--------------------------------------------------------------------------
 | ROUTE DE LANGUE

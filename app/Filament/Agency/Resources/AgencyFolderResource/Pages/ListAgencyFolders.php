@@ -13,7 +13,9 @@ class ListAgencyFolders extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()->label('Nouvelle Demande de Voyage'),
+            Actions\CreateAction::make()
+                ->label('➕ Créer un nouveau dossier')
+                ->color('primary'),
         ];
     }
 }

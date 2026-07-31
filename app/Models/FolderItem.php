@@ -14,6 +14,7 @@ class FolderItem extends Model
         'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
         'service_date', 'quantity', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values', 
         'selected_options', 'invoice_received_at', 'google_calendar_event_id',
+        'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
     ];
 
     protected $casts = [
@@ -22,6 +23,7 @@ class FolderItem extends Model
         'unit_price' => 'integer', 'total_price' => 'integer', 
         'custom_values' => 'array', 'selected_options' => 'array',
         'invoice_received_at' => 'date',
+        'is_internal' => 'boolean',
     ];
 
     public function getProductSupplierData()
@@ -139,7 +141,7 @@ class FolderItem extends Model
 
         $paxAdults = 0;
         $paxChildren = 0;
-        $childLimit = $product->child_age_limit ?? 11;
+        $childLimit = $product ? ($product->child_age_limit ?? 11) : 11;
         $ageCalcDate = $this->service_date ? Carbon::parse($this->service_date) : Carbon::now();
 
         $passagersText = "";
@@ -169,7 +171,7 @@ class FolderItem extends Model
             $paxAdults = $quantite;
         }
 
-        if (preg_match_all('/\[IF_OPTION:([^\]]+)\](.*?)\[\/IF_OPTION\]/is', $emailRendered, $matches)) {
+        if ($product && preg_match_all('/\[IF_OPTION:([^\]]+)\](.*?)\[\/IF_OPTION\]/is', $emailRendered, $matches)) {
             foreach ($matches[1] as $index => $optionCode) {
                 $optionCode = trim($optionCode);
                 $fullBlock = $matches[0][$index];
@@ -330,7 +332,7 @@ class FolderItem extends Model
             }
         }
 
-        if (preg_match_all('/\[OPTION:([^\]]+)\]/', $emailRendered, $matches)) {
+        if ($product && preg_match_all('/\[OPTION:([^\]]+)\]/', $emailRendered, $matches)) {
             foreach ($matches[1] as $index => $optionCode) {
                 $optionCode = trim($optionCode);
                 $shortcode = $matches[0][$index];
@@ -379,10 +381,6 @@ class FolderItem extends Model
     {
         Log::info("CALENDAR : ----- TENTATIVE DE SYNCHRONISATION -----");
 
-        // 💡 RÉSOLUTION DÉFINITIVE DU BUG DES TRIPLONS (MÉMOIRE VS BASE DE DONNÉES)
-        // On force la lecture en temps réel de l'ID depuis la base de données.
-        // Si Filament redéclenche ce script en boucle en l'espace de 10 millisecondes,
-        // les instances suivantes sauront que l'événement a DÉJÀ été créé par la première.
         if ($this->exists) {
             $freshEventId = DB::table('folder_items')->where('id', $this->id)->value('google_calendar_event_id');
             if ($freshEventId) {
@@ -407,7 +405,7 @@ class FolderItem extends Model
         
         $hasDate = $this->service_date ? 'OUI' : 'NON';
         $hasProduct = $product ? 'OUI' : 'NON';
-        $delay = $product->days_before_opening ?? 'NULL';
+        $delay = $product ? ($product->days_before_opening ?? 'NULL') : 'NULL';
         $status = $folder->status ?? 'INCONNU';
         $itemStatusName = $this->itemStatus ? mb_strtolower(trim($this->itemStatus->name), 'UTF-8') : 'inconnu';
 
@@ -473,7 +471,6 @@ class FolderItem extends Model
 
     public function deleteGoogleCalendarEvent()
     {
-        // 💡 LECTURE BDD : Garantie d'avoir le bon ID si la suppression est appelée depuis une mise à jour de statut
         if ($this->exists) {
             $freshEventId = DB::table('folder_items')->where('id', $this->id)->value('google_calendar_event_id');
             if ($freshEventId) {
@@ -494,7 +491,6 @@ class FolderItem extends Model
             $client->addScope(\Google\Service\Calendar::CALENDAR);
             $service = new \Google\Service\Calendar($client);
 
-            // 1. Suppression ciblée de l'événement lié
             if ($this->google_calendar_event_id) {
                 try {
                     $service->events->delete($calendarId, $this->google_calendar_event_id);
@@ -504,7 +500,6 @@ class FolderItem extends Model
                 }
             }
 
-            // 2. NETTOYAGE AU KÄRCHER : Suppression absolue des doublons fantômes (créés par l'ancien bug)
             $folderName = $this->folder ? $this->folder->folder_name : 'N/A';
             $productName = $this->product ? $this->product->name : '';
             
@@ -513,7 +508,7 @@ class FolderItem extends Model
                 
                 $optParams = [
                     'q' => $searchQuery,
-                    'timeMin' => now()->subYears(1)->toRfc3339String(), // Permet de trouver même les vieux doublons
+                    'timeMin' => now()->subYears(1)->toRfc3339String(),
                 ];
 
                 $results = $service->events->listEvents($calendarId, $optParams);
@@ -523,7 +518,6 @@ class FolderItem extends Model
                         $service->events->delete($calendarId, $event->getId());
                         Log::info("CALENDAR : Doublon/Fantôme supprimé (ID: " . $event->getId() . ")");
                     } catch (\Exception $e) {
-                        // Ignore silencieusement s'il n'arrive pas à supprimer le fantôme
                     }
                 }
             }
@@ -563,7 +557,6 @@ class FolderItem extends Model
                     if (isset($processedUpdates[$fingerprint])) return;
                     $processedUpdates[$fingerprint] = true;
 
-                    // 💡 SÉCURITÉ : La synchronisation est filtrée pour ne pas se lancer pour rien
                     if ($item->wasChanged(['service_date', 'quantity', 'product_id', 'supplier_id', 'item_status_id'])) {
                         try { 
                             $item->syncGoogleCalendar(); 
@@ -572,7 +565,7 @@ class FolderItem extends Model
                         }
                     }
 
-                    $productName = $item->product ? $item->product->name : 'Une prestation';
+                    $productName = $item->title ?: ($item->product ? $item->product->name : 'Une prestation');
                     if ($item->service_date) {
                         $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
                     } elseif ($item->id) {
@@ -592,6 +585,7 @@ class FolderItem extends Model
                         'total_price' => 'Prix de vente total',
                         'selected_options' => 'Options sélectionnées',
                         'invoice_received_at' => 'Date de réception facture',
+                        'title' => 'Titre',
                     ];
 
                     foreach ($changes as $key => $newValue) {
@@ -678,7 +672,7 @@ class FolderItem extends Model
                 Log::error("CALENDAR Erreur d'appel hook created : " . $e->getMessage());
             }
 
-            $productName = $item->product ? $item->product->name : 'Une prestation';
+            $productName = $item->title ?: ($item->product ? $item->product->name : 'Une prestation');
             if ($item->service_date) {
                 $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
             }
@@ -704,7 +698,7 @@ class FolderItem extends Model
                 Log::error("TÂCHES Erreur suppression hook deleted : " . $e->getMessage());
             }
 
-            $productName = $item->product ? $item->product->name : 'Une prestation';
+            $productName = $item->title ?: ($item->product ? $item->product->name : 'Une prestation');
             if ($item->service_date) {
                 $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
             }

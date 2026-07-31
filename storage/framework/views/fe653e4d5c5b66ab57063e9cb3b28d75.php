@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Récapitulatif - {{ $folder->reference }}</title>
+    <title>Récapitulatif - <?php echo e($folder->reference); ?></title>
     <style>
         body { font-family: Arial, sans-serif; color: #1e293b; font-size: 10pt; line-height: 1.4; }
         .header { width: 100%; margin-bottom: 20px; }
@@ -33,8 +33,8 @@
             </td>
             <td class="text-right">
                 <div class="title">Pré-Facture</div>
-                <div style="font-weight: bold; margin-top: 5px;">Réf : {{ $folder->reference }}</div>
-                <div style="color: #64748b; font-size: 9pt;">Émis le : {{ $dateEmit }}</div>
+                <div style="font-weight: bold; margin-top: 5px;">Réf : <?php echo e($folder->reference); ?></div>
+                <div style="color: #64748b; font-size: 9pt;">Émis le : <?php echo e($dateEmit); ?></div>
             </td>
         </tr>
     </table>
@@ -46,23 +46,24 @@
             <td>
                 <div class="info-box" style="padding-right: 15px;">
                     <h2>Agence Cliente</h2>
-                    <div><strong>Nom :</strong> {{ $agency->name }}</div>
-                    <div><strong>Contact :</strong> {{ $agency->email ?? '---' }}</div>
-                    <div><strong>Téléphone :</strong> {{ $agency->phone ?? '---' }}</div>
+                    <div><strong>Nom :</strong> <?php echo e($agency->name); ?></div>
+                    <div><strong>Contact :</strong> <?php echo e($agency->email ?? '---'); ?></div>
+                    <div><strong>Téléphone :</strong> <?php echo e($agency->phone ?? '---'); ?></div>
                     <div style="margin-top: 5px;"><strong>Adresse Facturation :</strong></div>
                     <div style="color: #475569; font-style: italic; padding-left: 5px;">
-                        {!! nl2br(e($agency->address)) !!}
+                        <?php echo nl2br(e($agency->address)); ?>
+
                     </div>
                 </div>
             </td>
             <td>
                 <div class="info-box" style="padding-left: 15px;">
                     <h2>Détails du Dossier</h2>
-                    <div><strong>Nom du dossier :</strong> {{ $folder->folder_name }}</div>
-                    <div><strong>Pax Leader :</strong> {{ $folder->lead_traveler_name }}</div>
-                    <div><strong>Nombre de Pax :</strong> {{ $totalPax }} Pax - {{ $folder->pax_adults }} Adulte(s), {{ $folder->pax_children }} Enfant(s)</div>
-                    <div><strong>Dates du Séjour :</strong> Du {{ $folder->start_date?->format('d/m/Y') }} au {{ $folder->end_date?->format('d/m/Y') }}</div>
-                    <div><strong>Mode d'envoi billetterie :</strong> {{ ucfirst($folder->ticket_dispatch_method) }} @if($folder->ticket_dispatch_other) ({{ $folder->ticket_dispatch_other }}) @endif</div>
+                    <div><strong>Nom du dossier :</strong> <?php echo e($folder->folder_name); ?></div>
+                    <div><strong>Pax Leader :</strong> <?php echo e($folder->lead_traveler_name); ?></div>
+                    <div><strong>Nombre de Pax :</strong> <?php echo e($totalPax); ?> Pax - <?php echo e($folder->pax_adults); ?> Adulte(s), <?php echo e($folder->pax_children); ?> Enfant(s)</div>
+                    <div><strong>Dates du Séjour :</strong> Du <?php echo e($folder->start_date?->format('d/m/Y')); ?> au <?php echo e($folder->end_date?->format('d/m/Y')); ?></div>
+                    <div><strong>Mode d'envoi billetterie :</strong> <?php echo e(ucfirst($folder->ticket_dispatch_method)); ?> <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($folder->ticket_dispatch_other): ?> (<?php echo e($folder->ticket_dispatch_other); ?>) <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?></div>
                 </div>
             </td>
         </tr>
@@ -79,8 +80,8 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($items as $item)
-                @php
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $items; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $item): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <?php
                     $optionsTotal = 0;
                     $optionsList = [];
 
@@ -134,69 +135,70 @@
                     $hasOptions = count($optionsList) > 0;
                     $baseTotal = $item->total_price - $optionsTotal;
                     $baseUnitPrice = $item->quantity > 0 ? ($baseTotal / $item->quantity) : 0;
-                @endphp
+                ?>
 
-                @if(!$hasOptions)
+                <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!$hasOptions): ?>
                     <!-- Prestation simple sans option -->
                     <tr style="background-color: #ffffff;">
-                        <td><strong>{{ $item->product?->name }}</strong></td>
-                        <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
-                        <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-right">¥{{ number_format($item->unit_price) }}</td>
-                        <td class="text-right"><strong>¥{{ number_format($item->total_price) }}</strong></td>
+                        <td><strong><?php echo e($item->product?->name); ?></strong></td>
+                        <td class="text-center"><?php echo e($item->service_date?->format('d/m/Y')); ?></td>
+                        <td class="text-center"><?php echo e($item->quantity); ?></td>
+                        <td class="text-right">¥<?php echo e(number_format($item->unit_price)); ?></td>
+                        <td class="text-right"><strong>¥<?php echo e(number_format($item->total_price)); ?></strong></td>
                     </tr>
-                @else
+                <?php else: ?>
                     <!-- Prestation AVEC options : Décomposition explicite (Base + Options) -->
                     <tr style="background-color: #ffffff;">
                         <td>
-                            <strong>{{ $item->product?->name }}</strong>
+                            <strong><?php echo e($item->product?->name); ?></strong>
                             <br><span style="font-size: 8pt; color: #64748b;">(Tarif de base)</span>
                         </td>
-                        <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
-                        <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-right">¥{{ number_format($baseUnitPrice) }}</td>
-                        <td class="text-right">¥{{ number_format($baseTotal) }}</td>
+                        <td class="text-center"><?php echo e($item->service_date?->format('d/m/Y')); ?></td>
+                        <td class="text-center"><?php echo e($item->quantity); ?></td>
+                        <td class="text-right">¥<?php echo e(number_format($baseUnitPrice)); ?></td>
+                        <td class="text-right">¥<?php echo e(number_format($baseTotal)); ?></td>
                     </tr>
 
-                    @foreach($optionsList as $opt)
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $optionsList; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $opt): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
                         <tr style="background-color: #f8fafc; color: #475569; font-size: 8.5pt;">
                             <td style="padding-left: 20px;">
-                                <span style="color: #94a3b8;">-</span> <em>Option :</em> <strong>{{ $opt['name'] }}</strong>
-                                <span style="color: #64748b; font-size: 8pt;">({{ $opt['calc_label'] }})</span>
+                                <span style="color: #94a3b8;">-</span> <em>Option :</em> <strong><?php echo e($opt['name']); ?></strong>
+                                <span style="color: #64748b; font-size: 8pt;">(<?php echo e($opt['calc_label']); ?>)</span>
                             </td>
                             <td class="text-center" style="color: #94a3b8;">---</td>
-                            <td class="text-center">{{ $opt['display_qty'] }}</td>
-                            <td class="text-right">¥{{ number_format($opt['unit_price']) }}</td>
-                            <td class="text-right">+¥{{ number_format($opt['total']) }}</td>
+                            <td class="text-center"><?php echo e($opt['display_qty']); ?></td>
+                            <td class="text-right">¥<?php echo e(number_format($opt['unit_price'])); ?></td>
+                            <td class="text-right">+¥<?php echo e(number_format($opt['total'])); ?></td>
                         </tr>
-                    @endforeach
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
 
                     <!-- Sous-total explicite de l'activité -->
                     <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 9pt;">
                         <td colspan="4" class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
-                            Sous-total {{ $item->product?->name }} :
+                            Sous-total <?php echo e($item->product?->name); ?> :
                         </td>
                         <td class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
-                            ¥{{ number_format($item->total_price) }}
+                            ¥<?php echo e(number_format($item->total_price)); ?>
+
                         </td>
                     </tr>
-                @endif
-            @endforeach
+                <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
         </tbody>
     </table>
 
     <table class="totals-table">
         <tr>
             <td>Sous-total Prestations :</td>
-            <td class="text-right">¥{{ number_format($itemsTotal) }}</td>
+            <td class="text-right">¥<?php echo e(number_format($itemsTotal)); ?></td>
         </tr>
         <tr>
             <td>Frais de dossier appliqués :</td>
-            <td class="text-right">¥{{ number_format($folder->folder_fee) }}</td>
+            <td class="text-right">¥<?php echo e(number_format($folder->folder_fee)); ?></td>
         </tr>
         <tr class="total-row">
             <td>Montant Total :</td>
-            <td class="text-right">¥{{ number_format($grandTotal) }}</td>
+            <td class="text-right">¥<?php echo e(number_format($grandTotal)); ?></td>
         </tr>
     </table>
 
@@ -208,4 +210,4 @@
     </div>
 
 </body>
-</html>
+</html><?php /**PATH C:\Users\marke\Herd\portail-takada\resources\views/pdf/recapitulatif.blade.php ENDPATH**/ ?>

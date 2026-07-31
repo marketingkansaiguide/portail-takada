@@ -8,16 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('folders', function (Blueprint $table) {
-            // Ajoute la colonne JSON pour stocker le tableau de fichiers
-            $table->json('documents')->nullable()->after('status'); 
-        });
+        // La colonne existe déjà en BDD, on ne fait rien pour valider la migration
     }
 
     public function down(): void
     {
         Schema::table('folders', function (Blueprint $table) {
-            $table->dropColumn('documents');
+            if (Schema::hasColumn('folders', 'documents')) {
+                $table->dropColumn('documents');
+            }
         });
     }
 };

@@ -42,6 +42,12 @@
             background: #f0fdfa !important;
             color: #096a61 !important;
         }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-custom { animation: spin 1s linear infinite; }
     </style>
 
     <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
@@ -298,7 +304,7 @@
                                                     $isRequired = $def['is_required'] ?? false;
                                                     $modelKey = "customValues.{$key}";
                                                 @endphp
-                                                <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ $def['type'] === 'textarea' ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
                                                     <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
                                                         {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
                                                     </label>
@@ -320,6 +326,50 @@
                                                         <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                             <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:#096a61;">
                                                             <label for="check_global_{{ $key }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
+                                                        </div>
+                                                    @elseif($def['type'] === 'file')
+                                                        {{-- 💡 COMPOSANT FICHIER REHAUSSÉ (GLOBAL) --}}
+                                                        <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
+                                                             x-on:livewire-upload-start="isUploading = true"
+                                                             x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
+                                                             x-on:livewire-upload-error="isUploading = false"
+                                                             style="position: relative; margin-top: 0.25rem;">
+
+                                                            <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                   onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                   onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
+
+                                                                <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
+                                                                    <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                                    </svg>
+                                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez un fichier ici</span>
+                                                                    <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
+                                                                </div>
+
+                                                                <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                    <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
+                                                                        <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                        <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                    </svg>
+                                                                    <span>Transfert en cours...</span>
+                                                                </div>
+
+                                                                <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
+                                                                    <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                    </svg>
+                                                                    <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                                </div>
+
+                                                                <input type="file"
+                                                                       wire:model="{{ $modelKey }}"
+                                                                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                                       x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                                                       style="display: none;">
+                                                            </label>
+
+                                                            @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
                                                         </div>
                                                     @else
                                                         <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
@@ -359,7 +409,7 @@
                                                                 $modelKey = "customValues.{$key}.{$i}";
                                                             @endphp
                                                             
-                                                            <div wire:key="field-{{ $key }}-{{ $i }}" style="grid-column: span {{ $def['type'] === 'textarea' ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                            <div wire:key="field-{{ $key }}-{{ $i }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
                                                                 <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
                                                                     {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
                                                                 </label>
@@ -381,6 +431,50 @@
                                                                     <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                                         <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:#096a61;">
                                                                         <label for="check_pax_{{ $key }}_{{ $i }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
+                                                                    </div>
+                                                                @elseif($def['type'] === 'file')
+                                                                    {{-- 💡 COMPOSANT FICHIER REHAUSSÉ (PAR PASSAGER) --}}
+                                                                    <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
+                                                                         x-on:livewire-upload-start="isUploading = true"
+                                                                         x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
+                                                                         x-on:livewire-upload-error="isUploading = false"
+                                                                         style="position: relative; margin-top: 0.25rem;">
+
+                                                                        <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                               onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                               onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
+
+                                                                            <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
+                                                                                <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                                                </svg>
+                                                                                <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez le document du Pax {{ $i + 1 }}</span>
+                                                                                <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
+                                                                            </div>
+
+                                                                            <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                                <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
+                                                                                    <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                                    <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                                </svg>
+                                                                                <span>Transfert en cours...</span>
+                                                                            </div>
+
+                                                                            <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
+                                                                                <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                                </svg>
+                                                                                <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                                            </div>
+
+                                                                            <input type="file"
+                                                                                   wire:model="{{ $modelKey }}"
+                                                                                   accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                                                   x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                                                                   style="display: none;">
+                                                                        </label>
+
+                                                                        @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
                                                                     </div>
                                                                 @else
                                                                     <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
