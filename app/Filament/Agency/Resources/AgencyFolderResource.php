@@ -4,6 +4,7 @@ namespace App\Filament\Agency\Resources;
 
 use App\Filament\Agency\Resources\AgencyFolderResource\Pages;
 use App\Models\Folder;
+use App\Models\Hotel;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -104,7 +105,7 @@ class AgencyFolderResource extends Resource
                             <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; color: #92400e;'>
                                 <div>
                                     <strong style='font-size: 1rem;'>✏️ Dossier en cours de rédaction (Brouillon)</strong>
-                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
+                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers freely. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
                                 </div>
                             </div>
                         "))
@@ -176,6 +177,29 @@ class AgencyFolderResource extends Resource
                 Section::make('Informations du Premier Hôtel')
                     ->columns(2)
                     ->schema([
+                        Select::make('hotel_preset')
+                            ->label('🏢 Rechercher dans la base d\'hôtels')
+                            ->placeholder('Tapez le nom d\'un hôtel pour pré-remplir...')
+                            ->options(fn () => Hotel::pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if ($state && $hotel = Hotel::find($state)) {
+                                    $set('first_hotel_name', $hotel->name);
+
+                                    $fullAddress = $hotel->address ?? '';
+                                    if (!empty($hotel->phone)) {
+                                        $fullAddress .= ($fullAddress ? "\nTél : " : "Tél : ") . $hotel->phone;
+                                    }
+
+                                    $set('first_hotel_address', $fullAddress);
+                                    $set('first_hotel_google_maps_url', $hotel->google_maps_url);
+                                }
+                            })
+                            ->dehydrated(false)
+                            ->columnSpanFull(),
+
                         TextInput::make('first_hotel_name')
                             ->label('1er Hôtel (Nom)')
                             ->placeholder('Ex: Hotel Gracery Shinjuku'),
@@ -197,6 +221,29 @@ class AgencyFolderResource extends Resource
                             ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
                             ->rows(2)
                             ->columnSpanFull(),
+
+                        TextInput::make('first_hotel_google_maps_url')
+                            ->label('Lien Google Maps')
+                            ->url()
+                            ->placeholder('https://maps.google.com/...')
+                            ->live()
+                            ->columnSpanFull(),
+
+                        Placeholder::make('first_hotel_google_maps_link')
+                            ->hiddenLabel()
+                            ->visible(fn (Get $get) => !empty($get('first_hotel_google_maps_url')))
+                            ->content(function (Get $get) {
+                                $url = $get('first_hotel_google_maps_url');
+                                if (!$url) return '';
+                                return new HtmlString("
+                                    <div style='margin-top: 4px;'>
+                                        <a href='{$url}' target='_blank' style='display: inline-flex; align-items: center; gap: 8px; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 0.875rem; text-decoration: none;'>
+                                            📍 Ouvrir la localisation sur Google Maps ↗
+                                        </a>
+                                    </div>
+                                ");
+                            })
+                            ->columnSpanFull(),
                     ]),
 
                 Section::make('Liste des Pax')
@@ -213,13 +260,9 @@ class AgencyFolderResource extends Resource
                                 if (!empty($name)) {
                                     return new HtmlString("<span style='color:#096a61; font-weight:600;'>👤 {$name}</span>");
                                 }
-                                if (!empty($state['id'])) {
-                                    return new HtmlString("<span style='color:#096a61; font-weight:600;'>👤 Passager</span>");
-                                }
-                                return new HtmlString("<span style='color:#d97706; font-weight:600;'>👤 Nouveau passager</span>");
+                                return new HtmlString("<span style='color:#4b5563; font-weight:600;'>👤 Passager (à renseigner)</span>");
                             })
                             ->schema([
-                                // Mode résumé pour dossiers déjà validés / transmis
                                 Placeholder::make('condensed_passenger')
                                     ->hiddenLabel()
                                     ->visible(fn (?Model $record, Get $get) => $record !== null && $record->status !== 'draft' && $get('../../status') !== 'draft')
@@ -246,13 +289,12 @@ class AgencyFolderResource extends Resource
 
                                         return new HtmlString("
                                             <div style='padding:0.75rem 1rem; border-left:4px solid #096a61; background:#f9fafb; border-radius:0 0.5rem 0.5rem 0;'>
-                                                <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>(" . ($age ? "{$age} - " : "") . "{$nat})</span></div>
+                                                <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>({$age}) - {$nat}</span></div>
                                                 {$warnHtml}
                                             </div>
                                         ");
                                     }),
 
-                                // Formulaire d'édition pour mode Brouillon ou création
                                 Group::make()->schema([
                                     Group::make()->schema([
                                         TextInput::make('last_name')->label('Nom')->required(),

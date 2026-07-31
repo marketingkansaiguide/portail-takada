@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Folders;
 use App\Filament\Resources\Folders\Pages;
 use App\Filament\Resources\Folders\FolderResource\RelationManagers; 
 use App\Models\Folder;
+use App\Models\Hotel;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -287,6 +288,28 @@ class FolderResource extends Resource
                     Section::make(__('Informations du Premier Hôtel'))
                         ->columns(3)
                         ->schema([
+                            Select::make('hotel_preset')
+                                ->label('🏢 Rechercher dans la base d\'hôtels')
+                                ->placeholder('Tapez le nom d\'un hôtel pour pré-remplir...')
+                                ->options(fn () => Hotel::pluck('name', 'id'))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function ($state, Set $set) {
+                                    if ($state && $hotel = Hotel::find($state)) {
+                                        $set('first_hotel_name', $hotel->name);
+                                        
+                                        $fullAddress = $hotel->address ?? '';
+                                        if (!empty($hotel->phone)) {
+                                            $fullAddress .= ($fullAddress ? "\nTél : " : "Tél : ") . $hotel->phone;
+                                        }
+                                        
+                                        $set('first_hotel_address', $fullAddress);
+                                    }
+                                })
+                                ->dehydrated(false)
+                                ->columnSpanFull(),
+
                             TextInput::make('first_hotel_name')
                                 ->label(__('Nom du premier hôtel'))
                                 ->placeholder('Ex: Hotel Gracery Shinjuku'),

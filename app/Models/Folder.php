@@ -26,6 +26,7 @@ class Folder extends Model
         'first_hotel_name',
         'first_hotel_check_in',
         'first_hotel_address',
+        'first_hotel_google_maps_url',
         'start_date',
         'end_date',
         'flight_info',
