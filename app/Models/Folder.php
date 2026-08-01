@@ -34,6 +34,7 @@ class Folder extends Model
         'folder_fee',
         'total_price',
         'documents',
+        'label_exported_at',
     ];
 
     protected $casts = [
@@ -42,6 +43,7 @@ class Folder extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'first_hotel_check_in' => 'date',
+        'label_exported_at' => 'datetime',
     ];
 
     public function agency(): BelongsTo
@@ -86,5 +88,42 @@ class Folder extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(FolderHistory::class);
+    }
+
+    /**
+     * Obtenir l'adresse d'envoi effective (Hôtel, Guide ou Autre)
+     */
+    public function getDispatchAddressAttribute(): string
+    {
+        if (in_array($this->ticket_dispatch_method, ['guide', 'autre']) && !empty($this->ticket_dispatch_other)) {
+            return $this->ticket_dispatch_other;
+        }
+
+        return $this->first_hotel_address ?? '';
+    }
+
+    /**
+     * Obtenir le libellé du mode d'envoi
+     */
+    public function getDispatchMethodLabelAttribute(): string
+    {
+        return match ($this->ticket_dispatch_method) {
+            'hotel' => 'Hôtel',
+            'guide' => 'Guide',
+            'autre' => 'Autre / Lieu alternatif',
+            default => 'Hôtel',
+        };
+    }
+
+    /**
+     * Obtenir la date de check-in au format japonais (ex: チェックイン日：2026年9月8日)
+     */
+    public function getFormattedJpCheckinDateAttribute(): string
+    {
+        $date = $this->first_hotel_check_in ?? $this->start_date;
+        if (!$date) return 'チェックイン日：---';
+
+        $cDate = \Carbon\Carbon::parse($date);
+        return 'チェックイン日：' . $cDate->format('Y') . '年' . $cDate->format('n') . '月' . $cDate->format('j') . '日';
     }
 }

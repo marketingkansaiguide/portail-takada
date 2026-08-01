@@ -165,3 +165,29 @@ Route::get('/lang/{locale}', function (string $locale) {
     
     return redirect()->back();
 })->name('lang.switch');
+
+/*
+|--------------------------------------------------------------------------
+| ROUTE POUR IMPRIMER / EXPORTER LA PLAQUETTE D'ÉTIQUETTES DES CHECK-INS
+|--------------------------------------------------------------------------
+*/
+Route::get('/pdf/labels', function (Illuminate\Http\Request $request) {
+    $rawIds = $request->query('ids', '');
+    
+    if (empty($rawIds)) {
+        abort(400, 'Aucun dossier sélectionné.');
+    }
+
+    $ids = array_filter(explode(',', $rawIds));
+    
+    $folders = Folder::whereIn('id', $ids)
+        ->where('status', 'confirmed')
+        ->orderByRaw('COALESCE(first_hotel_check_in, start_date) ASC')
+        ->get();
+
+    if ($folders->isEmpty()) {
+        abort(404, 'Aucun dossier confirmé trouvé pour cette sélection.');
+    }
+
+    return view('pdf.labels', compact('folders'));
+})->name('pdf.labels')->middleware('auth');

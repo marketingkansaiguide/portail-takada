@@ -264,11 +264,17 @@ class FolderResource extends Resource
                                 ->live() 
                                 ->required(),
 
-                            TextInput::make('ticket_dispatch_other')
-                                ->label(__('Précisez le lieu d\'envoi'))
-                                ->placeholder('Ex: Agence locale, Aéroport...')
-                                ->required(fn ($get) => $get('ticket_dispatch_method') === 'autre')
-                                ->visible(fn ($get) => $get('ticket_dispatch_method') === 'autre'),
+                            Textarea::make('ticket_dispatch_other')
+                                ->label(fn (Get $get) => $get('ticket_dispatch_method') === 'guide' 
+                                    ? __('Adresse / Coordonnées du guide') 
+                                    : __('Adresse / Lieu d\'envoi alternatif'))
+                                ->placeholder(fn (Get $get) => $get('ticket_dispatch_method') === 'guide' 
+                                    ? __('Adresse complète, nom/hôtel du guide ou instructions d\'envoi...') 
+                                    : __('Ex: Agence locale, Aéroport, point de rendez-vous...'))
+                                ->rows(2)
+                                ->required(fn (Get $get) => in_array($get('ticket_dispatch_method'), ['guide', 'autre']))
+                                ->visible(fn (Get $get) => in_array($get('ticket_dispatch_method'), ['guide', 'autre']))
+                                ->columnSpanFull(),
 
                             Repeater::make('contact_phones')
                                 ->label(__('Numéros de téléphone de contact'))
@@ -801,7 +807,7 @@ class FolderResource extends Resource
                                             $item->service_date = Carbon::parse($itemData['service_date']);
                                         }
                                         $item->selected_options = $itemData['selected_options'] ?? $item->selected_options ?? [];
-                                        $item->custom_values = $itemData['custom_values'] ?? $item->custom_values ?? [];
+                                        $item->custom_values = $itemData['custom_values'] ?? $itemData['custom_values'] ?? [];
 
                                         $keyFilePath = storage_path('app/google-credentials.json');
                                         if (!file_exists($keyFilePath)) {
