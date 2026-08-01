@@ -73,8 +73,24 @@ class ViewProduct extends Page
         }
 
         if ($this->product->productOptions) {
+            // Pré-sélection de la 1ère option pour chaque groupe obligatoire / déclinaison
+            $groupedRequired = [];
+
             foreach ($this->product->productOptions as $option) {
-                $this->selectedOptions[$option->id] = ['enabled' => false, 'quantity' => 1];
+                $isEnabled = false;
+
+                if ($option->is_required || !empty($option->group_name)) {
+                    $groupKey = !empty($option->group_name) ? $option->group_name : 'default_required';
+                    if (!isset($groupedRequired[$groupKey])) {
+                        $groupedRequired[$groupKey] = true;
+                        $isEnabled = true; // Pré-sélectionne le 1er choix du groupe
+                    }
+                }
+
+                $this->selectedOptions[$option->id] = [
+                    'enabled' => $isEnabled,
+                    'quantity' => 1
+                ];
             }
         }
 
@@ -88,6 +104,20 @@ class ViewProduct extends Page
                 } else {
                     $this->customValues[$key] = $def['type'] === 'toggle' ? false : null;
                 }
+            }
+        }
+    }
+
+    public function selectGroupVariant(string $groupName, $selectedOptionId): void
+    {
+        if (!$this->product || !$this->product->productOptions) return;
+
+        $selectedOptionId = (int) $selectedOptionId;
+
+        foreach ($this->product->productOptions as $option) {
+            $optGroup = !empty($option->group_name) ? $option->group_name : ($option->is_required ? 'default_required' : null);
+            if ($optGroup === $groupName) {
+                $this->selectedOptions[$option->id]['enabled'] = ($option->id === $selectedOptionId);
             }
         }
     }
@@ -466,6 +496,32 @@ class ViewProduct extends Page
         if ($this->product && $this->product->max_pax) {
             $rules['quantity'] .= '|max:' . $this->product->max_pax;
             $messages['quantity.max'] = 'Cette prestation est limitée à ' . $this->product->max_pax . ' participants au maximum.';
+        }
+
+        // Vérification des groupes de déclinaisons obligatoires
+        $groupedRequired = $this->product->productOptions
+            ->filter(fn($o) => $o->is_required || !empty($o->group_name))
+            ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+        foreach ($groupedRequired as $groupName => $optionsGroup) {
+            $hasChoiceSelected = false;
+            foreach ($optionsGroup as $opt) {
+                if (!empty($this->selectedOptions[$opt->id]['enabled'])) {
+                    $hasChoiceSelected = true;
+                    break;
+                }
+            }
+
+            if (!$hasChoiceSelected) {
+                $displayName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                Notification::make()
+                    ->title(__('Déclinaison obligatoire manquante'))
+                    ->body("Veuillez sélectionner un choix pour '{$displayName}'.")
+                    ->danger()
+                    ->send();
+
+                return;
+            }
         }
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;

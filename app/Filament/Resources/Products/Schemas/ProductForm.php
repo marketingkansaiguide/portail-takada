@@ -88,7 +88,6 @@ class ProductForm
                                                 'date' => __('Date'),
                                                 'toggle' => __('Case à cocher (Oui/Non)'),
                                                 'select' => __('Liste de choix (Menu déroulant)'),
-                                                // 💡 L'OPTION "FICHIER" EST AJOUTÉE ICI :
                                                 'file' => __('Fichier joint (Image / PDF)'), 
                                             ])
                                             ->live()
@@ -122,26 +121,34 @@ class ProductForm
                                 ])
                         ]),
 
-                    Section::make(__('Options & Déclinaisons tarifaires'))
-                        ->description(__('Ajoutez des variantes ou des services optionnels payants applicables à ce produit.'))
+                    Section::make(__('Déclinaisons & Options tarifaires'))
+                        ->description(__('Créez des déclinaisons obligatoires (ex: Montant de la carte IC : 1000¥, 2000¥, 5000¥) ou des options facultatives.'))
                         ->schema([
                             Repeater::make('productOptions')
                                 ->relationship()
                                 ->hiddenLabel()
-                                ->addActionLabel(__('Ajouter une option / déclinaison'))
-                                ->itemLabel(fn (array $state): ?string => isset($state['name']) ? $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)' : __('Nouvelle option'))
+                                ->addActionLabel(__('Ajouter un choix / déclinaison / option'))
+                                ->itemLabel(fn (array $state): ?string => isset($state['name']) 
+                                    ? (!empty($state['group_name']) ? '[' . $state['group_name'] . '] ' : '') . $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)'
+                                    : __('Nouveau choix'))
                                 ->collapsible()
                                 ->collapsed()
                                 ->schema([
+                                    TextInput::make('group_name')
+                                        ->label(__('Groupe / Nom de la déclinaison (facultatif)'))
+                                        ->placeholder(__('Ex: Montant de la carte IC, Taille, Catégorie...'))
+                                        ->helperText(__('Mettez le MÊME nom de groupe pour regrouper plusieurs choix sous une seule déclinaison obligatoire.'))
+                                        ->columnSpanFull(),
+
                                     Group::make()->schema([
                                         TextInput::make('name')
-                                            ->label(__('Nom de l\'option / variante'))
-                                            ->placeholder(__('Ex: Tissu Soie Premium...'))
+                                            ->label(__('Nom de la variante / valeur'))
+                                            ->placeholder(__('Ex: Carte 2 000 ¥ / Taille M / Option Guide...'))
                                             ->required(),
 
                                         TextInput::make('code')
                                             ->label(__('Clé (pour shortcode email)'))
-                                            ->placeholder(__('Ex: dressing, guide...'))
+                                            ->placeholder(__('Ex: ic_2000, taille_m...'))
                                             ->nullable(),
 
                                         TextInput::make('price_modifier')
@@ -152,15 +159,23 @@ class ProductForm
                                             ->placeholder('0'),
                                     ])->columns(3),
 
-                                    Select::make('billing_type')
-                                        ->label(__('Mode d\'application du supplément tarifaire'))
-                                        ->options([
-                                            'per_pax' => __('Par voyageur (Multiplié par le nombre de pax/quantité)'),
-                                            'per_booking' => __('Frais fixes (Appliqué une seule fois pour tout le dossier)'),
-                                            'manual' => __('Quantité au choix (Saisie manuelle dans le dossier)'),
-                                        ])
-                                        ->default('per_pax')
-                                        ->required(),
+                                    Group::make()->schema([
+                                        Select::make('billing_type')
+                                            ->label(__('Mode d\'application du supplément tarifaire'))
+                                            ->options([
+                                                'per_pax' => __('Par voyageur (Multiplié par le nombre de pax/quantité)'),
+                                                'per_booking' => __('Frais fixes (Appliqué une seule fois pour tout le dossier)'),
+                                                'manual' => __('Quantité au choix (Saisie manuelle dans le dossier)'),
+                                            ])
+                                            ->default('per_pax')
+                                            ->required(),
+
+                                        Toggle::make('is_required')
+                                            ->label(__('Déclinaison obligatoire'))
+                                            ->helperText(__('Cochez si l\'agence DOIT obligatoirement faire un choix parmi ce groupe.'))
+                                            ->default(false)
+                                            ->inline(false),
+                                    ])->columns(2),
                                 ])
                         ]),
 

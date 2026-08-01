@@ -8,10 +8,17 @@ class ProductOption extends Model
 {
     protected $fillable = [
         'product_id',
+        'group_name',
         'name',
-        'code', // 💡 Nouvelle colonne autorisée
+        'code',
         'price_modifier',
-        'billing_type'
+        'billing_type',
+        'is_required',
+    ];
+
+    protected $casts = [
+        'price_modifier' => 'integer',
+        'is_required' => 'boolean',
     ];
 
     public function product()

@@ -318,7 +318,7 @@ class AgencyFolderResource extends Resource
                             )
                     ]),
 
-                Section::make('Prestations demandées')
+Section::make('Prestations demandées')
                     ->description('Vos prestations réservées et le suivi de leur statut.')
                     ->visible(fn (?Model $record) => $record !== null)
                     ->headerActions([
@@ -344,8 +344,27 @@ class AgencyFolderResource extends Resource
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
                                             $options = \App\Models\ProductOption::where('product_id', $state)->get();
+                                            
+                                            // Pré-sélectionner le 1er choix des déclinaisons obligatoires
+                                            $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                                ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+                                            foreach ($requiredGrouped as $groupName => $groupOpts) {
+                                                $firstOpt = $groupOpts->first();
+                                                $set("opt_group_" . \Illuminate\Support\Str::slug($groupName), $firstOpt->id);
+                                            }
+
                                             foreach ($options as $opt) {
-                                                $set("opt_enabled_{$opt->id}", false);
+                                                // L'option est-elle la première d'un groupe obligatoire ?
+                                                $isFirstRequired = false;
+                                                foreach ($requiredGrouped as $groupOpts) {
+                                                    if ($groupOpts->first()->id === $opt->id) {
+                                                        $isFirstRequired = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                $set("opt_enabled_{$opt->id}", $isFirstRequired);
                                                 $set("opt_qty_{$opt->id}", 1);
                                             }
                                         }
@@ -389,45 +408,94 @@ class AgencyFolderResource extends Resource
                                         if ($options->isEmpty()) return [];
 
                                         $schema = [];
-                                        foreach ($options as $opt) {
-                                            $optId = $opt->id;
-                                            $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
-                                            
-                                            $billingBadge = match ($opt->billing_type) {
-                                                'per_pax' => "{$formattedPrice} / pax",
-                                                'per_booking' => "{$formattedPrice} (Prix fixe)",
-                                                'manual' => "{$formattedPrice} / unité",
-                                                default => $formattedPrice,
-                                            };
 
-                                            $toggle = Toggle::make("opt_enabled_{$optId}")
-                                                ->label("{$opt->name} (+ {$billingBadge})")
-                                                ->inline(false)
-                                                ->live();
+                                        // -------------------------------------------------------------
+                                        // 1. DÉCLINAISONS OBLIGATOIRES (Menus déroulants)
+                                        // -------------------------------------------------------------
+                                        $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                            ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
-                                            if ($opt->billing_type === 'manual') {
-                                                $qtyInput = TextInput::make("opt_qty_{$optId}")
-                                                    ->label('Quantité au choix')
-                                                    ->numeric()
-                                                    ->default(1)
-                                                    ->minValue(1)
-                                                    ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
-                                                    ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
-                                                    ->live();
+                                        if ($requiredGrouped->count() > 0) {
+                                            foreach ($requiredGrouped as $groupName => $groupOptions) {
+                                                $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                                                
+                                                $selectOptions = [];
+                                                foreach ($groupOptions as $opt) {
+                                                    $priceLabel = $opt->price_modifier > 0 ? " (+ " . number_format($opt->price_modifier, 0, '.', ' ') . " ¥)" : "";
+                                                    $selectOptions[$opt->id] = $opt->name . $priceLabel;
+                                                }
 
-                                                $schema[] = Group::make()
-                                                    ->schema([$toggle, $qtyInput])
-                                                    ->columns(2);
-                                            } else {
-                                                $schema[] = $toggle;
+                                                $schema[] = Select::make("opt_group_" . \Illuminate\Support\Str::slug($groupName))
+                                                    ->label($displayGroupName)
+                                                    ->options($selectOptions)
+                                                    ->default($groupOptions->first()->id)
+                                                    ->required()
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, Set $set) use ($groupOptions) {
+                                                        // Désactiver toutes les options du groupe
+                                                        foreach ($groupOptions as $opt) {
+                                                            $set("opt_enabled_{$opt->id}", false);
+                                                        }
+                                                        // Activer uniquement celle sélectionnée
+                                                        if ($state) {
+                                                            $set("opt_enabled_{$state}", true);
+                                                        }
+                                                    });
+
+                                                // Champs cachés pour compatibilité avec le hook de sauvegarde actuel
+                                                foreach ($groupOptions as $opt) {
+                                                    $schema[] = Hidden::make("opt_enabled_{$opt->id}");
+                                                    $schema[] = Hidden::make("opt_qty_{$opt->id}");
+                                                }
                                             }
                                         }
 
-                                        return [
-                                            Section::make('Options tarifaires complémentaires')
+                                        // -------------------------------------------------------------
+                                        // 2. OPTIONS FACULTATIVES (Toggles)
+                                        // -------------------------------------------------------------
+                                        $optionalOptions = $options->filter(fn($o) => !$o->is_required && empty($o->group_name));
+
+                                        if ($optionalOptions->count() > 0) {
+                                            $optionalSchema = [];
+                                            foreach ($optionalOptions as $opt) {
+                                                $optId = $opt->id;
+                                                $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
+                                                
+                                                $billingBadge = match ($opt->billing_type) {
+                                                    'per_pax' => "{$formattedPrice} / pax",
+                                                    'per_booking' => "{$formattedPrice} (Prix fixe)",
+                                                    'manual' => "{$formattedPrice} / unité",
+                                                    default => $formattedPrice,
+                                                };
+
+                                                $toggle = Toggle::make("opt_enabled_{$optId}")
+                                                    ->label("{$opt->name} (+ {$billingBadge})")
+                                                    ->inline(false)
+                                                    ->live();
+
+                                                if ($opt->billing_type === 'manual') {
+                                                    $qtyInput = TextInput::make("opt_qty_{$optId}")
+                                                        ->label('Quantité')
+                                                        ->numeric()
+                                                        ->default(1)
+                                                        ->minValue(1)
+                                                        ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                        ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                        ->live();
+
+                                                    $optionalSchema[] = Group::make()->schema([$toggle, $qtyInput])->columns(2);
+                                                } else {
+                                                    $optionalSchema[] = $toggle;
+                                                    $optionalSchema[] = Hidden::make("opt_qty_{$optId}");
+                                                }
+                                            }
+
+                                            $schema[] = Section::make('Options tarifaires complémentaires')
                                                 ->description('Cochez les options souhaitées selon leur mode de facturation.')
-                                                ->schema($schema)
-                                        ];
+                                                ->schema($optionalSchema);
+                                        }
+
+                                        return $schema;
                                     }),
 
                                 Group::make()
@@ -751,99 +819,67 @@ class AgencyFolderResource extends Resource
                                                         $optQty = (int) ($optData['quantity'] ?? 1);
 
                                                         if ($optModel->billing_type === 'per_pax') {
-                                                            $optTotal = $mod * $qty;
-                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                            $lineTotal = $mod * $qty;
+                                                            $optRows[] = "{$optModel->name} (+{$mod}¥ x {$qty} pax = {$lineTotal}¥)";
+                                                            $optionsTotal += $lineTotal;
                                                         } elseif ($optModel->billing_type === 'manual') {
-                                                            $optTotal = $mod * $optQty;
-                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$optQty}";
+                                                            $lineTotal = $mod * $optQty;
+                                                            $optRows[] = "{$optModel->name} (+{$mod}¥ x {$optQty} = {$lineTotal}¥)";
+                                                            $optionsTotal += $lineTotal;
                                                         } else {
-                                                            $optTotal = $mod;
-                                                            $calcText = "forfait fixe";
+                                                            $optRows[] = "{$optModel->name} (Prix fixe +{$mod}¥)";
+                                                            $optionsTotal += $mod;
                                                         }
-                                                        $optionsTotal += $optTotal;
-
-                                                        $optRows[] = "
-                                                            <div style='display:flex; justify-content:space-between; color:#475569; padding-left:12px; margin-top:2px; font-size:0.825rem;'>
-                                                                <span>└ <i>Option : " . e($optModel->name) . "</i> <span style='color:#6b7280;'>({$calcText})</span></span>
-                                                                <span style='color:#0284c7; font-weight:600;'>+ " . number_format($optTotal, 0, '.', ' ') . " ¥</span>
-                                                            </div>
-                                                        ";
                                                     }
                                                 }
                                             }
                                         }
 
-                                        $itemTotal = (float) ($item->total_price ?? 0);
-                                        $baseTotal = max(0, $itemTotal - $optionsTotal);
-                                        $baseUnitPrice = $qty > 0 ? ($baseTotal / $qty) : 0;
+                                        $baseUnitPrice = (float) $item->unit_price - ($optionsTotal / max(1, $qty)); 
+                                        $baseTotalPrice = $baseUnitPrice * $qty;
+                                        $grandTotal = $item->total_price;
 
-                                        $priceBreakdownHtml = "
-                                            <div style='margin-top:0.85rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.75rem;'>
-                                                <div style='font-weight:600; color:#1e3a8a; font-size:0.85rem; margin-bottom:0.35rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.25rem;'>
-                                                    📊 Décomposition du tarif :
+                                        $optionsHtml = '';
+                                        if (count($optRows) > 0) {
+                                            $list = implode('<br>', array_map(fn($r) => "• $r", $optRows));
+                                            $optionsHtml = "
+                                                <div style='margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:0.5rem; border:1px solid #e2e8f0;'>
+                                                    <div style='font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:0.25rem; text-transform:uppercase;'>Déclinaisons & Options sélectionnées :</div>
+                                                    <div style='font-size:0.8rem; color:#334155; line-height:1.4;'>{$list}</div>
                                                 </div>
-                                                <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#374151;'>
-                                                    <span>• <b>Tarif de base :</b> " . number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax</span>
-                                                    <span><b>" . number_format($baseTotal, 0, '.', ' ') . " ¥</b></span>
-                                                </div>
-                                                " . implode('', $optRows) . "
-                                                <div style='display:flex; justify-content:space-between; border-top:1px solid #cbd5e1; margin-top:0.5rem; padding-top:0.35rem; font-weight:bold; color:#096a61; font-size:0.95rem;'>
-                                                    <span>Total de la prestation :</span>
-                                                    <span>" . number_format($itemTotal, 0, '.', ' ') . " ¥</span>
-                                                </div>
-                                            </div>
-                                        ";
-
-                                        $customValuesHtml = '';
-                                        $customValues = $item->custom_values ?? [];
-                                        $product = $item->product;
-                                        if ($product && !empty($product->custom_field_definitions) && is_array($customValues) && count($customValues) > 0) {
-                                            $cvs = [];
-                                            foreach ($product->custom_field_definitions as $def) {
-                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                                                $label = $def['name'] ?? 'Information';
-                                                
-                                                if (isset($customValues[$key]) && $customValues[$key] !== '') {
-                                                    $val = $customValues[$key];
-                                                    
-                                                    if (is_bool($val)) {
-                                                        $val = $val ? 'Oui' : 'Non';
-                                                    } elseif (is_array($val)) {
-                                                        $val = implode(', ', \Illuminate\Support\Arr::flatten($val));
-                                                    }
-                                                    
-                                                    if (($def['type'] ?? '') === 'file') {
-                                                        $val = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
-                                                            $path = trim($m[1]);
-                                                            $url = route('file.download', ['path' => $path]);
-                                                            return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
-                                                        }, (string)$val);
-                                                    }
-                                                    
-                                                    $cvs[] = "<b>{$label} :</b> {$val}";
-                                                }
-                                            }
-                                            if (count($cvs) > 0) {
-                                                $customValuesHtml = "<div style='margin-top:0.75rem; font-size:0.85rem; color:#4b5563; padding-top:0.75rem; border-top:1px dashed #e5e7eb;'>" . implode('<br>', $cvs) . "</div>";
-                                            }
+                                            ";
                                         }
 
                                         return new HtmlString("
-                                            <div style='padding:1.25rem; border-radius:0.75rem; border:1px solid #e5e7eb; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-                                                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;'>
-                                                    <strong style='font-size:1.15rem; color:#111827;'>{$productName}</strong>
-                                                    {$statusBadge}
+                                            <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
+                                                <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                                    <div>
+                                                        <div style='font-size:1.1rem; font-weight:800; color:#0f172a; margin-bottom:0.25rem;'>{$productName}</div>
+                                                        <div style='font-size:0.85rem; color:#64748b; font-weight:500; display:flex; gap:1rem;'>
+                                                            <span>📅 {$date}</span>
+                                                            <span>👥 {$qty} Pax</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style='text-align:right;'>
+                                                        {$statusBadge}
+                                                    </div>
                                                 </div>
-                                                <div style='display:flex; gap:2rem; font-size:0.95rem; color:#374151; background:#f3f4f6; padding:0.75rem 1.25rem; border-radius:0.5rem;'>
-                                                    <span>📅 Date : <b>{$date}</b></span>
-                                                    <span>👥 Pax : <b>{$qty}</b></span>
+
+                                                {$optionsHtml}
+
+                                                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.75rem; border-top:1px dashed #cbd5e1;'>
+                                                    <div style='font-size:0.8rem; color:#64748b;'>
+                                                        Base : " . number_format($baseTotalPrice, 0, '.', ' ') . " ¥ <br>
+                                                        Options : " . number_format($optionsTotal, 0, '.', ' ') . " ¥
+                                                    </div>
+                                                    <div style='font-size:1.25rem; font-weight:800; color:#096a61;'>
+                                                        " . number_format($grandTotal, 0, '.', ' ') . " ¥
+                                                    </div>
                                                 </div>
-                                                {$priceBreakdownHtml}
-                                                {$customValuesHtml}
                                             </div>
                                         ");
-                                    }),
-                            ]),
+                                    })
+                            ])
                     ]),
             ])->columnSpan(['lg' => 2]),
 
