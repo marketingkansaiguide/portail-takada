@@ -10,3 +10,5 @@ Schedule::call(function () {
         ->whereDate('end_date', '<', now())
         ->update(['status' => 'completed']);
 })->daily();
+
+Schedule::command('ic-cards:check-opening')->dailyAt('08:00');

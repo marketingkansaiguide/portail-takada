@@ -314,169 +314,6 @@ class Contact extends Page implements HasForms
     }
 }
 
---- Fichier: C:\Users\marke\Herd\portail-takada\app\Filament\Agency\Pages\UpcomingCheckins.php ---
-
-<?php
-
-namespace App\Filament\Pages;
-
-use App\Models\Folder;
-use BackedEnum;
-use UnitEnum;
-use Carbon\Carbon;
-use Filament\Pages\Page;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Table;
-use Filament\Tables;
-use Filament\Tables\Actions\BulkAction;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\Filter;
-use Filament\Forms\Components\DatePicker;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
-
-class UpcomingCheckins extends Page implements HasTable
-{
-    use InteractsWithTable;
-
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
-    protected static string|UnitEnum|null $navigationGroup = 'Gestion';
-    protected static ?string $navigationLabel = 'Check-ins Hôtels';
-    protected static ?string $title = 'Planning des Check-ins à venir';
-    protected static ?int $navigationSort = 3;
-
-    protected string $view = 'filament.pages.upcoming-checkins';
-
-    public static function getNavigationBadge(): ?string
-    {
-        return (string) Folder::where('status', 'confirmed')->count();
-    }
-
-    public static function getNavigationBadgeColor(): ?string
-    {
-        return 'success';
-    }
-
-    public function table(Table $table): Table
-    {
-        return $table
-            ->query(
-                Folder::query()
-                    ->with(['agency', 'mainSeller'])
-                    ->where('status', 'confirmed')
-                    ->orderByRaw('COALESCE(first_hotel_check_in, start_date) ASC')
-            )
-            ->columns([
-                Tables\Columns\TextColumn::make('checkin_date')
-                    ->label('Check-in')
-                    ->getStateUsing(fn (Folder $record) => $record->first_hotel_check_in ?? $record->start_date)
-                    ->date('d/m/Y')
-                    ->badge()
-                    ->color(function ($state) {
-                        if (!$state) return 'gray';
-                        $diff = Carbon::now()->startOfDay()->diffInDays(Carbon::parse($state)->startOfDay(), false);
-                        if ($diff < 0) return 'gray';
-                        if ($diff <= 3) return 'danger';
-                        if ($diff <= 7) return 'warning';
-                        return 'success';
-                    })
-                    ->sortable(query: function (Builder $query, string $direction): Builder {
-                        return $query->orderByRaw("COALESCE(first_hotel_check_in, start_date) {$direction}");
-                    }),
-
-                Tables\Columns\TextColumn::make('reference')
-                    ->label('Réf. Dossier')
-                    ->searchable(['reference', 'folder_name'])
-                    ->weight('bold')
-                    ->description(fn (Folder $record) => $record->folder_name),
-
-                Tables\Columns\TextColumn::make('lead_traveler_name')
-                    ->label('Pax Leader')
-                    ->searchable()
-                    ->weight('semibold'),
-
-                Tables\Columns\TextColumn::make('first_hotel_name')
-                    ->label('1er Hôtel (Nom)')
-                    ->searchable()
-                    ->default('---')
-                    ->description(fn (Folder $record) => Str::limit($record->first_hotel_address ?? '', 35)),
-
-                Tables\Columns\TextColumn::make('ticket_dispatch_method')
-                    ->label('Méthode d\'envoi')
-                    ->badge()
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'hotel' => '🏨 Hôtel',
-                        'guide' => '👤 Guide',
-                        'autre' => '📍 Autre',
-                        default => $state,
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'hotel' => 'info',
-                        'guide' => 'warning',
-                        'autre' => 'primary',
-                        default => 'gray',
-                    }),
-
-                Tables\Columns\TextColumn::make('dispatch_address')
-                    ->label('Adresse d\'envoi')
-                    ->limit(40)
-                    ->tooltip(fn (Folder $record) => $record->dispatch_address),
-
-                Tables\Columns\TextColumn::make('agency.name')
-                    ->label('Agence')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                SelectFilter::make('ticket_dispatch_method')
-                    ->label('Mode d\'envoi')
-                    ->options([
-                        'hotel' => 'Hôtel',
-                        'guide' => 'Guide',
-                        'autre' => 'Autre',
-                    ]),
-
-                Filter::make('checkin_period')
-                    ->form([
-                        DatePicker::make('from')->label('Check-in après le'),
-                        DatePicker::make('until')->label('Check-in avant le'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['from'],
-                                fn (Builder $query, $date): Builder => $query->whereRaw('COALESCE(first_hotel_check_in, start_date) >= ?', [$date]),
-                            )
-                            ->when(
-                                $data['until'],
-                                fn (Builder $query, $date): Builder => $query->whereRaw('COALESCE(first_hotel_check_in, start_date) <= ?', [$date]),
-                            );
-                    }),
-            ])
-            ->recordActions([
-                Tables\Actions\Action::make('openFolder')
-                    ->label('Dossier')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('primary')
-                    ->url(fn (Folder $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record])),
-            ])
-            ->bulkActions([
-                BulkAction::make('export_labels')
-                    ->label('Imprimer la plaquette d\'étiquettes')
-                    ->icon('heroicon-o-printer')
-                    ->color('success')
-                    ->action(function (Collection $records, $livewire) {
-                        $ids = $records->pluck('id')->implode(',');
-                        $url = route('pdf.labels', ['ids' => $ids]);
-                        $livewire->js("window.open('{$url}', '_blank')");
-                    }),
-            ]);
-    }
-}
-
 --- Fichier: C:\Users\marke\Herd\portail-takada\app\Filament\Agency\Pages\ViewProduct.php ---
 
 <?php
@@ -554,8 +391,24 @@ class ViewProduct extends Page
         }
 
         if ($this->product->productOptions) {
+            // Pré-sélection de la 1ère option pour chaque groupe obligatoire / déclinaison
+            $groupedRequired = [];
+
             foreach ($this->product->productOptions as $option) {
-                $this->selectedOptions[$option->id] = ['enabled' => false, 'quantity' => 1];
+                $isEnabled = false;
+
+                if ($option->is_required || !empty($option->group_name)) {
+                    $groupKey = !empty($option->group_name) ? $option->group_name : 'default_required';
+                    if (!isset($groupedRequired[$groupKey])) {
+                        $groupedRequired[$groupKey] = true;
+                        $isEnabled = true; // Pré-sélectionne le 1er choix du groupe
+                    }
+                }
+
+                $this->selectedOptions[$option->id] = [
+                    'enabled' => $isEnabled,
+                    'quantity' => 1
+                ];
             }
         }
 
@@ -569,6 +422,20 @@ class ViewProduct extends Page
                 } else {
                     $this->customValues[$key] = $def['type'] === 'toggle' ? false : null;
                 }
+            }
+        }
+    }
+
+    public function selectGroupVariant(string $groupName, $selectedOptionId): void
+    {
+        if (!$this->product || !$this->product->productOptions) return;
+
+        $selectedOptionId = (int) $selectedOptionId;
+
+        foreach ($this->product->productOptions as $option) {
+            $optGroup = !empty($option->group_name) ? $option->group_name : ($option->is_required ? 'default_required' : null);
+            if ($optGroup === $groupName) {
+                $this->selectedOptions[$option->id]['enabled'] = ($option->id === $selectedOptionId);
             }
         }
     }
@@ -947,6 +814,32 @@ class ViewProduct extends Page
         if ($this->product && $this->product->max_pax) {
             $rules['quantity'] .= '|max:' . $this->product->max_pax;
             $messages['quantity.max'] = 'Cette prestation est limitée à ' . $this->product->max_pax . ' participants au maximum.';
+        }
+
+        // Vérification des groupes de déclinaisons obligatoires
+        $groupedRequired = $this->product->productOptions
+            ->filter(fn($o) => $o->is_required || !empty($o->group_name))
+            ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+        foreach ($groupedRequired as $groupName => $optionsGroup) {
+            $hasChoiceSelected = false;
+            foreach ($optionsGroup as $opt) {
+                if (!empty($this->selectedOptions[$opt->id]['enabled'])) {
+                    $hasChoiceSelected = true;
+                    break;
+                }
+            }
+
+            if (!$hasChoiceSelected) {
+                $displayName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                Notification::make()
+                    ->title(__('Déclinaison obligatoire manquante'))
+                    ->body("Veuillez sélectionner un choix pour '{$displayName}'.")
+                    ->danger()
+                    ->send();
+
+                return;
+            }
         }
 
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
@@ -1807,7 +1700,7 @@ class AgencyFolderResource extends Resource
                             )
                     ]),
 
-                Section::make('Prestations demandées')
+Section::make('Prestations demandées')
                     ->description('Vos prestations réservées et le suivi de leur statut.')
                     ->visible(fn (?Model $record) => $record !== null)
                     ->headerActions([
@@ -1833,8 +1726,27 @@ class AgencyFolderResource extends Resource
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
                                             $options = \App\Models\ProductOption::where('product_id', $state)->get();
+                                            
+                                            // Pré-sélectionner le 1er choix des déclinaisons obligatoires
+                                            $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                                ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+                                            foreach ($requiredGrouped as $groupName => $groupOpts) {
+                                                $firstOpt = $groupOpts->first();
+                                                $set("opt_group_" . \Illuminate\Support\Str::slug($groupName), $firstOpt->id);
+                                            }
+
                                             foreach ($options as $opt) {
-                                                $set("opt_enabled_{$opt->id}", false);
+                                                // L'option est-elle la première d'un groupe obligatoire ?
+                                                $isFirstRequired = false;
+                                                foreach ($requiredGrouped as $groupOpts) {
+                                                    if ($groupOpts->first()->id === $opt->id) {
+                                                        $isFirstRequired = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                $set("opt_enabled_{$opt->id}", $isFirstRequired);
                                                 $set("opt_qty_{$opt->id}", 1);
                                             }
                                         }
@@ -1878,45 +1790,94 @@ class AgencyFolderResource extends Resource
                                         if ($options->isEmpty()) return [];
 
                                         $schema = [];
-                                        foreach ($options as $opt) {
-                                            $optId = $opt->id;
-                                            $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
-                                            
-                                            $billingBadge = match ($opt->billing_type) {
-                                                'per_pax' => "{$formattedPrice} / pax",
-                                                'per_booking' => "{$formattedPrice} (Prix fixe)",
-                                                'manual' => "{$formattedPrice} / unité",
-                                                default => $formattedPrice,
-                                            };
 
-                                            $toggle = Toggle::make("opt_enabled_{$optId}")
-                                                ->label("{$opt->name} (+ {$billingBadge})")
-                                                ->inline(false)
-                                                ->live();
+                                        // -------------------------------------------------------------
+                                        // 1. DÉCLINAISONS OBLIGATOIRES (Menus déroulants)
+                                        // -------------------------------------------------------------
+                                        $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                            ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
-                                            if ($opt->billing_type === 'manual') {
-                                                $qtyInput = TextInput::make("opt_qty_{$optId}")
-                                                    ->label('Quantité au choix')
-                                                    ->numeric()
-                                                    ->default(1)
-                                                    ->minValue(1)
-                                                    ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
-                                                    ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
-                                                    ->live();
+                                        if ($requiredGrouped->count() > 0) {
+                                            foreach ($requiredGrouped as $groupName => $groupOptions) {
+                                                $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                                                
+                                                $selectOptions = [];
+                                                foreach ($groupOptions as $opt) {
+                                                    $priceLabel = $opt->price_modifier > 0 ? " (+ " . number_format($opt->price_modifier, 0, '.', ' ') . " ¥)" : "";
+                                                    $selectOptions[$opt->id] = $opt->name . $priceLabel;
+                                                }
 
-                                                $schema[] = Group::make()
-                                                    ->schema([$toggle, $qtyInput])
-                                                    ->columns(2);
-                                            } else {
-                                                $schema[] = $toggle;
+                                                $schema[] = Select::make("opt_group_" . \Illuminate\Support\Str::slug($groupName))
+                                                    ->label($displayGroupName)
+                                                    ->options($selectOptions)
+                                                    ->default($groupOptions->first()->id)
+                                                    ->required()
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, Set $set) use ($groupOptions) {
+                                                        // Désactiver toutes les options du groupe
+                                                        foreach ($groupOptions as $opt) {
+                                                            $set("opt_enabled_{$opt->id}", false);
+                                                        }
+                                                        // Activer uniquement celle sélectionnée
+                                                        if ($state) {
+                                                            $set("opt_enabled_{$state}", true);
+                                                        }
+                                                    });
+
+                                                // Champs cachés pour compatibilité avec le hook de sauvegarde actuel
+                                                foreach ($groupOptions as $opt) {
+                                                    $schema[] = Hidden::make("opt_enabled_{$opt->id}");
+                                                    $schema[] = Hidden::make("opt_qty_{$opt->id}");
+                                                }
                                             }
                                         }
 
-                                        return [
-                                            Section::make('Options tarifaires complémentaires')
+                                        // -------------------------------------------------------------
+                                        // 2. OPTIONS FACULTATIVES (Toggles)
+                                        // -------------------------------------------------------------
+                                        $optionalOptions = $options->filter(fn($o) => !$o->is_required && empty($o->group_name));
+
+                                        if ($optionalOptions->count() > 0) {
+                                            $optionalSchema = [];
+                                            foreach ($optionalOptions as $opt) {
+                                                $optId = $opt->id;
+                                                $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
+                                                
+                                                $billingBadge = match ($opt->billing_type) {
+                                                    'per_pax' => "{$formattedPrice} / pax",
+                                                    'per_booking' => "{$formattedPrice} (Prix fixe)",
+                                                    'manual' => "{$formattedPrice} / unité",
+                                                    default => $formattedPrice,
+                                                };
+
+                                                $toggle = Toggle::make("opt_enabled_{$optId}")
+                                                    ->label("{$opt->name} (+ {$billingBadge})")
+                                                    ->inline(false)
+                                                    ->live();
+
+                                                if ($opt->billing_type === 'manual') {
+                                                    $qtyInput = TextInput::make("opt_qty_{$optId}")
+                                                        ->label('Quantité')
+                                                        ->numeric()
+                                                        ->default(1)
+                                                        ->minValue(1)
+                                                        ->required(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                        ->visible(fn (Get $get) => (bool) $get("opt_enabled_{$optId}"))
+                                                        ->live();
+
+                                                    $optionalSchema[] = Group::make()->schema([$toggle, $qtyInput])->columns(2);
+                                                } else {
+                                                    $optionalSchema[] = $toggle;
+                                                    $optionalSchema[] = Hidden::make("opt_qty_{$optId}");
+                                                }
+                                            }
+
+                                            $schema[] = Section::make('Options tarifaires complémentaires')
                                                 ->description('Cochez les options souhaitées selon leur mode de facturation.')
-                                                ->schema($schema)
-                                        ];
+                                                ->schema($optionalSchema);
+                                        }
+
+                                        return $schema;
                                     }),
 
                                 Group::make()
@@ -2240,99 +2201,67 @@ class AgencyFolderResource extends Resource
                                                         $optQty = (int) ($optData['quantity'] ?? 1);
 
                                                         if ($optModel->billing_type === 'per_pax') {
-                                                            $optTotal = $mod * $qty;
-                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                            $lineTotal = $mod * $qty;
+                                                            $optRows[] = "{$optModel->name} (+{$mod}¥ x {$qty} pax = {$lineTotal}¥)";
+                                                            $optionsTotal += $lineTotal;
                                                         } elseif ($optModel->billing_type === 'manual') {
-                                                            $optTotal = $mod * $optQty;
-                                                            $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$optQty}";
+                                                            $lineTotal = $mod * $optQty;
+                                                            $optRows[] = "{$optModel->name} (+{$mod}¥ x {$optQty} = {$lineTotal}¥)";
+                                                            $optionsTotal += $lineTotal;
                                                         } else {
-                                                            $optTotal = $mod;
-                                                            $calcText = "forfait fixe";
+                                                            $optRows[] = "{$optModel->name} (Prix fixe +{$mod}¥)";
+                                                            $optionsTotal += $mod;
                                                         }
-                                                        $optionsTotal += $optTotal;
-
-                                                        $optRows[] = "
-                                                            <div style='display:flex; justify-content:space-between; color:#475569; padding-left:12px; margin-top:2px; font-size:0.825rem;'>
-                                                                <span>└ <i>Option : " . e($optModel->name) . "</i> <span style='color:#6b7280;'>({$calcText})</span></span>
-                                                                <span style='color:#0284c7; font-weight:600;'>+ " . number_format($optTotal, 0, '.', ' ') . " ¥</span>
-                                                            </div>
-                                                        ";
                                                     }
                                                 }
                                             }
                                         }
 
-                                        $itemTotal = (float) ($item->total_price ?? 0);
-                                        $baseTotal = max(0, $itemTotal - $optionsTotal);
-                                        $baseUnitPrice = $qty > 0 ? ($baseTotal / $qty) : 0;
+                                        $baseUnitPrice = (float) $item->unit_price - ($optionsTotal / max(1, $qty)); 
+                                        $baseTotalPrice = $baseUnitPrice * $qty;
+                                        $grandTotal = $item->total_price;
 
-                                        $priceBreakdownHtml = "
-                                            <div style='margin-top:0.85rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:0.5rem; padding:0.75rem;'>
-                                                <div style='font-weight:600; color:#1e3a8a; font-size:0.85rem; margin-bottom:0.35rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.25rem;'>
-                                                    📊 Décomposition du tarif :
+                                        $optionsHtml = '';
+                                        if (count($optRows) > 0) {
+                                            $list = implode('<br>', array_map(fn($r) => "• $r", $optRows));
+                                            $optionsHtml = "
+                                                <div style='margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:0.5rem; border:1px solid #e2e8f0;'>
+                                                    <div style='font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:0.25rem; text-transform:uppercase;'>Déclinaisons & Options sélectionnées :</div>
+                                                    <div style='font-size:0.8rem; color:#334155; line-height:1.4;'>{$list}</div>
                                                 </div>
-                                                <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#374151;'>
-                                                    <span>• <b>Tarif de base :</b> " . number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax</span>
-                                                    <span><b>" . number_format($baseTotal, 0, '.', ' ') . " ¥</b></span>
-                                                </div>
-                                                " . implode('', $optRows) . "
-                                                <div style='display:flex; justify-content:space-between; border-top:1px solid #cbd5e1; margin-top:0.5rem; padding-top:0.35rem; font-weight:bold; color:#096a61; font-size:0.95rem;'>
-                                                    <span>Total de la prestation :</span>
-                                                    <span>" . number_format($itemTotal, 0, '.', ' ') . " ¥</span>
-                                                </div>
-                                            </div>
-                                        ";
-
-                                        $customValuesHtml = '';
-                                        $customValues = $item->custom_values ?? [];
-                                        $product = $item->product;
-                                        if ($product && !empty($product->custom_field_definitions) && is_array($customValues) && count($customValues) > 0) {
-                                            $cvs = [];
-                                            foreach ($product->custom_field_definitions as $def) {
-                                                $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                                                $label = $def['name'] ?? 'Information';
-                                                
-                                                if (isset($customValues[$key]) && $customValues[$key] !== '') {
-                                                    $val = $customValues[$key];
-                                                    
-                                                    if (is_bool($val)) {
-                                                        $val = $val ? 'Oui' : 'Non';
-                                                    } elseif (is_array($val)) {
-                                                        $val = implode(', ', \Illuminate\Support\Arr::flatten($val));
-                                                    }
-                                                    
-                                                    if (($def['type'] ?? '') === 'file') {
-                                                        $val = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
-                                                            $path = trim($m[1]);
-                                                            $url = route('file.download', ['path' => $path]);
-                                                            return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
-                                                        }, (string)$val);
-                                                    }
-                                                    
-                                                    $cvs[] = "<b>{$label} :</b> {$val}";
-                                                }
-                                            }
-                                            if (count($cvs) > 0) {
-                                                $customValuesHtml = "<div style='margin-top:0.75rem; font-size:0.85rem; color:#4b5563; padding-top:0.75rem; border-top:1px dashed #e5e7eb;'>" . implode('<br>', $cvs) . "</div>";
-                                            }
+                                            ";
                                         }
 
                                         return new HtmlString("
-                                            <div style='padding:1.25rem; border-radius:0.75rem; border:1px solid #e5e7eb; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>
-                                                <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;'>
-                                                    <strong style='font-size:1.15rem; color:#111827;'>{$productName}</strong>
-                                                    {$statusBadge}
+                                            <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
+                                                <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                                    <div>
+                                                        <div style='font-size:1.1rem; font-weight:800; color:#0f172a; margin-bottom:0.25rem;'>{$productName}</div>
+                                                        <div style='font-size:0.85rem; color:#64748b; font-weight:500; display:flex; gap:1rem;'>
+                                                            <span>📅 {$date}</span>
+                                                            <span>👥 {$qty} Pax</span>
+                                                        </div>
+                                                    </div>
+                                                    <div style='text-align:right;'>
+                                                        {$statusBadge}
+                                                    </div>
                                                 </div>
-                                                <div style='display:flex; gap:2rem; font-size:0.95rem; color:#374151; background:#f3f4f6; padding:0.75rem 1.25rem; border-radius:0.5rem;'>
-                                                    <span>📅 Date : <b>{$date}</b></span>
-                                                    <span>👥 Pax : <b>{$qty}</b></span>
+
+                                                {$optionsHtml}
+
+                                                <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.75rem; border-top:1px dashed #cbd5e1;'>
+                                                    <div style='font-size:0.8rem; color:#64748b;'>
+                                                        Base : " . number_format($baseTotalPrice, 0, '.', ' ') . " ¥ <br>
+                                                        Options : " . number_format($optionsTotal, 0, '.', ' ') . " ¥
+                                                    </div>
+                                                    <div style='font-size:1.25rem; font-weight:800; color:#096a61;'>
+                                                        " . number_format($grandTotal, 0, '.', ' ') . " ¥
+                                                    </div>
                                                 </div>
-                                                {$priceBreakdownHtml}
-                                                {$customValuesHtml}
                                             </div>
                                         ");
-                                    }),
-                            ]),
+                                    })
+                            ])
                     ]),
             ])->columnSpan(['lg' => 2]),
 
@@ -2746,6 +2675,208 @@ class Statistics extends Dashboard
     public function getColumns(): int | array
     {
         return 2;
+    }
+}
+
+--- Fichier: C:\Users\marke\Herd\portail-takada\app\Filament\Pages\UpcomingCheckins.php ---
+
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Models\Folder;
+use BackedEnum;
+use UnitEnum;
+use Carbon\Carbon;
+use Filament\Pages\Page;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Filament\Tables;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Forms\Components\DatePicker;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
+
+class UpcomingCheckins extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
+    protected static ?string $navigationLabel = 'Check-ins';
+    protected static ?string $title = 'Planning des Check-ins à venir';
+    protected static ?int $navigationSort = 3;
+
+    protected string $view = 'filament.pages.upcoming-checkins';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return (string) Folder::whereIn('status', ['confirmed', 'completed'])->count();
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'success';
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                Folder::query()
+                    ->with(['agency', 'mainSeller'])
+                    ->whereIn('status', ['confirmed', 'completed'])
+                    ->orderByRaw('COALESCE(first_hotel_check_in, start_date) ASC')
+            )
+            ->columns([
+                Tables\Columns\TextColumn::make('checkin_date')
+                    ->label('Check-in')
+                    ->getStateUsing(fn (Folder $record) => $record->first_hotel_check_in ?? $record->start_date)
+                    ->date('d/m/Y')
+                    ->badge()
+                    ->color(function ($state) {
+                        if (!$state) return 'gray';
+                        $diff = Carbon::now()->startOfDay()->diffInDays(Carbon::parse($state)->startOfDay(), false);
+                        if ($diff < 0) return 'gray';
+                        if ($diff <= 3) return 'danger';
+                        if ($diff <= 7) return 'warning';
+                        return 'success';
+                    })
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderByRaw("COALESCE(first_hotel_check_in, start_date) {$direction}");
+                    }),
+
+                Tables\Columns\TextColumn::make('reference')
+                    ->label('Réf. Dossier')
+                    ->searchable(['reference', 'folder_name'])
+                    ->weight('bold')
+                    ->description(fn (Folder $record) => $record->folder_name),
+
+                Tables\Columns\TextColumn::make('lead_traveler_name')
+                    ->label('Pax Leader')
+                    ->searchable()
+                    ->weight('semibold'),
+
+                Tables\Columns\TextColumn::make('first_hotel_name')
+                    ->label('1er Hôtel (Nom)')
+                    ->searchable()
+                    ->default('---')
+                    ->description(fn (Folder $record) => Str::limit($record->first_hotel_address ?? '', 35)),
+
+                Tables\Columns\TextColumn::make('ticket_dispatch_method')
+                    ->label('Méthode d\'envoi')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'hotel' => '🏨 Hôtel',
+                        'guide' => '👤 Guide',
+                        'autre' => '📍 Autre',
+                        default => $state ?? '🏨 Hôtel',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'hotel' => 'info',
+                        'guide' => 'warning',
+                        'autre' => 'primary',
+                        default => 'gray',
+                    }),
+
+                Tables\Columns\TextColumn::make('dispatch_address')
+                    ->label('Adresse d\'envoi')
+                    ->limit(40)
+                    ->tooltip(fn (Folder $record) => $record->dispatch_address),
+
+                // 🏷️ RAPPEL VISUEL DE L'ÉTAT D'EXPORTATION DE L'ÉTIQUETTE
+                Tables\Columns\TextColumn::make('label_exported_at')
+                    ->label('Statut Étiquette')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? '🏷️ Exportée' : '⏳ Non exportée')
+                    ->color(fn ($state) => $state ? 'success' : 'gray')
+                    ->description(fn (Folder $record) => $record->label_exported_at ? 'Le ' . $record->label_exported_at->format('d/m/Y à H:i') : null)
+                    ->sortable(),
+
+                Tables\Columns\TextColumn::make('agency.name')
+                    ->label('Agence')
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                // 🔍 FILTRE SUR L'EXPORT DE L'ÉTIQUETTE
+                SelectFilter::make('label_exported')
+                    ->label('Statut Étiquette')
+                    ->options([
+                        'pending' => '⏳ Non exportée',
+                        'exported' => '🏷️ Exportée',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'pending' => $query->whereNull('label_exported_at'),
+                            'exported' => $query->whereNotNull('label_exported_at'),
+                            default => $query,
+                        };
+                    }),
+
+                SelectFilter::make('ticket_dispatch_method')
+                    ->label('Mode d\'envoi')
+                    ->options([
+                        'hotel' => 'Hôtel',
+                        'guide' => 'Guide',
+                        'autre' => 'Autre',
+                    ]),
+
+                Filter::make('checkin_period')
+                    ->form([
+                        DatePicker::make('from')->label('Check-in après le'),
+                        DatePicker::make('until')->label('Check-in avant le'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['from'],
+                                fn (Builder $query, $date): Builder => $query->whereRaw('COALESCE(first_hotel_check_in, start_date) >= ?', [$date]),
+                            )
+                            ->when(
+                                $data['until'],
+                                fn (Builder $query, $date): Builder => $query->whereRaw('COALESCE(first_hotel_check_in, start_date) <= ?', [$date]),
+                            );
+                    }),
+            ])
+            ->recordActions([
+                // 🔄 ACTION INDIVIDUELLE : Basculer/Réinitialiser le statut d'export
+                Action::make('toggleLabelExport')
+                    ->label(fn (Folder $record) => $record->label_exported_at ? 'Marquer non exportée' : 'Marquer exportée')
+                    ->icon(fn (Folder $record) => $record->label_exported_at ? 'heroicon-o-arrow-path' : 'heroicon-o-check-circle')
+                    ->color(fn (Folder $record) => $record->label_exported_at ? 'gray' : 'success')
+                    ->action(function (Folder $record) {
+                        $record->update([
+                            'label_exported_at' => $record->label_exported_at ? null : now(),
+                        ]);
+                    }),
+
+                Action::make('openFolder')
+                    ->label('Dossier')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->url(fn (Folder $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record])),
+            ])
+            ->bulkActions([
+                BulkAction::make('export_labels')
+                    ->label('Imprimer la plaquette d\'étiquettes')
+                    ->icon('heroicon-o-printer')
+                    ->color('success')
+                    ->action(function (Collection $records, $livewire) {
+                        // 1. Marquer automatiquement les dossiers sélectionnés comme exportés
+                        $records->each(fn ($record) => $record->update(['label_exported_at' => now()]));
+
+                        // 2. Ouvrir la plaquette d'étiquettes
+                        $ids = $records->pluck('id')->implode(',');
+                        $url = route('pdf.labels', ['ids' => $ids]);
+                        $livewire->js("window.open('{$url}', '_blank')");
+                    }),
+            ]);
     }
 }
 
@@ -5669,7 +5800,6 @@ class ProductForm
                                                 'date' => __('Date'),
                                                 'toggle' => __('Case à cocher (Oui/Non)'),
                                                 'select' => __('Liste de choix (Menu déroulant)'),
-                                                // 💡 L'OPTION "FICHIER" EST AJOUTÉE ICI :
                                                 'file' => __('Fichier joint (Image / PDF)'), 
                                             ])
                                             ->live()
@@ -5703,45 +5833,61 @@ class ProductForm
                                 ])
                         ]),
 
-                    Section::make(__('Options & Déclinaisons tarifaires'))
-                        ->description(__('Ajoutez des variantes ou des services optionnels payants applicables à ce produit.'))
+                    Section::make(__('Déclinaisons & Options tarifaires'))
+                        ->description(__('Chaque ligne représente un choix. Utilisez le MÊME nom de groupe (ex: "Montant Carte IC") pour créer un menu déroulant à choix unique.'))
                         ->schema([
                             Repeater::make('productOptions')
                                 ->relationship()
                                 ->hiddenLabel()
-                                ->addActionLabel(__('Ajouter une option / déclinaison'))
-                                ->itemLabel(fn (array $state): ?string => isset($state['name']) ? $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)' : __('Nouvelle option'))
+                                ->addActionLabel(__('Ajouter un choix / déclinaison / option'))
+                                ->itemLabel(fn (array $state): ?string => isset($state['name']) 
+                                    ? (!empty($state['group_name']) ? '[' . $state['group_name'] . '] ' : '') . $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)'
+                                    : __('Nouveau choix'))
                                 ->collapsible()
-                                ->collapsed()
+                                ->collapsed(true) // 💡 Replié par défaut pour économiser l'espace
+                                ->reorderable(true)
+                                ->columns(12) // 💡 Disposition horizontale ultra-compacte
                                 ->schema([
-                                    Group::make()->schema([
-                                        TextInput::make('name')
-                                            ->label(__('Nom de l\'option / variante'))
-                                            ->placeholder(__('Ex: Tissu Soie Premium...'))
-                                            ->required(),
+                                    TextInput::make('group_name')
+                                        ->label(__('Groupe / Déclinaison'))
+                                        ->placeholder(__('Ex: Montant Carte IC'))
+                                        ->columnSpan(['default' => 12, 'md' => 3]),
 
-                                        TextInput::make('code')
-                                            ->label(__('Clé (pour shortcode email)'))
-                                            ->placeholder(__('Ex: dressing, guide...'))
-                                            ->nullable(),
+                                    TextInput::make('name')
+                                        ->label(__('Nom / Valeur'))
+                                        ->placeholder(__('Ex: 2 000 ¥'))
+                                        ->required()
+                                        ->columnSpan(['default' => 12, 'md' => 3]),
 
-                                        TextInput::make('price_modifier')
-                                            ->label(__('Supplément Prix Net (¥)'))
-                                            ->numeric()
-                                            ->default(0)
-                                            ->required()
-                                            ->placeholder('0'),
-                                    ])->columns(3),
+                                    TextInput::make('price_modifier')
+                                        ->label(__('Supplément (¥)'))
+                                        ->numeric()
+                                        ->default(0)
+                                        ->required()
+                                        ->placeholder('0')
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
 
                                     Select::make('billing_type')
-                                        ->label(__('Mode d\'application du supplément tarifaire'))
+                                        ->label(__('Facturation'))
                                         ->options([
-                                            'per_pax' => __('Par voyageur (Multiplié par le nombre de pax/quantité)'),
-                                            'per_booking' => __('Frais fixes (Appliqué une seule fois pour tout le dossier)'),
-                                            'manual' => __('Quantité au choix (Saisie manuelle dans le dossier)'),
+                                            'per_pax' => __('Par Pax'),
+                                            'per_booking' => __('Fixe Dossier'),
+                                            'manual' => __('Qté Libre'),
                                         ])
                                         ->default('per_pax')
-                                        ->required(),
+                                        ->required()
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
+
+                                    Toggle::make('is_required')
+                                        ->label(__('Obligatoire'))
+                                        ->default(false)
+                                        ->inline(false)
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
+
+                                    TextInput::make('code')
+                                        ->label(__('Clé Shortcode Email'))
+                                        ->placeholder(__('Ex: ic_2000'))
+                                        ->columnSpanFull(),
                                 ])
                         ]),
 
@@ -8887,6 +9033,7 @@ class Folder extends Model
         'folder_fee',
         'total_price',
         'documents',
+        'label_exported_at',
     ];
 
     protected $casts = [
@@ -8895,6 +9042,7 @@ class Folder extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'first_hotel_check_in' => 'date',
+        'label_exported_at' => 'datetime',
     ];
 
     public function agency(): BelongsTo
@@ -10027,10 +10175,17 @@ class ProductOption extends Model
 {
     protected $fillable = [
         'product_id',
+        'group_name',
         'name',
-        'code', // 💡 Nouvelle colonne autorisée
+        'code',
         'price_modifier',
-        'billing_type'
+        'billing_type',
+        'is_required',
+    ];
+
+    protected $casts = [
+        'price_modifier' => 'integer',
+        'is_required' => 'boolean',
     ];
 
     public function product()
@@ -12020,12 +12175,60 @@ class AppServiceProvider extends ServiceProvider
                             </div>
                         </div>
 
-                        {{-- 2. OPTIONS COMPLEMENTAIRES --}}
-                        @if($product->productOptions->count() > 0)
+                        {{-- 2. DECLINAISONS ET OPTIONS COMPLEMENTAIRES --}}
+                        @php
+                            // Regroupement des déclinaisons obligatoires par nom de groupe
+                            $requiredGrouped = $product->productOptions
+                                ->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+                            // Options simples facultatives (sans groupe et non obligatoires)
+                            $optionalOptions = $product->productOptions
+                                ->filter(fn($o) => !$o->is_required && empty($o->group_name));
+                        @endphp
+
+                        {{-- A. DECLINAISONS OBLIGATOIRES (Menus déroulants compacts) --}}
+                        @if($requiredGrouped->count() > 0)
                             <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
-                                <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;">Options complémentaires :</h4>
+                                @foreach($requiredGrouped as $groupName => $groupOptions)
+                                    @php 
+                                        $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                                        $selectedInGroup = $groupOptions->first(fn($o) => !empty($selectedOptions[$o->id]['enabled'])) ?? $groupOptions->first();
+                                    @endphp
+                                    <div style="margin-bottom: 1rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                            <label style="font-size: 0.85rem; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 0.35rem;">
+                                                <span>{{ $displayGroupName }}</span>
+                                                <span style="color: #dc2626; font-size: 0.85rem;">*</span>
+                                            </label>
+                                            @if($selectedInGroup && ($selectedInGroup->price_modifier ?? 0) > 0)
+                                                <span style="font-size: 0.8rem; color: #096a61; font-weight: 700;">
+                                                    + {{ number_format($selectedInGroup->price_modifier, 0, '.', ' ') }} ¥
+                                                </span>
+                                            @endif
+                                        </div>
+
+                                        <select wire:change="selectGroupVariant('{{ addslashes($groupName) }}', $event.target.value)" 
+                                                style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
+                                                onfocus="this.style.borderColor='#096a61';" onblur="this.style.borderColor='#d1d5db';">
+                                            @foreach($groupOptions as $option)
+                                                @php $isSelected = !empty($selectedOptions[$option->id]['enabled']); @endphp
+                                                <option value="{{ $option->id }}" @if($isSelected) selected @endif>
+                                                    {{ $option->name }} @if(($option->price_modifier ?? 0) > 0) (+ {{ number_format($option->price_modifier, 0, '.', ' ') }} ¥) @endif
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        {{-- B. OPTIONS COMPLEMENTAIRES (Facultatives) --}}
+                        @if($optionalOptions->count() > 0)
+                            <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
+                                <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;">Options complémentaires (facultatives) :</h4>
                                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                    @foreach($product->productOptions as $option)
+                                    @foreach($optionalOptions as $option)
                                         <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
                                             <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                                                 <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: #096a61;">
@@ -12099,7 +12302,6 @@ class AppServiceProvider extends ServiceProvider
                                                             <label for="check_global_{{ $key }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
                                                         </div>
                                                     @elseif($def['type'] === 'file')
-                                                        {{-- 💡 COMPOSANT FICHIER REHAUSSÉ (GLOBAL) --}}
                                                         <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
                                                              x-on:livewire-upload-start="isUploading = true"
                                                              x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
@@ -12204,7 +12406,6 @@ class AppServiceProvider extends ServiceProvider
                                                                         <label for="check_pax_{{ $key }}_{{ $i }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
                                                                     </div>
                                                                 @elseif($def['type'] === 'file')
-                                                                    {{-- 💡 COMPOSANT FICHIER REHAUSSÉ (PAR PASSAGER) --}}
                                                                     <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
                                                                          x-on:livewire-upload-start="isUploading = true"
                                                                          x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
@@ -12286,7 +12487,7 @@ class AppServiceProvider extends ServiceProvider
 
                                     <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
                                         @if($estimate['total_options'] > 0)
-                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Options incluses</span>
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Déclinaisons / Options</span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
                                         @endif
                                     </div>
@@ -12339,7 +12540,7 @@ class AppServiceProvider extends ServiceProvider
                             </button>
                         </div>
 
-                        {{-- 💡 ENCART : CONDITIONS D'ANNULATION EN VOLET DEROULANT --}}
+                        {{-- CONDITIONS D'ANNULATION --}}
                         @php
                             $isSpecific = $product->cancellation_type === 'specific' && !empty($product->cancellation_specifics);
                             $generalPolicy = \App\Models\Setting::first()?->general_cancellation_policy 
@@ -12865,9 +13066,10 @@ class AppServiceProvider extends ServiceProvider
     <meta charset="utf-8">
     <title>Plaquette d'étiquettes Check-ins</title>
     <style>
+        /* Format A4 Paysage avec marges exactes */
         @page {
-            size: A4;
-            margin: 12mm 10mm;
+            size: A4 landscape;
+            margin: 10.5mm 23.5mm;
         }
 
         * {
@@ -12879,157 +13081,163 @@ class AppServiceProvider extends ServiceProvider
             margin: 0;
             padding: 0;
             background-color: #f8fafc;
-            color: #0f172a;
+            color: #000000;
         }
 
-        /* En-tête de contrôle (Caché à l'impression) */
+        /* Barre d'actions supérieure (Masquée à l'impression) */
         .controls-header {
             background: #ffffff;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #cccccc;
             padding: 12px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             margin-bottom: 20px;
         }
 
         .btn-print {
-            background-color: #059669;
-            color: white;
+            background-color: #000000;
+            color: #ffffff;
             border: none;
             padding: 10px 20px;
-            border-radius: 6px;
+            border-radius: 4px;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
             text-decoration: none;
         }
 
         .btn-print:hover {
-            background-color: #047857;
+            background-color: #333333;
         }
 
         .btn-back {
-            color: #475569;
+            color: #000000;
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
         }
 
-        /* Plaquette d'étiquettes (Grille A4) */
-        .labels-container {
-            max-width: 210mm;
-            margin: 0 auto;
-            padding: 10px;
+        .edit-notice {
+            background-color: #f0f0f0;
+            border: 1px solid #cccccc;
+            color: #000000;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
         }
 
-        .labels-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12mm 10mm;
+        /* Conteneur d'impression */
+        .print-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding-bottom: 30px;
         }
 
-        .label-card {
+        /* Feuille A4 Paysage (250mm x 189mm utilisables) */
+        .page-sheet {
+            width: 250mm;
+            height: 189mm;
             background: #ffffff;
-            border: 2px dashed #096a61;
-            border-radius: 10px;
-            padding: 16px 20px;
-            position: relative;
+            display: grid;
+            grid-template-columns: 120mm 120mm;
+            grid-template-rows: repeat(3, 63mm);
+            column-gap: 10mm;
+            row-gap: 0;
+            page-break-after: always;
+            page-break-inside: avoid;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .page-sheet:last-child {
+            page-break-after: avoid;
+        }
+
+        /* Carte Étiquette (120mm x 63mm) */
+        .label-card {
+            width: 120mm;
+            height: 63mm;
+            border: 1px dashed #cccccc;
+            padding: 3.5mm 5mm;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            min-height: 105mm;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-            page-break-inside: avoid;
+            background: #ffffff;
+            color: #000000;
         }
 
-        .card-header {
-            border-bottom: 1.5px solid #cbd5e1;
-            padding-bottom: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .pax-name {
-            font-size: 18px;
-            font-weight: bold;
-            color: #0f172a;
-        }
-
-        .folder-ref {
-            font-size: 11px;
-            font-weight: bold;
-            background: #f1f5f9;
-            color: #475569;
-            padding: 3px 8px;
-            border-radius: 4px;
-            border: 1px solid #cbd5e1;
-        }
-
-        .hotel-block {
-            margin-bottom: 10px;
-        }
-
-        .hotel-title {
-            font-size: 11px;
-            font-weight: bold;
-            color: #0d9488;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 2px;
-        }
-
+        /* 1. Nom de l'hôtel */
         .hotel-name {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: bold;
-            color: #111827;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            word-break: break-word;
         }
 
-        .address-block {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 10px 12px;
-            margin-bottom: 12px;
-            flex-grow: 1;
-        }
-
-        .address-title {
-            font-size: 11px;
-            font-weight: bold;
-            color: #64748b;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
+        /* 2. Adresse (Sans aucune troncature) */
         .address-text {
-            font-size: 13px;
-            color: #1e293b;
-            line-height: 1.5;
+            font-size: 17px;
+            color: #000000;
+            line-height: 1.25;
             white-space: pre-line;
+            word-break: break-word;
+            margin-bottom: 3px;
         }
 
-        .checkin-badge {
-            background-color: #ecfdf5;
-            border: 1.5px solid #a7f3d0;
-            color: #065f46;
+        /* 3. Nom Réservation Hôtel */
+        .booking-name {
+            font-size: 17px;
             font-weight: bold;
-            font-size: 16px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            text-align: center;
-            letter-spacing: 0.02em;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 3px;
+            word-break: break-word;
         }
 
-        /* Configuration spécifique Impression */
+        /* 4. Nom Pax Leader */
+        .pax-name {
+            font-size: 17px;
+            font-weight: bold;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 3px;
+            word-break: break-word;
+        }
+
+        /* 5. Date de Check-in */
+        .checkin-date {
+            font-size: 17px;
+            font-weight: bold;
+            color: #000000;
+            padding-top: 3px;
+            border-top: 1px solid #000000;
+            text-align: left;
+        }
+
+        /* Interaction d'édition à l'écran */
+        [contenteditable="true"] {
+            border-radius: 2px;
+            padding: 1px 2px;
+            transition: background-color 0.2s ease;
+        }
+
+        [contenteditable="true"]:hover {
+            outline: 1px dashed #000000;
+            background-color: #f5f5f5;
+            cursor: text;
+        }
+
+        [contenteditable="true"]:focus {
+            outline: 1.5px solid #000000;
+            background-color: #ffffff;
+        }
+
+        /* Impression propre */
         @media print {
             body {
                 background: white;
@@ -13039,19 +13247,25 @@ class AppServiceProvider extends ServiceProvider
                 display: none !important;
             }
 
-            .labels-container {
-                max-width: 100%;
+            .print-container {
                 padding: 0;
+                gap: 0;
+            }
+
+            .page-sheet {
+                box-shadow: none;
+                margin: 0;
             }
 
             .label-card {
                 border-style: solid;
-                border-color: #94a3b8;
-                box-shadow: none;
+                border-color: #cccccc;
             }
 
-            .labels-grid {
-                gap: 8mm 6mm;
+            [contenteditable="true"]:hover,
+            [contenteditable="true"]:focus {
+                outline: none !important;
+                background-color: transparent !important;
             }
         }
     </style>
@@ -13060,55 +13274,57 @@ class AppServiceProvider extends ServiceProvider
 
     <!-- Barre d'actions non imprimable -->
     <div class="controls-header no-print">
-        <div>
-            <a href="javascript:history.back()" class="btn-back">← Retour à la liste</a>
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="edit-notice">
+                <strong>Texte modifiable :</strong> Vous pouvez cliquer directement sur les textes ci-dessous pour modifier vos étiquettes avant impression.
+            </div>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
-            <span style="font-size: 13px; color: #64748b; font-weight: 500;">
-                {{ $folders->count() }} étiquette(s) générée(s)
+            <span style="font-size: 13px; color: #333333; font-weight: 500;">
+                {{ $folders->count() }} étiquette(s) sélectionnée(s) ({{ ceil($folders->count() / 6) }} page(s))
             </span>
             <button onclick="window.print()" class="btn-print">
-                🖨️ Imprimer la plaquette d'étiquettes
+                Imprimer la plaquette
             </button>
         </div>
     </div>
 
-    <!-- Conteneur de la plaquette d'étiquettes -->
-    <div class="labels-container">
-        <div class="labels-grid">
-            @foreach($folders as $folder)
-                <div class="label-card">
-                    <div>
-                        <!-- Header : Nom Pax Leader + Réf Dossier -->
-                        <div class="card-header">
-                            <div class="pax-name">👤 {{ $folder->lead_traveler_name }} 様</div>
-                            <div class="folder-ref">{{ $folder->reference }}</div>
+    <!-- Conteneur d'impression -->
+    <div class="print-container">
+        @foreach($folders->chunk(6) as $chunk)
+            <div class="page-sheet">
+                @foreach($chunk as $folder)
+                    <div class="label-card">
+                        <div>
+                            <!-- 1. Nom de l'hôtel -->
+                            <div class="hotel-name" contenteditable="true">
+                                {{ $folder->first_hotel_name }}
+                            </div>
+
+                            <!-- 2. Adresse -->
+                            <div class="address-text" contenteditable="true">{{ $folder->dispatch_address }}</div>
+
+                            <!-- 3. Nom Réservation Hôtel (masqué si vide) -->
+                            @if(!empty($folder->hotel_booking_name))
+                                <div class="pax-name" contenteditable="true">
+                                    {{ $folder->hotel_booking_name }} 様
+                                </div>
+                            @endif
+
+                            <!-- 4. Nom Pax Leader -->
+                            <div class="pax-name" contenteditable="true">
+                                {{ $folder->lead_traveler_name }} 様
+                            </div>
                         </div>
 
-                        <!-- Nom de l'hôtel (si présent) -->
-                        @if(!empty($folder->first_hotel_name))
-                            <div class="hotel-block">
-                                <div class="hotel-title">Hôtel :</div>
-                                <div class="hotel-name">🏢 {{ $folder->first_hotel_name }}</div>
-                            </div>
-                        @endif
-
-                        <!-- Adresse d'envoi du dossier -->
-                        <div class="address-block">
-                            <div class="address-title">
-                                📍 Adresse d'envoi ({{ $folder->dispatch_method_label }}) :
-                            </div>
-                            <div class="address-text">{{ $folder->dispatch_address ?: 'Adresse non spécifiée' }}</div>
+                        <!-- 5. Date check-in -->
+                        <div class="checkin-date" contenteditable="true">
+                            {{ $folder->formatted_jp_checkin_date }}
                         </div>
                     </div>
-
-                    <!-- Date de check-in au format japonais exigé -->
-                    <div class="checkin-badge">
-                        {{ $folder->formatted_jp_checkin_date }}
-                    </div>
-                </div>
-            @endforeach
-        </div>
+                @endforeach
+            </div>
+        @endforeach
     </div>
 
 </body>
@@ -15952,6 +16168,126 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('hotels');
+    }
+};
+
+--- Fichier: C:\Users\marke\Herd\portail-takada\database\migrations\2026_08_01_000001_add_label_exported_at_to_folders_table.php ---
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('folders', function (Blueprint $table) {
+            $table->timestamp('label_exported_at')->nullable()->after('documents');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('folders', function (Blueprint $table) {
+            $table->dropColumn('label_exported_at');
+        });
+    }
+};
+
+--- Fichier: C:\Users\marke\Herd\portail-takada\database\migrations\2026_08_01_110201_add_is_required_to_product_options_table.php ---
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            $table->boolean('is_required')->default(false)->after('billing_type');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            $table->dropColumn('is_required');
+        });
+    }
+};
+
+--- Fichier: C:\Users\marke\Herd\portail-takada\database\migrations\2026_08_01_112516_add_group_name_and_is_required_to_product_options_table.php ---
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            if (!Schema::hasColumn('product_options', 'group_name')) {
+                $table->string('group_name')->nullable()->after('product_id');
+            }
+            if (!Schema::hasColumn('product_options', 'is_required')) {
+                $table->boolean('is_required')->default(false)->after('billing_type');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            if (Schema::hasColumn('product_options', 'group_name')) {
+                $table->dropColumn('group_name');
+            }
+            if (Schema::hasColumn('product_options', 'is_required')) {
+                $table->dropColumn('is_required');
+            }
+        });
+    }
+};
+
+--- Fichier: C:\Users\marke\Herd\portail-takada\database\migrations\2026_08_02_000000_add_is_required_to_product_options_table.php ---
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            if (!Schema::hasColumn('product_options', 'group_name')) {
+                $table->string('group_name')->nullable()->after('product_id');
+            }
+            if (!Schema::hasColumn('product_options', 'is_required')) {
+                $table->boolean('is_required')->default(false)->after('billing_type');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('product_options', function (Blueprint $table) {
+            if (Schema::hasColumn('product_options', 'group_name')) {
+                $table->dropColumn('group_name');
+            }
+            if (Schema::hasColumn('product_options', 'is_required')) {
+                $table->dropColumn('is_required');
+            }
+        });
     }
 };
 
