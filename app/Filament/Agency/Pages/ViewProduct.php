@@ -6,6 +6,8 @@ use App\Models\Product;
 use App\Models\Folder;
 use App\Models\FolderItem;
 use App\Models\FolderPassenger;
+use App\Models\TrainStation;
+use App\Models\BusStation;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Panel;
@@ -73,7 +75,6 @@ class ViewProduct extends Page
         }
 
         if ($this->product->productOptions) {
-            // Pré-sélection de la 1ère option pour chaque groupe obligatoire / déclinaison
             $groupedRequired = [];
 
             foreach ($this->product->productOptions as $option) {
@@ -83,7 +84,7 @@ class ViewProduct extends Page
                     $groupKey = !empty($option->group_name) ? $option->group_name : 'default_required';
                     if (!isset($groupedRequired[$groupKey])) {
                         $groupedRequired[$groupKey] = true;
-                        $isEnabled = true; // Pré-sélectionne le 1er choix du groupe
+                        $isEnabled = true;
                     }
                 }
 
@@ -94,7 +95,18 @@ class ViewProduct extends Page
             }
         }
 
-        if (!empty($this->product->custom_field_definitions)) {
+        if ($this->product->product_type === 'transport') {
+            $this->customValues['transport_routes'] = [
+                [
+                    'departure_station' => '',
+                    'arrival_station' => '',
+                    'departure_date' => '',
+                    'departure_time' => '',
+                    'option_id' => null,
+                    'pax_count' => 1,
+                ]
+            ];
+        } elseif (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
                 $isPerPax = $def['is_per_passenger'] ?? false;
@@ -105,6 +117,29 @@ class ViewProduct extends Page
                     $this->customValues[$key] = $def['type'] === 'toggle' ? false : null;
                 }
             }
+        }
+    }
+
+    public function addTransportRoute(): void
+    {
+        if (!isset($this->customValues['transport_routes'])) {
+            $this->customValues['transport_routes'] = [];
+        }
+        $this->customValues['transport_routes'][] = [
+            'departure_station' => '',
+            'arrival_station' => '',
+            'departure_date' => '',
+            'departure_time' => '',
+            'option_id' => null,
+            'pax_count' => 1,
+        ];
+    }
+
+    public function removeTransportRoute(int $index): void
+    {
+        if (isset($this->customValues['transport_routes'][$index])) {
+            unset($this->customValues['transport_routes'][$index]);
+            $this->customValues['transport_routes'] = array_values($this->customValues['transport_routes']);
         }
     }
 
@@ -387,6 +422,18 @@ class ViewProduct extends Page
     {
         if (!$this->product) return [];
 
+        if ($this->product->product_type === 'transport') {
+            return [
+                'is_on_demand' => true,
+                'has_date' => true,
+                'unit_base' => 0,
+                'total_base' => 0,
+                'total_options' => 0,
+                'grand_total' => 0,
+                'qty' => 1
+            ];
+        }
+
         $qty = (int)$this->quantity > 0 ? (int)$this->quantity : 1;
         
         if ($this->product->max_pax && $qty > $this->product->max_pax) {
@@ -480,6 +527,77 @@ class ViewProduct extends Page
             return;
         }
 
+        if ($this->product && $this->product->product_type === 'transport') {
+            $rules = [
+                'selectedFolderId' => 'required|exists:folders,id',
+                'customValues.transport_routes' => 'required|array|min:1',
+                'customValues.transport_routes.*.departure_station' => 'required|string',
+                'customValues.transport_routes.*.arrival_station' => 'required|string',
+                'customValues.transport_routes.*.departure_date' => 'required|date',
+                'customValues.transport_routes.*.pax_count' => 'required|integer|min:1',
+            ];
+
+            $messages = [
+                'selectedFolderId.required' => 'Veuillez sélectionner un dossier de voyage.',
+                'customValues.transport_routes.required' => 'Au moins un trajet est requis.',
+                'customValues.transport_routes.*.departure_station.required' => 'La gare de départ est obligatoire.',
+                'customValues.transport_routes.*.arrival_station.required' => 'La gare d\'arrivée est obligatoire.',
+                'customValues.transport_routes.*.departure_date.required' => 'La date du trajet est obligatoire.',
+                'customValues.transport_routes.*.pax_count.required' => 'Le nombre de passagers est requis.',
+            ];
+
+            try {
+                $this->validate($rules, $messages);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                Notification::make()
+                    ->title('Informations manquantes')
+                    ->body('Veuillez renseigner tous les détails de vos trajets avant de valider.')
+                    ->danger()
+                    ->send();
+                throw $e;
+            }
+
+            $routes = $this->customValues['transport_routes'] ?? [];
+            $firstRoute = $routes[0] ?? null;
+            $serviceDate = !empty($firstRoute['departure_date']) ? $firstRoute['departure_date'] : now()->format('Y-m-d');
+            $quantity = !empty($firstRoute['pax_count']) ? (int)$firstRoute['pax_count'] : 1;
+
+            $status = \App\Models\ItemStatus::firstOrCreate(
+                ['name' => 'En attente de validation'],
+                ['color' => 'warning']
+            );
+
+            $folderItem = FolderItem::create([
+                'folder_id' => $this->selectedFolderId,
+                'product_id' => $this->product->id,
+                'service_date' => $serviceDate,
+                'quantity' => $quantity,
+                'selected_options' => [],
+                'custom_values' => ['transport_routes' => $routes],
+                'item_status_id' => $status->id,
+                'unit_price' => 0,
+                'total_price' => 0,
+            ]);
+
+            $folder = Folder::find($this->selectedFolderId);
+            if ($folder) {
+                \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
+                    function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },
+                    function($k) use ($folderItem) { return $folderItem->{$k}; }
+                );
+            }
+
+            Notification::make()
+                ->title('Demande de transport ajoutée au dossier !')
+                ->body('Vos trajets de transport ont été enregistrés avec le statut "En attente de validation".')
+                ->success()
+                ->send();
+
+            $this->reset(['serviceDate', 'quantity', 'selectedFolderId']);
+            $this->mount($this->product->id);
+            return;
+        }
+
         $rules = [
             'selectedFolderId' => 'required|exists:folders,id',
             'serviceDate' => 'required|date',
@@ -498,7 +616,6 @@ class ViewProduct extends Page
             $messages['quantity.max'] = 'Cette prestation est limitée à ' . $this->product->max_pax . ' participants au maximum.';
         }
 
-        // Vérification des groupes de déclinaisons obligatoires
         $groupedRequired = $this->product->productOptions
             ->filter(fn($o) => $o->is_required || !empty($o->group_name))
             ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');

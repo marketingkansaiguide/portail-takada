@@ -105,7 +105,7 @@ class AgencyFolderResource extends Resource
                             <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; color: #92400e;'>
                                 <div>
                                     <strong style='font-size: 1rem;'>✏️ Dossier en cours de rédaction (Brouillon)</strong>
-                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers freely. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
+                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
                                 </div>
                             </div>
                         "))
@@ -318,7 +318,7 @@ class AgencyFolderResource extends Resource
                             )
                     ]),
 
-Section::make('Prestations demandées')
+                Section::make('Prestations demandées')
                     ->description('Vos prestations réservées et le suivi de leur statut.')
                     ->visible(fn (?Model $record) => $record !== null)
                     ->headerActions([
@@ -345,7 +345,6 @@ Section::make('Prestations demandées')
                                         if ($state) {
                                             $options = \App\Models\ProductOption::where('product_id', $state)->get();
                                             
-                                            // Pré-sélectionner le 1er choix des déclinaisons obligatoires
                                             $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
                                                 ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
@@ -355,7 +354,6 @@ Section::make('Prestations demandées')
                                             }
 
                                             foreach ($options as $opt) {
-                                                // L'option est-elle la première d'un groupe obligatoire ?
                                                 $isFirstRequired = false;
                                                 foreach ($requiredGrouped as $groupOpts) {
                                                     if ($groupOpts->first()->id === $opt->id) {
@@ -370,10 +368,108 @@ Section::make('Prestations demandées')
                                         }
                                     }),
 
+                                // 💡 SECTION DÉDIÉE SI C'EST UN PRODUIT DE TRANSPORT (BILLET DE TRAIN / BUS)
+                                Section::make('🚄 Itinéraire de Transport (Multi-Trajets)')
+                                    ->description('Indiquez pour chaque ticket la gare de départ, d\'arrivée, la date, l\'heure et le nombre de passagers.')
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $p = \App\Models\Product::find($productId);
+                                        return $p && $p->product_type === 'transport';
+                                    })
+                                    ->schema([
+                                        Repeater::make('transport_routes')
+                                            ->hiddenLabel()
+                                            ->addActionLabel('Ajouter un trajet (Étape)')
+                                            ->itemLabel(fn (array $state): ?string => 
+                                                (!empty($state['departure_station']) && !empty($state['arrival_station']))
+                                                    ? "{$state['departure_station']} ➔ {$state['arrival_station']}" . (!empty($state['departure_date']) ? " ({$state['departure_date']})" : "")
+                                                    : 'Nouveau trajet'
+                                            )
+                                            ->collapsible()
+                                            ->required()
+                                            ->defaultItems(1)
+                                            ->schema([
+                                                Group::make()->schema([
+                                                    Select::make('departure_station')
+                                                        ->label('Gare / Station de départ')
+                                                        ->searchable()
+                                                        ->required()
+                                                        ->placeholder('Rechercher gare ou station...')
+                                                        ->getSearchResultsUsing(function (string $search): array {
+                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
+                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->limit(20)->get()
+                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
+                                                            
+                                                            $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->limit(20)->get()
+                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
+                                                            
+                                                            return $trains->merge($buses)->toArray();
+                                                        })
+                                                        ->getOptionLabelUsing(fn ($value) => $value),
+
+                                                    Select::make('arrival_station')
+                                                        ->label('Gare / Station d\'arrivée')
+                                                        ->searchable()
+                                                        ->required()
+                                                        ->placeholder('Rechercher gare ou station...')
+                                                        ->getSearchResultsUsing(function (string $search): array {
+                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
+                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->limit(20)->get()
+                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
+                                                            
+                                                            $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->limit(20)->get()
+                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
+                                                            
+                                                            return $trains->merge($buses)->toArray();
+                                                        })
+                                                        ->getOptionLabelUsing(fn ($value) => $value),
+                                                ])->columns(2),
+
+                                                Group::make()->schema([
+                                                    DatePicker::make('departure_date')
+                                                        ->label('Date du trajet')
+                                                        ->native(false)
+                                                        ->required(),
+
+                                                    TextInput::make('departure_time')
+                                                        ->label('Heure / N° Train ou Bus')
+                                                        ->placeholder('Ex: 09:30 / Hikari 502'),
+
+                                                    Select::make('option_id')
+                                                        ->label('Classe / Option')
+                                                        ->options(function (Get $get) {
+                                                            $productId = $get('../../../product_id');
+                                                            if (!$productId) return [];
+                                                            return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
+                                                        })
+                                                        ->searchable()
+                                                        ->nullable(),
+
+                                                    TextInput::make('pax_count')
+                                                        ->label('Nombre de Passagers')
+                                                        ->numeric()
+                                                        ->default(1)
+                                                        ->minValue(1)
+                                                        ->required(),
+                                                ])->columns(4),
+                                            ])
+                                    ]),
+
+                                // 💡 CHAMPS GLOBAUX S'IL S'AGIT D'UN PRODUIT STANDARD
                                 Group::make()->schema([
                                     DatePicker::make('service_date')
                                         ->label('Date souhaitée')
-                                        ->required()
+                                        ->required(function (Get $get) {
+                                            $p = \App\Models\Product::find($get('product_id'));
+                                            return !$p || $p->product_type !== 'transport';
+                                        })
                                         ->live()
                                         ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
@@ -396,10 +492,20 @@ Section::make('Prestations demandées')
                                         })
                                         ->live()
                                         ->required(),
-                                ])->columns(2)->visible(fn (Get $get) => !empty($get('product_id'))),
+                                ])->columns(2)->visible(function (Get $get) {
+                                    $productId = $get('product_id');
+                                    if (!$productId) return false;
+                                    $p = \App\Models\Product::find($productId);
+                                    return !$p || $p->product_type !== 'transport';
+                                }),
 
                                 Group::make()
-                                    ->visible(fn (Get $get) => !empty($get('product_id')) && \App\Models\ProductOption::where('product_id', $get('product_id'))->exists())
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $p = \App\Models\Product::find($productId);
+                                        return (!$p || $p->product_type !== 'transport') && \App\Models\ProductOption::where('product_id', $productId)->exists();
+                                    })
                                     ->schema(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) return [];
@@ -409,9 +515,6 @@ Section::make('Prestations demandées')
 
                                         $schema = [];
 
-                                        // -------------------------------------------------------------
-                                        // 1. DÉCLINAISONS OBLIGATOIRES (Menus déroulants)
-                                        // -------------------------------------------------------------
                                         $requiredGrouped = $options->filter(fn($o) => $o->is_required || !empty($o->group_name))
                                             ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
@@ -432,17 +535,14 @@ Section::make('Prestations demandées')
                                                     ->required()
                                                     ->live()
                                                     ->afterStateUpdated(function ($state, Set $set) use ($groupOptions) {
-                                                        // Désactiver toutes les options du groupe
                                                         foreach ($groupOptions as $opt) {
                                                             $set("opt_enabled_{$opt->id}", false);
                                                         }
-                                                        // Activer uniquement celle sélectionnée
                                                         if ($state) {
                                                             $set("opt_enabled_{$state}", true);
                                                         }
                                                     });
 
-                                                // Champs cachés pour compatibilité avec le hook de sauvegarde actuel
                                                 foreach ($groupOptions as $opt) {
                                                     $schema[] = Hidden::make("opt_enabled_{$opt->id}");
                                                     $schema[] = Hidden::make("opt_qty_{$opt->id}");
@@ -450,9 +550,6 @@ Section::make('Prestations demandées')
                                             }
                                         }
 
-                                        // -------------------------------------------------------------
-                                        // 2. OPTIONS FACULTATIVES (Toggles)
-                                        // -------------------------------------------------------------
                                         $optionalOptions = $options->filter(fn($o) => !$o->is_required && empty($o->group_name));
 
                                         if ($optionalOptions->count() > 0) {
@@ -499,7 +596,12 @@ Section::make('Prestations demandées')
                                     }),
 
                                 Group::make()
-                                    ->visible(fn (Get $get) => !empty($get('product_id')))
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $p = \App\Models\Product::find($productId);
+                                        return !$p || $p->product_type !== 'transport';
+                                    })
                                     ->schema(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) return [];
@@ -577,7 +679,12 @@ Section::make('Prestations demandées')
                                     }),
 
                                 Group::make()
-                                    ->visible(fn (Get $get) => !empty($get('product_id')) && !empty($get('service_date')))
+                                    ->visible(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) return false;
+                                        $p = \App\Models\Product::find($productId);
+                                        return (!$p || $p->product_type !== 'transport') && !empty($get('service_date'));
+                                    })
                                     ->schema([
                                         Placeholder::make('estimated_price_display')
                                             ->hiddenLabel()
@@ -674,42 +781,54 @@ Section::make('Prestations demandées')
                                     ['color' => 'warning']
                                 );
 
-                                $formattedOptions = [];
-                                $options = \App\Models\ProductOption::where('product_id', $data['product_id'])->get();
-                                foreach ($options as $opt) {
-                                    if (!empty($data["opt_enabled_{$opt->id}"])) {
-                                        $formattedOptions[] = [
-                                            'product_option_id' => $opt->id,
-                                            'quantity' => (int) ($data["opt_qty_{$opt->id}"] ?? 1),
-                                        ];
-                                    }
-                                }
-
-                                $customValues = [];
                                 $product = \App\Models\Product::find($data['product_id']);
-                                if ($product && !empty($product->custom_field_definitions)) {
-                                    foreach ($product->custom_field_definitions as $def) {
-                                        $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
-                                        $isPerPax = $def['is_per_passenger'] ?? false;
-                                        $paxCount = max(1, (int) ($data['quantity'] ?? 1));
+                                $customValues = [];
 
-                                        if ($isPerPax) {
-                                            $paxVals = [];
-                                            for ($i = 1; $i <= $paxCount; $i++) {
-                                                $fk = "custom_{$key}_pax_{$i}";
-                                                if (isset($data[$fk]) && $data[$fk] !== '') {
-                                                    $v = $data[$fk];
-                                                    if (is_bool($v)) $v = $v ? 'Oui' : 'Non';
-                                                    $paxVals[] = "Pax {$i}: {$v}";
+                                if ($product && $product->product_type === 'transport') {
+                                    $customValues['transport_routes'] = $data['transport_routes'] ?? [];
+                                    $firstRoute = $data['transport_routes'][0] ?? null;
+                                    $serviceDate = !empty($firstRoute['departure_date']) ? $firstRoute['departure_date'] : ($record->start_date ?? now()->format('Y-m-d'));
+                                    $quantity = !empty($firstRoute['pax_count']) ? (int)$firstRoute['pax_count'] : 1;
+                                    $formattedOptions = [];
+                                } else {
+                                    $serviceDate = $data['service_date'];
+                                    $quantity = $data['quantity'] ?? 1;
+
+                                    $formattedOptions = [];
+                                    $options = \App\Models\ProductOption::where('product_id', $data['product_id'])->get();
+                                    foreach ($options as $opt) {
+                                        if (!empty($data["opt_enabled_{$opt->id}"])) {
+                                            $formattedOptions[] = [
+                                                'product_option_id' => $opt->id,
+                                                'quantity' => (int) ($data["opt_qty_{$opt->id}"] ?? 1),
+                                            ];
+                                        }
+                                    }
+
+                                    if ($product && !empty($product->custom_field_definitions)) {
+                                        foreach ($product->custom_field_definitions as $def) {
+                                            $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
+                                            $isPerPax = $def['is_per_passenger'] ?? false;
+                                            $paxCount = max(1, (int) ($data['quantity'] ?? 1));
+
+                                            if ($isPerPax) {
+                                                $paxVals = [];
+                                                for ($i = 1; $i <= $paxCount; $i++) {
+                                                    $fk = "custom_{$key}_pax_{$i}";
+                                                    if (isset($data[$fk]) && $data[$fk] !== '') {
+                                                        $v = $data[$fk];
+                                                        if (is_bool($v)) $v = $v ? 'Oui' : 'Non';
+                                                        $paxVals[] = "Pax {$i}: {$v}";
+                                                    }
                                                 }
-                                            }
-                                            if (!empty($paxVals)) {
-                                                $customValues[$key] = implode("\n", $paxVals);
-                                            }
-                                        } else {
-                                            $fk = "custom_{$key}";
-                                            if (isset($data[$fk])) {
-                                                $customValues[$key] = $data[$fk];
+                                                if (!empty($paxVals)) {
+                                                    $customValues[$key] = implode("\n", $paxVals);
+                                                }
+                                            } else {
+                                                $fk = "custom_{$key}";
+                                                if (isset($data[$fk])) {
+                                                    $customValues[$key] = $data[$fk];
+                                                }
                                             }
                                         }
                                     }
@@ -718,8 +837,8 @@ Section::make('Prestations demandées')
                                 $folderItem = \App\Models\FolderItem::create([
                                     'folder_id' => $record->id,
                                     'product_id' => $data['product_id'],
-                                    'service_date' => $data['service_date'],
-                                    'quantity' => $data['quantity'] ?? 1,
+                                    'service_date' => $serviceDate,
+                                    'quantity' => $quantity,
                                     'selected_options' => $formattedOptions,
                                     'custom_values' => $customValues,
                                     'item_status_id' => $status->id,
@@ -805,7 +924,54 @@ Section::make('Prestations demandées')
                                         };
                                         $statusBadge = "<span style='background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
 
-                                        // Décomposition tarifaire
+                                        // Rendu personnalisé s'il s'agit d'un Billet de Transport
+                                        if ($item->product && $item->product->product_type === 'transport') {
+                                            $routesHtml = '';
+                                            $customVals = $item->custom_values ?? [];
+                                            if (is_array($customVals) && isset($customVals['transport_routes']) && is_array($customVals['transport_routes'])) {
+                                                $routeLines = [];
+                                                foreach ($customVals['transport_routes'] as $idx => $r) {
+                                                    $dep = e($r['departure_station'] ?? 'Inconnu');
+                                                    $arr = e($r['arrival_station'] ?? 'Inconnu');
+                                                    $rDate = !empty($r['departure_date']) ? \Carbon\Carbon::parse($r['departure_date'])->format('d/m/Y') : '---';
+                                                    $rTime = !empty($r['departure_time']) ? ' (' . e($r['departure_time']) . ')' : '';
+                                                    $rPax = !empty($r['pax_count']) ? $r['pax_count'] . ' pax' : '1 pax';
+
+                                                    $optName = '';
+                                                    if (!empty($r['option_id'])) {
+                                                        $optModel = \App\Models\ProductOption::find($r['option_id']);
+                                                        if ($optModel) $optName = " | Classe : " . e($optModel->name);
+                                                    }
+
+                                                    $num = $idx + 1;
+                                                    $routeLines[] = "• <b>Trajet {$num} :</b> {$dep} ➔ {$arr} | 📅 {$rDate}{$rTime} | 👥 {$rPax}{$optName}";
+                                                }
+                                                $routesHtml = "
+                                                    <div style='margin-top:0.5rem; padding:0.75rem; background:#f0f9ff; border-radius:0.5rem; border:1px solid #bae6fd; font-size:0.85rem; color:#0369a1; line-height:1.5;'>
+                                                        " . implode('<br>', $routeLines) . "
+                                                    </div>
+                                                ";
+                                            }
+
+                                            return new HtmlString("
+                                                <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
+                                                    <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                                        <div>
+                                                            <div style='font-size:1.1rem; font-weight:800; color:#0f172a;'>🚄 {$productName}</div>
+                                                            <div style='font-size:0.85rem; color:#64748b; font-weight:500;'>Réservation Billet sur devis</div>
+                                                        </div>
+                                                        <div>{$statusBadge}</div>
+                                                    </div>
+                                                    {$routesHtml}
+                                                    <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed #cbd5e1;'>
+                                                        <span style='font-size:0.85rem; color:#64748b; font-style:italic;'>Prix définitif communiqué après confirmation</span>
+                                                        <span style='font-size:1.1rem; font-weight:800; color:#096a61;'>" . number_format($item->total_price, 0, '.', ' ') . " ¥</span>
+                                                    </div>
+                                                </div>
+                                            ");
+                                        }
+
+                                        // Décomposition tarifaire standard
                                         $optionsTotal = 0;
                                         $optRows = [];
                                         $selectedOptions = $item->selected_options ?? [];
@@ -1026,7 +1192,7 @@ Section::make('Prestations demandées')
                 Tables\Columns\TextColumn::make('total_price')
                     ->label('Total Estimé')
                     ->money('JPY')
-                    ->sortable(),
+                     subterraneanSortable: true),
             ])
             ->filters([])
             ->recordActions([

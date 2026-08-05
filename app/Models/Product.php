@@ -6,15 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
-    // 💡 LA CORRECTION EST ICI : 
-    // On autorise Filament à enregistrer TOUS les champs dans la base, sans blocage.
     protected $guarded = [];
 
-    // 💡 RESTAURATION DES CASTS (C'est l'absence de ceci qui faisait planter ton dossier)
     protected $casts = [
         'images' => 'array',
         'child_age_limit' => 'integer',
-        'max_pax' => 'integer', // 💡 NOUVEAU : Cast en entier
+        'max_pax' => 'integer',
         'available_days' => 'array',
         'blackout_dates' => 'array',
         'custom_field_definitions' => 'array',
@@ -23,6 +20,11 @@ class Product extends Model
         'is_public' => 'boolean',
         'supplier_fax_header' => 'array',
     ];
+
+    public function isTransport(): bool
+    {
+        return $this->product_type === 'transport';
+    }
 
     public function supplier()
     {

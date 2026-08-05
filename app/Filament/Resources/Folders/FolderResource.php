@@ -158,11 +158,25 @@ class FolderResource extends Resource
             }
         }
 
+        $routeSellingTotal = 0;
+        $routePurchaseTotal = 0;
+        $customValues = $get('custom_values') ?? [];
+        if (is_array($customValues) && isset($customValues['transport_routes']) && is_array($customValues['transport_routes'])) {
+            foreach ($customValues['transport_routes'] as $route) {
+                $routeSellingTotal += (float) ($route['selling_price'] ?? 0);
+                $routePurchaseTotal += (float) ($route['purchase_price'] ?? 0);
+            }
+        }
+
         $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
-        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
+        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal + $routeSellingTotal;
 
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
+
+        if ($routePurchaseTotal > 0) {
+            $set('purchase_total_price', $routePurchaseTotal);
+        }
     }
 
     public static function form(Schema $schema): Schema
@@ -1244,7 +1258,125 @@ class FolderResource extends Resource
                                         if (!$productId) return [];
 
                                         $product = \App\Models\Product::find($productId);
-                                        if (!$product || empty($product->custom_field_definitions)) return [];
+                                        if (!$product) return [];
+
+                                        // 💡 CAS 1 : PRODUIT DE TRANSPORT (BILLETTERIE TRAIN / BUS - MULTI-TRAJETS)
+                                        if ($product->product_type === 'transport') {
+                                            return [
+                                                Section::make(__('🚄 Itinéraire de Transport (Multi-Trajets)'))
+                                                    ->description(__('Ajoutez autant de trajets que nécessaire pour cette réservation de billet.'))
+                                                    ->schema([
+                                                        Repeater::make('transport_routes')
+                                                            ->hiddenLabel()
+                                                            ->addActionLabel(__('Ajouter un trajet (Étape)'))
+                                                            ->itemLabel(fn (array $state): ?string => 
+                                                                (!empty($state['departure_station']) && !empty($state['arrival_station']))
+                                                                    ? "{$state['departure_station']} ➔ {$state['arrival_station']}" . (!empty($state['departure_date']) ? " ({$state['departure_date']})" : "")
+                                                                    : __('Nouveau trajet')
+                                                            )
+                                                            ->collapsible()
+                                                            ->live()
+                                                            ->afterStateUpdated(function ($set, $get) {
+                                                                $parentSet = function($k, $v) use ($set) { $set('../'.$k, $v); };
+                                                                $parentGet = function($k) use ($get) { return $get('../'.$k); };
+                                                                self::updateItemPrices($parentSet, $parentGet);
+                                                            })
+                                                            ->schema([
+                                                                Group::make()->schema([
+                                                                    Select::make('departure_station')
+                                                                        ->label(__('Gare / Station de départ'))
+                                                                        ->searchable()
+                                                                        ->required()
+                                                                        ->placeholder(__('Rechercher gare ou station...'))
+                                                                        ->getSearchResultsUsing(function (string $search): array {
+                                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
+                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                ->limit(20)->get()
+                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
+                                                                            
+                                                                            $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                ->limit(20)->get()
+                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
+                                                                            
+                                                                            return $trains->merge($buses)->toArray();
+                                                                        })
+                                                                        ->getOptionLabelUsing(fn ($value) => $value),
+
+                                                                    Select::make('arrival_station')
+                                                                        ->label(__('Gare / Station d\'arrivée'))
+                                                                        ->searchable()
+                                                                        ->required()
+                                                                        ->placeholder(__('Rechercher gare ou station...'))
+                                                                        ->getSearchResultsUsing(function (string $search): array {
+                                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
+                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                ->limit(20)->get()
+                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
+                                                                            
+                                                                            $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                ->limit(20)->get()
+                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
+                                                                            
+                                                                            return $trains->merge($buses)->toArray();
+                                                                        })
+                                                                        ->getOptionLabelUsing(fn ($value) => $value),
+                                                                ])->columns(2),
+
+                                                                Group::make()->schema([
+                                                                    DatePicker::make('departure_date')
+                                                                        ->label(__('Date du trajet'))
+                                                                        ->native(false)
+                                                                        ->required(),
+
+                                                                    TextInput::make('departure_time')
+                                                                        ->label(__('Heure / N° Train'))
+                                                                        ->placeholder(__('Ex: 09:30 / Hikari 502')),
+
+                                                                    Select::make('option_id')
+                                                                        ->label(__('Classe / Option'))
+                                                                        ->options(fn () => \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id'))
+                                                                        ->searchable()
+                                                                        ->nullable(),
+
+                                                                    TextInput::make('pax_count')
+                                                                        ->label(__('Passagers (Pax)'))
+                                                                        ->numeric()
+                                                                        ->default(1)
+                                                                        ->required(),
+                                                                ])->columns(4),
+
+                                                                Group::make()->schema([
+                                                                    TextInput::make('purchase_price')
+                                                                        ->label(__('Prix d\'achat trajet (¥) [ADMIN]'))
+                                                                        ->numeric()
+                                                                        ->default(0)
+                                                                        ->live()
+                                                                        ->afterStateUpdated(function ($set, $get) {
+                                                                            $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                                            $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                                            self::updateItemPrices($parentSet, $parentGet);
+                                                                        }),
+
+                                                                    TextInput::make('selling_price')
+                                                                        ->label(__('Prix de vente trajet (¥) [ADMIN]'))
+                                                                        ->numeric()
+                                                                        ->default(0)
+                                                                        ->live()
+                                                                        ->afterStateUpdated(function ($set, $get) {
+                                                                            $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                                                            $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                                                            self::updateItemPrices($parentSet, $parentGet);
+                                                                        }),
+                                                                ])->columns(2),
+                                                            ])
+                                                    ])
+                                            ];
+                                        }
+
+                                        // 💡 CAS 2 : PRODUIT CLASSIQUE (Champs personnalisés standards)
+                                        if (empty($product->custom_field_definitions)) return [];
 
                                         $fields = [];
                                         foreach ($product->custom_field_definitions as $idx => $def) {
@@ -1297,6 +1429,43 @@ class FolderResource extends Resource
                                                         'date' => DatePicker::make($key)->native(false)->label($label),
                                                         'toggle' => Toggle::make($key)->label($label)->inline(false),
                                                         'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                        
+                                                        // 💡 Autocomplétion Gare de Train
+                                                        'train_station' => Select::make($key)
+                                                            ->label($label)
+                                                            ->searchable()
+                                                            ->placeholder($placeholder ?? __('Rechercher une gare...'))
+                                                            ->getSearchResultsUsing(function (string $search): array {
+                                                                return \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
+                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                    ->limit(50)
+                                                                    ->get()
+                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . ($station->prefecture ? " - {$station->prefecture}" : "")])
+                                                                    ->toArray();
+                                                            })
+                                                            ->getOptionLabelUsing(function ($value): ?string {
+                                                                $station = \App\Models\TrainStation::where('name_en', $value)->first();
+                                                                return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
+                                                            }),
+
+                                                        // 💡 Autocomplétion Station de Bus
+                                                        'bus_station' => Select::make($key)
+                                                            ->label($label)
+                                                            ->searchable()
+                                                            ->placeholder($placeholder ?? __('Rechercher une station...'))
+                                                            ->getSearchResultsUsing(function (string $search): array {
+                                                                return \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                    ->limit(50)
+                                                                    ->get()
+                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "")])
+                                                                    ->toArray();
+                                                            })
+                                                            ->getOptionLabelUsing(function ($value): ?string {
+                                                                $station = \App\Models\BusStation::where('name_en', $value)->first();
+                                                                return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
+                                                            }),
+
                                                         default => TextInput::make($key)->label($label)->placeholder($placeholder),
                                                     };
                                                 }

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Products;
 use App\Filament\Resources\Products\Pages;
 use App\Models\Product;
 use BackedEnum;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
@@ -28,6 +29,14 @@ class ProductResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Catalogue Produits');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->where(function ($query) {
+            $query->whereNull('product_type')
+                  ->orWhere('product_type', 'standard');
+        });
     }
 
     public static function form(Schema $schema): Schema

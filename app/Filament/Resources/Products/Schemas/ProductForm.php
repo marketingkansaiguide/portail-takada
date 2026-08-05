@@ -89,6 +89,8 @@ class ProductForm
                                                 'toggle' => __('Case à cocher (Oui/Non)'),
                                                 'select' => __('Liste de choix (Menu déroulant)'),
                                                 'file' => __('Fichier joint (Image / PDF)'), 
+                                                'train_station' => __('Gare de Train (Autocomplétion)'), // 💡 NOUVEAU
+                                                'bus_station' => __('Station de Bus (Autocomplétion)'), // 💡 NOUVEAU
                                             ])
                                             ->live()
                                             ->required(),
@@ -105,8 +107,7 @@ class ProductForm
                                         TextInput::make('placeholder')
                                             ->label(__('Exemple d\'aide (Placeholder)'))
                                             ->placeholder(__('Ex: M, L, XL ou 175cm...'))
-                                            ->visible(fn (Get $get) => in_array($get('type'), ['text', 'textarea', 'number', 'select'])),
-
+                                            ->visible(fn (Get $get) => in_array($get('type'), ['text', 'textarea', 'number', 'select', 'train_station', 'bus_station'])),
                                         Toggle::make('is_required')
                                             ->label(__('Rendre obligatoire'))
                                             ->default(true)
