@@ -22,5 +22,8 @@ class TrainStation extends Model
         'prefecture',
         'address',
         'google_maps_url',
+        'city',               // <-- AJOUT
+        'aliases',            // <-- AJOUT
+        'importance_score',   // <-- AJOUT
     ];
 }

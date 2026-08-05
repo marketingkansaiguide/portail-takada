@@ -21,7 +21,7 @@ class BusStationResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Configuration';
+    protected static UnitEnum|string|null $navigationGroup = 'Bases de données';
 
     public static function getNavigationLabel(): string
     {

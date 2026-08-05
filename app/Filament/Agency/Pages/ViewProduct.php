@@ -445,17 +445,17 @@ class ViewProduct extends Page
         $isOnDemand = $this->product->is_on_demand ?? false;
 
         if ($hasDate && !$isOnDemand) {
-            $mdStr = Carbon::parse($this->serviceDate)->format('m-d');
+            $mdStr = \Carbon\Carbon::parse($this->serviceDate)->format('m-d');
             $matchedPrice = null;
             
             if ($this->product->productPeriods) {
                 foreach ($this->product->productPeriods as $period) {
-                    if (!$period->start_date || !$period->end_date) continue;
-                    $inPeriod = false;
-                    if ($period->start_date <= $period->end_date) {
-                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
-                    } else {
-                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    $inPeriod = true; // Accepte "Toute l'année" par défaut
+                    
+                    if ($period->start_date && $period->end_date) {
+                        $inPeriod = ($period->start_date <= $period->end_date) 
+                            ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
+                            : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
                     }
 
                     if ($inPeriod && $period->productPrices) {

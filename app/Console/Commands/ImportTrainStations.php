@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class ImportTrainStations extends Command
 {
-    protected $signature = 'import:train-stations {file=train_stations.csv}';
+    protected $signature = 'import:train-stations {file=traintada.csv}';
     protected $description = 'Importe la liste des stations de train depuis un fichier CSV';
 
     public function handle()
@@ -35,17 +35,26 @@ class ImportTrainStations extends Command
         DB::transaction(function () use ($file, &$count) {
             while (($data = fgetcsv($file)) !== false) {
                 if (isset($data[1]) && trim($data[1]) !== '') {
+                    
+                    // Si le score est fourni (colonne 9), on le prend, sinon on met 10 par défaut.
+                    $score = isset($data[9]) && trim($data[9]) !== '' ? (int) trim($data[9]) : 10;
+
                     TrainStation::updateOrCreate(
                         [
                             'name_en' => trim($data[1]),
                             'prefecture' => trim($data[5] ?? ''),
-                            'name_ja' => trim($data[2] ?? ''),
                         ],
                         [
+                            'name_ja' => trim($data[2] ?? ''),
                             'name_kana' => trim($data[3] ?? ''),
                             'category' => trim($data[4] ?? ''),
                             'address' => trim($data[6] ?? ''),
                             'google_maps_url' => trim($data[7] ?? ''),
+                            
+                            // NOUVELLES COLONNES
+                            'city' => trim($data[8] ?? ''),
+                            'importance_score' => $score,
+                            'aliases' => trim($data[10] ?? ''),
                         ]
                     );
                     $count++;

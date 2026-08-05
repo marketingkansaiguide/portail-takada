@@ -99,7 +99,7 @@ class FolderResource extends Resource
         $set('total_price', $totalSale + $fee);
     }
 
-    public static function updateItemPrices($set, $get)
+public static function updateItemPrices($set, $get)
     {
         $productId = $get('product_id');
         $serviceDate = $get('service_date');
@@ -109,80 +109,26 @@ class FolderResource extends Resource
 
         $product = $productId ? \App\Models\Product::with('productPeriods.productPrices')->find($productId) : null;
         
-        // ---------------------------------------------------------
-        // CAS SPÉCIFIQUE : PRODUIT DE TRANSPORT (BILLETTERIE)
-        // ---------------------------------------------------------
-        if ($product && $product->product_type === 'transport') {
-            $routes = is_array($customValues) && isset($customValues['transport_routes']) && is_array($customValues['transport_routes']) ? $customValues['transport_routes'] : [];
-            
-            $totalPax = 0;
-            $routeOptionsTotal = 0;
-            $routeSellingTotal = 0;
-            $routePurchaseTotal = 0;
-
-            foreach ($routes as $route) {
-                $pax = (int) ($route['pax_count'] ?? 1);
-                $totalPax += $pax;
-                $routeSellingTotal += (float) ($route['selling_price'] ?? 0);
-                $routePurchaseTotal += (float) ($route['purchase_price'] ?? 0);
-
-                if (!empty($route['option_id'])) {
-                    $opt = \App\Models\ProductOption::find($route['option_id']);
-                    if ($opt) {
-                        if ($opt->billing_type === 'per_pax') {
-                            $routeOptionsTotal += ((float)$opt->price_modifier * $pax);
-                        } else {
-                            $routeOptionsTotal += (float)$opt->price_modifier;
-                        }
-                    }
-                }
-            }
-
-            $totalPax = max(1, $totalPax);
-            $effectiveDate = $routes[0]['departure_date'] ?? $serviceDate ?? now()->format('Y-m-d');
-            $mdStr = \Carbon\Carbon::parse($effectiveDate)->format('m-d');
-
-            $feePerPax = 0;
-            if ($product->productPeriods) {
-                foreach ($product->productPeriods as $period) {
-                    if (!$period->start_date || !$period->end_date) continue;
-                    $inPeriod = ($period->start_date <= $period->end_date) 
-                        ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                        : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                    
-                    if ($inPeriod && $period->productPrices) {
-                        $validPrices = $period->productPrices->where('min_pax', '<=', $totalPax)->where('max_pax', '>=', $totalPax);
-                        $feePerPax = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
-                        break;
-                    }
-                }
-            }
-
-            $totalPrice = ((float)$feePerPax * $totalPax) + $routeOptionsTotal + $routeSellingTotal;
-
-            $set('quantity', $totalPax);
-            $set('unit_price', 0);
-            $set('total_price', $totalPrice);
-            $set('purchase_total_price', $routePurchaseTotal);
-            return;
-        }
-
-        // ---------------------------------------------------------
-        // CAS STANDARD
-        // ---------------------------------------------------------
         $basePrice = 0;
         if ($product && $serviceDate) {
             $mdStr = \Carbon\Carbon::parse($serviceDate)->format('m-d');
             if ($product->productPeriods) {
                 foreach ($product->productPeriods as $period) {
-                    if (!$period->start_date || !$period->end_date) continue;
-                    $inPeriod = ($period->start_date <= $period->end_date) 
-                        ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                        : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    $inPeriod = true; // Par défaut, la saison "Toute l'année" (sans dates) est valide.
+                    
+                    if ($period->start_date && $period->end_date) {
+                        $inPeriod = ($period->start_date <= $period->end_date) 
+                            ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
+                            : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    }
                     
                     if ($inPeriod && $period->productPrices) {
                         $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity);
-                        $basePrice = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
+                        if ($validPrices->isNotEmpty()) {
+                            $basePrice = $validPrices->first()->price;
+                        } else {
+                            $basePrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                        }
                         break;
                     }
                 }
@@ -210,11 +156,30 @@ class FolderResource extends Resource
             }
         }
 
-        $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
-        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
+        $routeSellingTotal = 0;
+        $routePurchaseTotal = 0;
+        
+        if ($product && $product->product_type === 'transport' && is_array($customValues) && isset($customValues['transport_routes']) && is_array($customValues['transport_routes'])) {
+            foreach ($customValues['transport_routes'] as $route) {
+                $routeSellingTotal += (float) ($route['selling_price'] ?? 0);
+                $routePurchaseTotal += (float) ($route['purchase_price'] ?? 0);
+            }
+        }
 
-        $set('unit_price', $unitPrice);
+        $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
+        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal + $routeSellingTotal;
+
+        if ($product && $product->product_type === 'transport') {
+            $set('unit_price', 0); // La billetterie affiche "0" en prix de base (car sur devis), les frais de réservation font foi
+        } else {
+            $set('unit_price', $unitPrice);
+        }
+        
         $set('total_price', $totalPrice);
+
+        if ($routePurchaseTotal > 0) {
+            $set('purchase_total_price', $routePurchaseTotal);
+        }
     }
 
     public static function form(Schema $schema): Schema
@@ -1327,17 +1292,44 @@ class FolderResource extends Resource
                                                                         ->required()
                                                                         ->placeholder(__('Rechercher gare ou station...'))
                                                                         ->getSearchResultsUsing(function (string $search): array {
-                                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
-                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                                ->limit(20)->get()
-                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
-                                                                            
+                                                                            $trains = \App\Models\TrainStation::where(function($q) use ($search) {
+                                                                                    $q->where('name_en', 'like', "%{$search}%")
+                                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                    ->orWhere('name_kana', 'like', "%{$search}%")
+                                                                                    ->orWhere('prefecture', 'like', "%{$search}%")
+                                                                                    ->orWhere('city', 'like', "%{$search}%")
+                                                                                    ->orWhere('aliases', 'like', "%{$search}%");
+                                                                                })
+                                                                                ->limit(15)
+                                                                                ->get()
+                                                                                ->map(function ($s) {
+                                                                                    $location = $s->city ? $s->city : $s->prefecture;
+                                                                                    $locationSuffix = $location ? " - {$location}" : "";
+                                                                                    return [
+                                                                                        'id' => $s->name_en,
+                                                                                        'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . $locationSuffix,
+                                                                                        'score' => $s->importance_score ?? 10
+                                                                                    ];
+                                                                                });
+
                                                                             $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                                ->limit(20)->get()
-                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
-                                                                            
-                                                                            return $trains->merge($buses)->toArray();
+                                                                                ->orWhere('address', 'like', "%{$search}%")
+                                                                                ->limit(10)
+                                                                                ->get()
+                                                                                ->map(function ($s) {
+                                                                                    return [
+                                                                                        'id' => $s->name_en,
+                                                                                        'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                                                                                        'score' => 90
+                                                                                    ];
+                                                                                });
+
+                                                                            return $trains->concat($buses)
+                                                                                ->sortByDesc('score')
+                                                                                ->take(15)
+                                                                                ->pluck('label', 'id')
+                                                                                ->toArray();
                                                                         })
                                                                         ->getOptionLabelUsing(fn ($value) => $value),
 
@@ -1347,17 +1339,44 @@ class FolderResource extends Resource
                                                                         ->required()
                                                                         ->placeholder(__('Rechercher gare ou station...'))
                                                                         ->getSearchResultsUsing(function (string $search): array {
-                                                                            $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
-                                                                                ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                                ->limit(20)->get()
-                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
-                                                                            
+                                                                            $trains = \App\Models\TrainStation::where(function($q) use ($search) {
+                                                                                    $q->where('name_en', 'like', "%{$search}%")
+                                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                                    ->orWhere('name_kana', 'like', "%{$search}%")
+                                                                                    ->orWhere('prefecture', 'like', "%{$search}%")
+                                                                                    ->orWhere('city', 'like', "%{$search}%")
+                                                                                    ->orWhere('aliases', 'like', "%{$search}%");
+                                                                                })
+                                                                                ->limit(15)
+                                                                                ->get()
+                                                                                ->map(function ($s) {
+                                                                                    $location = $s->city ? $s->city : $s->prefecture;
+                                                                                    $locationSuffix = $location ? " - {$location}" : "";
+                                                                                    return [
+                                                                                        'id' => $s->name_en,
+                                                                                        'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . $locationSuffix,
+                                                                                        'score' => $s->importance_score ?? 10
+                                                                                    ];
+                                                                                });
+
                                                                             $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                                ->limit(20)->get()
-                                                                                ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
-                                                                            
-                                                                            return $trains->merge($buses)->toArray();
+                                                                                ->orWhere('address', 'like', "%{$search}%")
+                                                                                ->limit(10)
+                                                                                ->get()
+                                                                                ->map(function ($s) {
+                                                                                    return [
+                                                                                        'id' => $s->name_en,
+                                                                                        'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                                                                                        'score' => 90
+                                                                                    ];
+                                                                                });
+
+                                                                            return $trains->concat($buses)
+                                                                                ->sortByDesc('score')
+                                                                                ->take(15)
+                                                                                ->pluck('label', 'id')
+                                                                                ->toArray();
                                                                         })
                                                                         ->getOptionLabelUsing(fn ($value) => $value),
                                                                 ])->columns(2),
@@ -1474,11 +1493,23 @@ class FolderResource extends Resource
                                                             ->searchable()
                                                             ->placeholder($placeholder ?? __('Rechercher une gare...'))
                                                             ->getSearchResultsUsing(function (string $search): array {
-                                                                return \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
-                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                    ->limit(50)
+                                                                return \App\Models\TrainStation::where(function($q) use ($search) {
+                                                                        $q->where('name_en', 'like', "%{$search}%")
+                                                                        ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                        ->orWhere('name_kana', 'like', "%{$search}%")
+                                                                        ->orWhere('prefecture', 'like', "%{$search}%")
+                                                                        ->orWhere('city', 'like', "%{$search}%")
+                                                                        ->orWhere('aliases', 'like', "%{$search}%");
+                                                                    })
+                                                                    ->orderBy('importance_score', 'desc')
+                                                                    ->orderBy('name_en', 'asc')
+                                                                    ->limit(20)
                                                                     ->get()
-                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . ($station->prefecture ? " - {$station->prefecture}" : "")])
+                                                                    ->mapWithKeys(function ($station) {
+                                                                        $location = $station->city ? $station->city : $station->prefecture;
+                                                                        $locationSuffix = $location ? " - {$location}" : "";
+                                                                        return [$station->name_en => "🚆 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix];
+                                                                    })
                                                                     ->toArray();
                                                             })
                                                             ->getOptionLabelUsing(function ($value): ?string {
@@ -1494,9 +1525,10 @@ class FolderResource extends Resource
                                                             ->getSearchResultsUsing(function (string $search): array {
                                                                 return \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                                                                     ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                    ->limit(50)
+                                                                    ->orWhere('address', 'like', "%{$search}%")
+                                                                    ->limit(20)
                                                                     ->get()
-                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "")])
+                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "🚌 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "")])
                                                                     ->toArray();
                                                             })
                                                             ->getOptionLabelUsing(function ($value): ?string {

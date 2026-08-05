@@ -21,7 +21,7 @@ class HotelResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Configuration';
+    protected static UnitEnum|string|null $navigationGroup = 'Bases de données';
 
     public static function getNavigationLabel(): string
     {
