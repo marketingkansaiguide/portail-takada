@@ -368,11 +368,13 @@ class AgencyFolderResource extends Resource
                                         }
                                     }),
 
-                                // 💡 SECTION DÉDIÉE SI C'EST UN PRODUIT DE TRANSPORT (BILLET DE TRAIN / BUS)
+// 💡 SECTION DÉDIÉE SI C'EST UN PRODUIT DE TRANSPORT (BILLET DE TRAIN / BUS)
                                 Section::make('🚄 Itinéraire de Transport (Multi-Trajets)')
                                     ->description('Indiquez pour chaque ticket la gare de départ, d\'arrivée, la date, l\'heure et le nombre de passagers.')
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->visible(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return false;
                                         $p = \App\Models\Product::find($productId);
                                         return $p && $p->product_type === 'transport';
@@ -389,6 +391,7 @@ class AgencyFolderResource extends Resource
                                             ->collapsible()
                                             ->required()
                                             ->defaultItems(1)
+                                            ->live()
                                             ->schema([
                                                 Group::make()->schema([
                                                     Select::make('departure_station')
@@ -399,11 +402,15 @@ class AgencyFolderResource extends Resource
                                                         ->getSearchResultsUsing(function (string $search): array {
                                                             $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->orWhere('name_kana', 'like', "%{$search}%")
+                                                                ->orWhere('prefecture', 'like', "%{$search}%")
+                                                                ->orWhere('address', 'like', "%{$search}%")
                                                                 ->limit(20)->get()
                                                                 ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
                                                             
                                                             $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->orWhere('address', 'like', "%{$search}%")
                                                                 ->limit(20)->get()
                                                                 ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
                                                             
@@ -419,11 +426,15 @@ class AgencyFolderResource extends Resource
                                                         ->getSearchResultsUsing(function (string $search): array {
                                                             $trains = \App\Models\TrainStation::where('name_en', 'like', "%{$search}%")
                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->orWhere('name_kana', 'like', "%{$search}%")
+                                                                ->orWhere('prefecture', 'like', "%{$search}%")
+                                                                ->orWhere('address', 'like', "%{$search}%")
                                                                 ->limit(20)->get()
                                                                 ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 [Train] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->prefecture ? " - {$s->prefecture}" : "")]);
                                                             
                                                             $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                                                                 ->orWhere('name_ja', 'like', "%{$search}%")
+                                                                ->orWhere('address', 'like', "%{$search}%")
                                                                 ->limit(20)->get()
                                                                 ->mapWithKeys(fn ($s) => [$s->name_en => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "")]);
                                                             
@@ -436,7 +447,10 @@ class AgencyFolderResource extends Resource
                                                     DatePicker::make('departure_date')
                                                         ->label('Date du trajet')
                                                         ->native(false)
-                                                        ->required(),
+                                                        ->required()
+                                                        ->live()
+                                                        ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
+                                                        ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
                                                     TextInput::make('departure_time')
                                                         ->label('Heure / N° Train ou Bus')
@@ -444,8 +458,12 @@ class AgencyFolderResource extends Resource
 
                                                     Select::make('option_id')
                                                         ->label('Classe / Option')
-                                                        ->options(function (Get $get) {
-                                                            $productId = $get('../../../product_id');
+                                                        ->options(function (Get $get, $livewire) {
+                                                            // Le niveau Repeater requiert 2 remontees pour arriver au form racine
+                                                            $productId = $get('../../product_id') 
+                                                                      ?? data_get($livewire, 'mountedTableActionData.product_id') 
+                                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                                                      
                                                             if (!$productId) return [];
                                                             return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
                                                         })
@@ -457,17 +475,76 @@ class AgencyFolderResource extends Resource
                                                         ->numeric()
                                                         ->default(1)
                                                         ->minValue(1)
+                                                        ->live()
                                                         ->required(),
                                                 ])->columns(4),
-                                            ])
-                                    ]),
+                                            ]),
 
-                                // 💡 CHAMPS GLOBAUX S'IL S'AGIT D'UN PRODUIT STANDARD
+                                        // 💡 Affichage du Prix Estimé pour les Transports (Frais fixes + Devis)
+                                        Placeholder::make('transport_estimate')
+                                            ->hiddenLabel()
+                                            ->content(function (Get $get, $livewire) {
+                                                $productId = $get('product_id') ?? data_get($livewire, 'mountedTableActionData.product_id') ?? data_get($livewire, 'mountedActionData.product_id');
+                                                $product = \App\Models\Product::with(['productPeriods.productPrices'])->find($productId);
+                                                if (!$product) return '';
+
+                                                $routes = $get('transport_routes') ?? [];
+                                                $totalPax = 0;
+                                                foreach ($routes as $r) {
+                                                    $totalPax += (int) ($r['pax_count'] ?? 1);
+                                                }
+
+                                                $date = $routes[0]['departure_date'] ?? now()->format('Y-m-d');
+                                                $mdStr = \Carbon\Carbon::parse($date)->format('m-d');
+
+                                                $feePerPax = 0;
+                                                if ($product->productPeriods) {
+                                                    foreach ($product->productPeriods as $period) {
+                                                        if (!$period->start_date || !$period->end_date) continue;
+                                                        $inPeriod = false;
+                                                        if ($period->start_date <= $period->end_date) {
+                                                            $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
+                                                        } else {
+                                                            $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                                                        }
+                                                        if ($inPeriod && $period->productPrices) {
+                                                            $validPrices = $period->productPrices->where('min_pax', '<=', $totalPax)->where('max_pax', '>=', $totalPax);
+                                                            if ($validPrices->isNotEmpty()) {
+                                                                $feePerPax = $validPrices->first()->price;
+                                                            } else {
+                                                                $feePerPax = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                                                            }
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+
+                                                $totalFee = $feePerPax * $totalPax;
+
+                                                return new \Illuminate\Support\HtmlString("
+                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #fff7ed; border: 1px solid #ffedd5; margin-top: 1rem;'>
+                                                        <div style='font-weight:600; color:#c2410c; font-size:0.9rem; margin-bottom:0.35rem;'>Estimation de vos frais d'émission :</div>
+                                                        <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#9a3412;'>
+                                                            <span>• Frais de service de l'agence (" . number_format($feePerPax, 0, '.', ' ') . " ¥ × {$totalPax} pax total)</span>
+                                                            <span><b>" . number_format($totalFee, 0, '.', ' ') . " ¥</b></span>
+                                                        </div>
+                                                        <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#9a3412; margin-top: 4px; border-top: 1px solid #fed7aa; padding-top: 4px;'>
+                                                            <span>• Prix des billets (Train / Bus)</span>
+                                                            <span><b>Sur devis</b></span>
+                                                        </div>
+                                                    </div>
+                                                ");
+                                            })
+                                    ]),
+                                // CHAMPS GLOBAUX S'IL S'AGIT D'UN PRODUIT STANDARD
                                 Group::make()->schema([
                                     DatePicker::make('service_date')
                                         ->label('Date souhaitée')
-                                        ->required(function (Get $get) {
-                                            $p = \App\Models\Product::find($get('product_id'));
+                                        ->required(function (Get $get, $livewire) {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            $p = $productId ? \App\Models\Product::find($productId) : null;
                                             return !$p || $p->product_type !== 'transport';
                                         })
                                         ->live()
@@ -492,22 +569,28 @@ class AgencyFolderResource extends Resource
                                         })
                                         ->live()
                                         ->required(),
-                                ])->columns(2)->visible(function (Get $get) {
-                                    $productId = $get('product_id');
+                                ])->columns(2)->visible(function (Get $get, $livewire) {
+                                    $productId = $get('product_id')
+                                              ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                              ?? data_get($livewire, 'mountedActionData.product_id');
                                     if (!$productId) return false;
                                     $p = \App\Models\Product::find($productId);
                                     return !$p || $p->product_type !== 'transport';
                                 }),
 
                                 Group::make()
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->visible(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return false;
                                         $p = \App\Models\Product::find($productId);
                                         return (!$p || $p->product_type !== 'transport') && \App\Models\ProductOption::where('product_id', $productId)->exists();
                                     })
-                                    ->schema(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->schema(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return [];
 
                                         $options = \App\Models\ProductOption::where('product_id', $productId)->get();
@@ -596,14 +679,18 @@ class AgencyFolderResource extends Resource
                                     }),
 
                                 Group::make()
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->visible(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return false;
                                         $p = \App\Models\Product::find($productId);
-                                        return !$p || $p->product_type !== 'transport';
+                                        return (!$p || $p->product_type !== 'transport');
                                     })
-                                    ->schema(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->schema(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return [];
 
                                         $product = \App\Models\Product::find($productId);
@@ -679,8 +766,10 @@ class AgencyFolderResource extends Resource
                                     }),
 
                                 Group::make()
-                                    ->visible(function (Get $get) {
-                                        $productId = $get('product_id');
+                                    ->visible(function (Get $get, $livewire) {
+                                        $productId = $get('product_id')
+                                                  ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                  ?? data_get($livewire, 'mountedActionData.product_id');
                                         if (!$productId) return false;
                                         $p = \App\Models\Product::find($productId);
                                         return (!$p || $p->product_type !== 'transport') && !empty($get('service_date'));
@@ -773,35 +862,72 @@ class AgencyFolderResource extends Resource
                                             })
                                     ]),
                             ])
-                            ->action(function (array $data, ?Model $record) {
+                            ->action(function (array $data, ?Model $record, $component) {
                                 if (!$record) return;
+
+                                $rawInput = data_get($component->getLivewire(), 'mountedTableActionData') 
+                                         ?? data_get($component->getLivewire(), 'mountedActionData') 
+                                         ?? [];
+                                $mergedData = array_merge((array)$rawInput, (array)$data);
 
                                 $status = \App\Models\ItemStatus::firstOrCreate(
                                     ['name' => 'En attente de validation'],
                                     ['color' => 'warning']
                                 );
 
-                                $product = \App\Models\Product::find($data['product_id']);
+                                $product = \App\Models\Product::find($mergedData['product_id'] ?? null);
                                 $customValues = [];
 
                                 if ($product && $product->product_type === 'transport') {
-                                    $customValues['transport_routes'] = $data['transport_routes'] ?? [];
-                                    $firstRoute = $data['transport_routes'][0] ?? null;
+                                    $customValues['transport_routes'] = $mergedData['transport_routes'] ?? [];
+                                    $firstRoute = $mergedData['transport_routes'][0] ?? null;
                                     $serviceDate = !empty($firstRoute['departure_date']) ? $firstRoute['departure_date'] : ($record->start_date ?? now()->format('Y-m-d'));
                                     $quantity = !empty($firstRoute['pax_count']) ? (int)$firstRoute['pax_count'] : 1;
                                     $formattedOptions = [];
                                 } else {
-                                    $serviceDate = $data['service_date'];
-                                    $quantity = $data['quantity'] ?? 1;
+                                    $serviceDate = $mergedData['service_date'] ?? $record->start_date ?? now()->format('Y-m-d');
+                                    $quantity = $mergedData['quantity'] ?? 1;
 
                                     $formattedOptions = [];
-                                    $options = \App\Models\ProductOption::where('product_id', $data['product_id'])->get();
-                                    foreach ($options as $opt) {
-                                        if (!empty($data["opt_enabled_{$opt->id}"])) {
-                                            $formattedOptions[] = [
-                                                'product_option_id' => $opt->id,
-                                                'quantity' => (int) ($data["opt_qty_{$opt->id}"] ?? 1),
-                                            ];
+                                    
+                                    if ($product) {
+                                        $productOptions = \App\Models\ProductOption::where('product_id', $product->id)->get();
+                                        
+                                        // 1. Grouped / Required Options (Selects)
+                                        $requiredGrouped = $productOptions
+                                            ->filter(fn($o) => $o->is_required || !empty($o->group_name))
+                                            ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
+
+                                        foreach ($requiredGrouped as $groupName => $groupOpts) {
+                                            $slug = Str::slug($groupName);
+                                            $selectKey = "opt_group_{$slug}";
+                                            
+                                            $selectedOptId = $mergedData[$selectKey] ?? null;
+                                            if (!$selectedOptId && $groupOpts->isNotEmpty()) {
+                                                $selectedOptId = $groupOpts->first()->id;
+                                            }
+
+                                            if ($selectedOptId) {
+                                                $formattedOptions[] = [
+                                                    'product_option_id' => (int) $selectedOptId,
+                                                    'quantity' => 1,
+                                                ];
+                                            }
+                                        }
+
+                                        // 2. Optional Toggles (Checkboxes)
+                                        $optionalOpts = $productOptions->filter(fn($o) => !$o->is_required && empty($o->group_name));
+
+                                        foreach ($optionalOpts as $opt) {
+                                            $toggleKey = "opt_enabled_{$opt->id}";
+                                            if (!empty($mergedData[$toggleKey])) {
+                                                $qtyKey = "opt_qty_{$opt->id}";
+                                                $qty = (int) ($mergedData[$qtyKey] ?? 1);
+                                                $formattedOptions[] = [
+                                                    'product_option_id' => $opt->id,
+                                                    'quantity' => max(1, $qty),
+                                                ];
+                                            }
                                         }
                                     }
 
@@ -809,14 +935,14 @@ class AgencyFolderResource extends Resource
                                         foreach ($product->custom_field_definitions as $def) {
                                             $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
                                             $isPerPax = $def['is_per_passenger'] ?? false;
-                                            $paxCount = max(1, (int) ($data['quantity'] ?? 1));
+                                            $paxCount = max(1, (int) ($mergedData['quantity'] ?? 1));
 
                                             if ($isPerPax) {
                                                 $paxVals = [];
                                                 for ($i = 1; $i <= $paxCount; $i++) {
                                                     $fk = "custom_{$key}_pax_{$i}";
-                                                    if (isset($data[$fk]) && $data[$fk] !== '') {
-                                                        $v = $data[$fk];
+                                                    if (isset($mergedData[$fk]) && $mergedData[$fk] !== '') {
+                                                        $v = $mergedData[$fk];
                                                         if (is_bool($v)) $v = $v ? 'Oui' : 'Non';
                                                         $paxVals[] = "Pax {$i}: {$v}";
                                                     }
@@ -826,8 +952,8 @@ class AgencyFolderResource extends Resource
                                                 }
                                             } else {
                                                 $fk = "custom_{$key}";
-                                                if (isset($data[$fk])) {
-                                                    $customValues[$key] = $data[$fk];
+                                                if (isset($mergedData[$fk])) {
+                                                    $customValues[$key] = $mergedData[$fk];
                                                 }
                                             }
                                         }
@@ -836,7 +962,7 @@ class AgencyFolderResource extends Resource
 
                                 $folderItem = \App\Models\FolderItem::create([
                                     'folder_id' => $record->id,
-                                    'product_id' => $data['product_id'],
+                                    'product_id' => $mergedData['product_id'],
                                     'service_date' => $serviceDate,
                                     'quantity' => $quantity,
                                     'selected_options' => $formattedOptions,
@@ -924,7 +1050,6 @@ class AgencyFolderResource extends Resource
                                         };
                                         $statusBadge = "<span style='background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
 
-                                        // Rendu personnalisé s'il s'agit d'un Billet de Transport
                                         if ($item->product && $item->product->product_type === 'transport') {
                                             $routesHtml = '';
                                             $customVals = $item->custom_values ?? [];
@@ -974,7 +1099,7 @@ class AgencyFolderResource extends Resource
                                         // Décomposition tarifaire standard
                                         $optionsTotal = 0;
                                         $optRows = [];
-                                        $selectedOptions = $item->selected_options ?? [];
+                                        $selectedOptions = is_string($item->selected_options) ? json_decode($item->selected_options, true) : ($item->selected_options ?? []);
 
                                         if (is_array($selectedOptions) && count($selectedOptions) > 0) {
                                             foreach ($selectedOptions as $optData) {
@@ -1192,7 +1317,7 @@ class AgencyFolderResource extends Resource
                 Tables\Columns\TextColumn::make('total_price')
                     ->label('Total Estimé')
                     ->money('JPY')
-                     subterraneanSortable: true),
+                    ->sortable(),
             ])
             ->filters([])
             ->recordActions([

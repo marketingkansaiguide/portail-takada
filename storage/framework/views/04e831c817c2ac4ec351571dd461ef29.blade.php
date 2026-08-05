@@ -1,0 +1,1 @@
+@livewire("folder-chat", ["folder" => $folder])

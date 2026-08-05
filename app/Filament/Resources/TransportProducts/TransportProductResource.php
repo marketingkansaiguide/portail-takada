@@ -27,7 +27,6 @@ class TransportProductResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';
 
-
     public static function getNavigationLabel(): string
     {
         return __('Transports');
@@ -79,18 +78,25 @@ class TransportProductResource extends Resource
                                 ->addActionLabel(__('Ajouter une option / classe'))
                                 ->itemLabel(fn (array $state): ?string => isset($state['name']) ? $state['name'] . ' (+' . ($state['price_modifier'] ?? 0) . ' ¥)' : __('Nouvelle classe'))
                                 ->collapsible()
-                                ->columns(3)
+                                ->columns(12)
                                 ->schema([
+                                    TextInput::make('group_name')
+                                        ->label(__('Groupe (Ex: Classe)'))
+                                        ->placeholder(__('Laissez vide si optionnel'))
+                                        ->columnSpan(['default' => 12, 'md' => 4]),
+
                                     TextInput::make('name')
-                                        ->label(__('Nom de la classe / Option'))
-                                        ->placeholder(__('Ex: Green Car (Voiture 1ère classe)'))
-                                        ->required(),
+                                        ->label(__('Nom de l\'Option'))
+                                        ->placeholder(__('Ex: Green Car'))
+                                        ->required()
+                                        ->columnSpan(['default' => 12, 'md' => 4]),
 
                                     TextInput::make('price_modifier')
                                         ->label(__('Supplément (¥)'))
                                         ->numeric()
                                         ->default(0)
-                                        ->required(),
+                                        ->required()
+                                        ->columnSpan(['default' => 12, 'md' => 4]),
 
                                     Select::make('billing_type')
                                         ->label(__('Facturation'))
@@ -99,7 +105,14 @@ class TransportProductResource extends Resource
                                             'per_booking' => __('Fixe par dossier'),
                                         ])
                                         ->default('per_pax')
-                                        ->required(),
+                                        ->required()
+                                        ->columnSpan(['default' => 12, 'md' => 6]),
+
+                                    Toggle::make('is_required')
+                                        ->label(__('Obligatoire'))
+                                        ->default(false)
+                                        ->inline(false)
+                                        ->columnSpan(['default' => 12, 'md' => 6]),
                                 ])
                         ]),
 
