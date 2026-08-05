@@ -105,35 +105,87 @@ class FolderResource extends Resource
         $serviceDate = $get('service_date');
         $itemQuantity = (int) ($get('quantity') ?? 1);
         $selectedOptions = $get('selected_options') ?? [];
+        $customValues = $get('custom_values') ?? [];
 
-        $basePrice = 0;
-        if ($productId && $serviceDate) {
-            $mdStr = Carbon::parse($serviceDate)->format('m-d');
-            $product = \App\Models\Product::with('productPeriods.productPrices')->find($productId);
+        $product = $productId ? \App\Models\Product::with('productPeriods.productPrices')->find($productId) : null;
+        
+        // ---------------------------------------------------------
+        // CAS SPÉCIFIQUE : PRODUIT DE TRANSPORT (BILLETTERIE)
+        // ---------------------------------------------------------
+        if ($product && $product->product_type === 'transport') {
+            $routes = is_array($customValues) && isset($customValues['transport_routes']) && is_array($customValues['transport_routes']) ? $customValues['transport_routes'] : [];
             
-            if ($product && $product->productPeriods) {
-                $matchedPrice = null;
+            $totalPax = 0;
+            $routeOptionsTotal = 0;
+            $routeSellingTotal = 0;
+            $routePurchaseTotal = 0;
+
+            foreach ($routes as $route) {
+                $pax = (int) ($route['pax_count'] ?? 1);
+                $totalPax += $pax;
+                $routeSellingTotal += (float) ($route['selling_price'] ?? 0);
+                $routePurchaseTotal += (float) ($route['purchase_price'] ?? 0);
+
+                if (!empty($route['option_id'])) {
+                    $opt = \App\Models\ProductOption::find($route['option_id']);
+                    if ($opt) {
+                        if ($opt->billing_type === 'per_pax') {
+                            $routeOptionsTotal += ((float)$opt->price_modifier * $pax);
+                        } else {
+                            $routeOptionsTotal += (float)$opt->price_modifier;
+                        }
+                    }
+                }
+            }
+
+            $totalPax = max(1, $totalPax);
+            $effectiveDate = $routes[0]['departure_date'] ?? $serviceDate ?? now()->format('Y-m-d');
+            $mdStr = \Carbon\Carbon::parse($effectiveDate)->format('m-d');
+
+            $feePerPax = 0;
+            if ($product->productPeriods) {
                 foreach ($product->productPeriods as $period) {
                     if (!$period->start_date || !$period->end_date) continue;
-                    
-                    $inPeriod = false;
-                    if ($period->start_date <= $period->end_date) {
-                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
-                    } else {
-                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                    }
+                    $inPeriod = ($period->start_date <= $period->end_date) 
+                        ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
+                        : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
                     
                     if ($inPeriod && $period->productPrices) {
-                        $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity);
-                        if ($validPrices->isNotEmpty()) {
-                            $matchedPrice = $validPrices->first()->price;
-                        } else {
-                            $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                        }
+                        $validPrices = $period->productPrices->where('min_pax', '<=', $totalPax)->where('max_pax', '>=', $totalPax);
+                        $feePerPax = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
                         break;
                     }
                 }
-                $basePrice = $matchedPrice ?? 0;
+            }
+
+            $totalPrice = ((float)$feePerPax * $totalPax) + $routeOptionsTotal + $routeSellingTotal;
+
+            $set('quantity', $totalPax);
+            $set('unit_price', 0);
+            $set('total_price', $totalPrice);
+            $set('purchase_total_price', $routePurchaseTotal);
+            return;
+        }
+
+        // ---------------------------------------------------------
+        // CAS STANDARD
+        // ---------------------------------------------------------
+        $basePrice = 0;
+        if ($product && $serviceDate) {
+            $mdStr = \Carbon\Carbon::parse($serviceDate)->format('m-d');
+            if ($product->productPeriods) {
+                foreach ($product->productPeriods as $period) {
+                    if (!$period->start_date || !$period->end_date) continue;
+                    $inPeriod = ($period->start_date <= $period->end_date) 
+                        ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
+                        : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                    
+                    if ($inPeriod && $period->productPrices) {
+                        $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity);
+                        $basePrice = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
+                        break;
+                    }
+                }
             }
         }
 
@@ -158,25 +210,11 @@ class FolderResource extends Resource
             }
         }
 
-        $routeSellingTotal = 0;
-        $routePurchaseTotal = 0;
-        $customValues = $get('custom_values') ?? [];
-        if (is_array($customValues) && isset($customValues['transport_routes']) && is_array($customValues['transport_routes'])) {
-            foreach ($customValues['transport_routes'] as $route) {
-                $routeSellingTotal += (float) ($route['selling_price'] ?? 0);
-                $routePurchaseTotal += (float) ($route['purchase_price'] ?? 0);
-            }
-        }
-
         $unitPrice = (float) $basePrice + (float) $perPaxOptionsTotal;
-        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal + $routeSellingTotal;
+        $totalPrice = ((float) $unitPrice * (float) $itemQuantity) + (float) $fixedOptionsTotal;
 
         $set('unit_price', $unitPrice);
         $set('total_price', $totalPrice);
-
-        if ($routePurchaseTotal > 0) {
-            $set('purchase_total_price', $routePurchaseTotal);
-        }
     }
 
     public static function form(Schema $schema): Schema
