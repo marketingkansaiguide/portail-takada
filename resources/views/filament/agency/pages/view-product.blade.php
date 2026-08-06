@@ -158,7 +158,7 @@
                             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                 
                                 <div style="margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
-                                    <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
                                         <span style="font-size: 1.1rem;">🚄</span> Itinéraire de Transport (Multi-Trajets)
                                     </h3>
                                     <p style="font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4;">
@@ -174,7 +174,7 @@
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
                                                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                                                         <span style="color: #64748b; font-size: 0.9rem;">⇅</span>
-                                                        <span style="font-size: 0.85rem; font-weight: 800; color: #1e293b;">
+                                                        <span style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">
                                                             {{ (!empty($route['departure_station']) || !empty($route['arrival_station'])) ? (($route['departure_station'] ?: 'Départ') . ' ➔ ' . ($route['arrival_station'] ?: 'Arrivée') . (!empty($route['departure_date']) ? ' ('.$route['departure_date'].')' : '')) : 'Nouveau trajet' }}
                                                         </span>
                                                     </div>
@@ -347,7 +347,7 @@
 
                                 @php $estimate = $this->getEstimatedPrice(); @endphp
                                 <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.75rem; padding: 1.25rem; margin-top: 1.25rem;">
-                                    <h4 style="font-size: 0.95rem; font-weight: 800; color: #b45309; margin: 0 0 0.75rem 0;">
+                                    <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
                                         Estimation de vos frais d'émission :
                                     </h4>
 
@@ -356,7 +356,7 @@
                                             <span style="color: #78350f; font-weight: 500;">
                                                 • Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} trajet{{ ($estimate['qty'] ?? 1) > 1 ? 's' : '' }} total)
                                             </span>
-                                            <span style="font-weight: 800; color: #78350f;">
+                                            <span style="font-weight: 600; color: #78350f;">
                                                 {{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥
                                             </span>
                                         </div>
@@ -366,7 +366,7 @@
                                                 <span style="color: #096a61; font-weight: 600;">
                                                     • Suppléments classes / options
                                                 </span>
-                                                <span style="font-weight: 800; color: #096a61;">
+                                                <span style="font-weight: 600; color: #096a61;">
                                                     + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
                                                 </span>
                                             </div>
@@ -376,7 +376,7 @@
                                             <span style="color: #b45309; font-weight: 500;">
                                                 • Prix des billets (Train / Bus)
                                             </span>
-                                            <span style="font-weight: 800; color: #b45309;">
+                                            <span style="font-weight: 600; color: #b45309;">
                                                 Sur devis (Prix coutant)
                                             </span>
                                         </div>
@@ -453,7 +453,7 @@
                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);">
                                             <div @click.away="open = false" style="background: white; border-radius: 1.25rem; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #1e293b;">Sélectionnez une date</h3>
+                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">Sélectionnez une date</h3>
                                                     <button type="button" @click="open = false" style="background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">
                                                         <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                                     </button>
@@ -595,7 +595,7 @@
                                 @endphp
 
                                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.85rem; font-weight: 800; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
+                                    <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
                                     
                                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         
@@ -801,7 +801,7 @@
 
                             @if($estimate['is_on_demand'])
                                 <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
-                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 800;">⚠️ Tarif sur Devis</h4>
+                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ Tarif sur Devis</h4>
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
                                 </div>
                             @else
@@ -824,8 +824,8 @@
                                     <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
                                     
                                     <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                                        <span style="font-size: 1rem; font-weight: 800; color: #1e293b; text-transform: uppercase;">Total</span>
-                                        <span style="font-size: 2.25rem; font-weight: 800; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
+                                        <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
+                                        <span style="font-size: 2.25rem; font-weight: 600; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
                                             {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
                                         </span>
                                     </div>
@@ -911,7 +911,7 @@
                         <div style="color: #0284c7; background: #e0f2fe; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #bae6fd;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-                        <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">Vue Administrateur</h3>
+                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #0f172a; margin: 0 0 0.5rem 0;">Vue Administrateur</h3>
                         <p style="color: #475569; font-size: 0.9rem; line-height: 1.6; margin: 0;">Vous explorez le catalogue avec un compte administrateur. Pour utiliser la fonction d'ajout au panier, veuillez vous connecter avec un véritable compte Agence partenaire.</p>
                     </div>
                 @endif

@@ -395,7 +395,7 @@ Repeater::make('transport_routes')
     ->live()
     ->schema([
         // -------------------------------------------------------------
-        // 1. DÉPART ET ARRIVÉE (Gares & Stations avec recherche)
+        // LIGNE 1 : DÉPART ET ARRIVÉE (Gares & Stations) - 2 Colonnes
         // -------------------------------------------------------------
         Group::make()->schema([
             Select::make('departure_station')
@@ -405,7 +405,7 @@ Repeater::make('transport_routes')
                 ->live()
                 ->placeholder('Rechercher gare ou station...')
                 ->getSearchResultsUsing(function (string $search): array {
-                    $trains = TrainStation::where(function($q) use ($search) {
+                    $trains = \App\Models\TrainStation::where(function($q) use ($search) {
                             $q->where('name_en', 'like', "%{$search}%")
                             ->orWhere('name_ja', 'like', "%{$search}%")
                             ->orWhere('prefecture', 'like', "%{$search}%")
@@ -420,7 +420,7 @@ Repeater::make('transport_routes')
                             'score' => $s->importance_score ?? 10
                         ]);
 
-                    $buses = BusStation::where('name_en', 'like', "%{$search}%")
+                    $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                         ->orWhere('name_ja', 'like', "%{$search}%")
                         ->limit(10)
                         ->get()
@@ -433,23 +433,23 @@ Repeater::make('transport_routes')
                     return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
                 })
                 ->getOptionLabelUsing(function ($value) {
-                    $station = TrainStation::where('name_en', $value)->first() ?? BusStation::where('name_en', $value)->first();
+                    $station = \App\Models\TrainStation::where('name_en', $value)->first() ?? \App\Models\BusStation::where('name_en', $value)->first();
                     if ($station) {
-                        $type = $station instanceof TrainStation ? '🚆' : '🚌 [Bus]';
-                        $locationSuffix = ($station instanceof TrainStation && $station->city) ? " - {$station->city}" : "";
+                        $type = $station instanceof \App\Models\TrainStation ? '🚆' : '🚌 [Bus]';
+                        $locationSuffix = ($station instanceof \App\Models\TrainStation && $station->city) ? " - {$station->city}" : "";
                         return "{$type} {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix;
                     }
                     return $value;
                 })
-                ->helperText(function ($get) {
+                ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
                     $stationName = $get('departure_station');
                     if (!$stationName) return null;
                     
-                    $station = TrainStation::where('name_en', $stationName)->first() 
-                            ?? BusStation::where('name_en', $stationName)->first();
+                    $station = \App\Models\TrainStation::where('name_en', $stationName)->first() 
+                            ?? \App\Models\BusStation::where('name_en', $stationName)->first();
                             
                     if ($station && !empty($station->google_maps_url)) {
-                        return new HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
+                        return new \Illuminate\Support\HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
                     }
                     return null;
                 }),
@@ -461,7 +461,7 @@ Repeater::make('transport_routes')
                 ->live()
                 ->placeholder('Rechercher gare ou station...')
                 ->getSearchResultsUsing(function (string $search): array {
-                    $trains = TrainStation::where(function($q) use ($search) {
+                    $trains = \App\Models\TrainStation::where(function($q) use ($search) {
                             $q->where('name_en', 'like', "%{$search}%")
                             ->orWhere('name_ja', 'like', "%{$search}%")
                             ->orWhere('prefecture', 'like', "%{$search}%")
@@ -476,7 +476,7 @@ Repeater::make('transport_routes')
                             'score' => $s->importance_score ?? 10
                         ]);
 
-                    $buses = BusStation::where('name_en', 'like', "%{$search}%")
+                    $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
                         ->orWhere('name_ja', 'like', "%{$search}%")
                         ->limit(10)
                         ->get()
@@ -489,92 +489,76 @@ Repeater::make('transport_routes')
                     return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
                 })
                 ->getOptionLabelUsing(function ($value) {
-                    $station = TrainStation::where('name_en', $value)->first() ?? BusStation::where('name_en', $value)->first();
+                    $station = \App\Models\TrainStation::where('name_en', $value)->first() ?? \App\Models\BusStation::where('name_en', $value)->first();
                     if ($station) {
-                        $type = $station instanceof TrainStation ? '🚆' : '🚌 [Bus]';
-                        $locationSuffix = ($station instanceof TrainStation && $station->city) ? " - {$station->city}" : "";
+                        $type = $station instanceof \App\Models\TrainStation ? '🚆' : '🚌 [Bus]';
+                        $locationSuffix = ($station instanceof \App\Models\TrainStation && $station->city) ? " - {$station->city}" : "";
                         return "{$type} {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix;
                     }
                     return $value;
                 })
-                ->helperText(function ($get) {
+                ->helperText(function (\Filament\Schemas\Components\Utilities\Get $get) {
                     $stationName = $get('arrival_station');
                     if (!$stationName) return null;
                     
-                    $station = TrainStation::where('name_en', $stationName)->first() 
-                            ?? BusStation::where('name_en', $stationName)->first();
+                    $station = \App\Models\TrainStation::where('name_en', $stationName)->first() 
+                            ?? \App\Models\BusStation::where('name_en', $stationName)->first();
                             
                     if ($station && !empty($station->google_maps_url)) {
-                        return new HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
+                        return new \Illuminate\Support\HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
                     }
                     return null;
                 }),
         ])->columns(2),
 
         // -------------------------------------------------------------
-        // 2. DATES, HORAIRES EXACTS & N° TRAIN / BUS / VOITURE
+        // LIGNE 2 : DATES, CLASSE & PASSAGERS - 3 Colonnes
         // -------------------------------------------------------------
         Group::make()->schema([
             DatePicker::make('departure_date')
                 ->label('Date du trajet')
                 ->native(false)
                 ->required()
-                ->live()
-                ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
-                ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
-
-            TextInput::make('departure_time')
-                ->label('Heure de départ')
-                ->placeholder('Ex: 09:32'),
-
-            TextInput::make('arrival_time')
-                ->label('Heure d\'arrivée')
-                ->placeholder('Ex: 12:05'),
-
-            TextInput::make('train_number')
-                ->label('N° Train ou Bus')
-                ->placeholder('Ex: Hikari 502 / Voiture 3'),
+                ->live(),
 
             Select::make('option_id')
                 ->label('Classe / Option')
-                ->options(function (Get $get, $livewire) {
+                ->options(function (\Filament\Schemas\Components\Utilities\Get $get, $livewire) {
                     $productId = $get('../../product_id') 
                               ?? data_get($livewire, 'mountedTableActionData.product_id') 
                               ?? data_get($livewire, 'mountedActionData.product_id');
                               
                     if (!$productId) return [];
-                    return ProductOption::where('product_id', $productId)->pluck('name', 'id');
+                    return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
                 })
                 ->searchable()
                 ->nullable(),
 
             TextInput::make('pax_count')
-                ->label('Passagers')
+                ->label('Passagers (Pax)')
                 ->numeric()
                 ->default(1)
                 ->minValue(1)
                 ->live()
                 ->required(),
-        ])->columns(6),
+        ])->columns(3),
 
         // -------------------------------------------------------------
-        // 3. TARIFICATION BILLETS (Saisie par l'agent Admin)
+        // LIGNE 3 : HORAIRES & DÉTAILS SOUHAITÉS - 3 Colonnes
         // -------------------------------------------------------------
         Group::make()->schema([
-            TextInput::make('purchase_price')
-                ->label('Prix d\'achat des billets (Coûtant ¥)')
-                ->numeric()
-                ->prefix('¥')
-                ->live()
-                ->placeholder('0'),
+            TextInput::make('departure_time')
+                ->label('Heure de départ souhaitée')
+                ->placeholder('Ex: 09:30'),
 
-            TextInput::make('selling_price')
-                ->label('Prix de vente des billets (Facial / Revente ¥)')
-                ->numeric()
-                ->prefix('¥')
-                ->live()
-                ->placeholder('0'),
-        ])->columns(2)
+            TextInput::make('arrival_time')
+                ->label('Heure d\'arrivée souhaitée')
+                ->placeholder('Ex: 12:15'),
+
+            TextInput::make('train_number')
+                ->label('N° Train / Bus (Optionnel)')
+                ->placeholder('Ex: Hikari 502 / Voiture 3'),
+        ])->columns(3),
     ]),
                                         // 💡 Affichage du Prix Estimé pour les Transports (Frais fixes + Devis)
                                         Placeholder::make('transport_estimate')

@@ -10,5 +10,6 @@ class Setting extends Model
         'general_cancellation_policy',
         'admin_email_notifications', // 💡 NOUVEAU
         'chat_reminder_hours',       // 💡 NOUVEAU
+        'train_ticket_suppliers' => 'array',
     ];
 }

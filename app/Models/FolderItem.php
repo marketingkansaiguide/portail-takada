@@ -604,8 +604,12 @@ class FolderItem extends Model
                                 $oVal = isset($oldCustom[$k]) ? $oldCustom[$k] : 'Vide';
                                 $nVal = isset($newCustom[$k]) ? $newCustom[$k] : 'Vide';
 
-                                if (is_array($oVal)) $oVal = implode(', ', $oVal);
-                                if (is_array($nVal)) $nVal = implode(', ', $nVal);
+                                if (is_array($oVal)) {
+                                    $oVal = json_encode($oVal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                                }
+                                if (is_array($nVal)) {
+                                    $nVal = json_encode($nVal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                                }
 
                                 $oldV = is_bool($oVal) ? ($oVal ? 'Oui' : 'Non') : (string)$oVal;
                                 $newV = is_bool($nVal) ? ($nVal ? 'Oui' : 'Non') : (string)$nVal;
