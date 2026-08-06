@@ -75,6 +75,7 @@ class TransportProductResource extends Resource
                                 ->image()
                                 ->multiple()
                                 ->reorderable()
+                                ->disk('public')
                                 ->directory('products')
                                 ->panelLayout('grid')
                                 ->columnSpanFull()

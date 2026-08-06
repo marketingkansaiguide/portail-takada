@@ -52,7 +52,7 @@
 
     <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
         
-{{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
+        {{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-8">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
                 
@@ -83,12 +83,32 @@
                         </div>
                     </div>
 
-                    {{-- GESTION DES IMAGES AVEC CONVERSION NATIVE STORAGE::URL --}}
+                    {{-- GESTION ULTRA-ROBUSTE DES IMAGES --}}
                     @php 
-                        $rawImages = is_array($product->images) ? $product->images : (json_decode($product->images, true) ?? []);
-                        $images = array_map(function($img) {
-                            return \Illuminate\Support\Facades\Storage::disk('public')->url($img);
-                        }, $rawImages);
+                        $rawImages = $product->images;
+                        if (is_string($rawImages)) {
+                            $decoded = json_decode($rawImages, true);
+                            $rawImages = is_array($decoded) ? $decoded : ($rawImages ? [$rawImages] : []);
+                        }
+                        if (!is_array($rawImages)) {
+                            $rawImages = [];
+                        }
+
+                        $images = [];
+                        foreach ($rawImages as $img) {
+                            if (!$img) continue;
+                            $imgClean = str_replace('\\', '/', trim($img));
+                            if (str_starts_with($imgClean, 'http://') || str_starts_with($imgClean, 'https://')) {
+                                $images[] = $imgClean;
+                            } else {
+                                $imgClean = ltrim($imgClean, '/');
+                                if (str_starts_with($imgClean, 'storage/')) {
+                                    $images[] = asset($imgClean);
+                                } else {
+                                    $images[] = asset('storage/' . $imgClean);
+                                }
+                            }
+                        }
                     @endphp
 
                     @if(count($images) > 0)
@@ -112,7 +132,7 @@
                         </div>
                     @endif
 
-                    {{-- BLOC PRÉSENTATION ET DESCRIPTION AVEC SAUTS DE LIGNE CONSERVÉS --}}
+                    {{-- DESCRIPTIF DU PRODUIT --}}
                     <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <h2 style="font-size: 1.4rem; font-weight: 700; color: #096a61; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
@@ -129,16 +149,16 @@
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-4">
             <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
                 
+                {{-- BLOC 1 : PANNEAU AGENCE PARTEANIRE --}}
                 @if($this->activeAgencyId)
                     <div style="background: white; border-radius: 1.25rem; padding: 1.75rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
-                        {{-- CAS 1 : PRODUIT DE TYPE TRANSPORT --}}
+                        {{-- CAS PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())
                             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                 
-                                {{-- HEADER ITINÉRAIRE MULTI-TRAJETS --}}
                                 <div style="margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
-                                    <h3 style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                    <h3 style="font-size: 0.95rem; font-weight: 800; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
                                         <span style="font-size: 1.1rem;">🚄</span> Itinéraire de Transport (Multi-Trajets)
                                     </h3>
                                     <p style="font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4;">
@@ -151,19 +171,11 @@
                                         @foreach($customValues['transport_routes'] as $index => $route)
                                             <div wire:key="route-step-{{ $index }}" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 1rem; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                                 
-                                                {{-- En-tête de la carte de trajet avec bouton supprimer rouge --}}
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
                                                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                                                         <span style="color: #64748b; font-size: 0.9rem;">⇅</span>
-                                                        <span style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">
-                                                            @if(!empty($route['departure_station']) || !empty($route['arrival_station']))
-                                                                {{ $route['departure_station'] ?: 'Départ' }} ➔ {{ $route['arrival_station'] ?: 'Arrivée' }}
-                                                                @if(!empty($route['departure_date']))
-                                                                    <span style="color: #64748b; font-weight: 500;">({{ $route['departure_date'] }})</span>
-                                                                @endif
-                                                            @else
-                                                                Nouveau trajet
-                                                            @endif
+                                                        <span style="font-size: 0.85rem; font-weight: 800; color: #1e293b;">
+                                                            {{ (!empty($route['departure_station']) || !empty($route['arrival_station'])) ? (($route['departure_station'] ?: 'Départ') . ' ➔ ' . ($route['arrival_station'] ?: 'Arrivée') . (!empty($route['departure_date']) ? ' ('.$route['departure_date'].')' : '')) : 'Nouveau trajet' }}
                                                         </span>
                                                     </div>
                                                     
@@ -174,7 +186,6 @@
                                                     @endif
                                                 </div>
 
-                                                {{-- Ligne 1 : Départ et Arrivée (2 Colonnes) --}}
                                                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 0.85rem;">
                                                     
                                                     {{-- Gare / Station de départ --}}
@@ -291,57 +302,35 @@
 
                                                 </div>
 
-                                                {{-- Ligne 2 : Date, Heure / N° Train ou Bus, Classe / Option, Passagers --}}
                                                 <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem;">
-                                                    
-                                                    {{-- Date du trajet* --}}
                                                     <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            Date du trajet<span style="color: #dc2626;">*</span>
-                                                        </label>
-                                                        <input type="date" 
-                                                               wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" 
-                                                               style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
+                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Date du trajet<span style="color: #dc2626;">*</span></label>
+                                                        <input type="date" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
                                                         @error("customValues.transport_routes.{$index}.departure_date")
                                                             <span style="color: #dc2626; font-size: 0.7rem;">{{ $message }}</span>
                                                         @enderror
                                                     </div>
 
-                                                    {{-- Heure / N° Train ou Bus --}}
                                                     <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            Heure / N° Train ou Bus
-                                                        </label>
-                                                        <input type="text" 
-                                                               wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" 
-                                                               placeholder="Ex: 09:30 / Hikari 502"
-                                                               style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
+                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Heure / N° Train ou Bus</label>
+                                                        <input type="text" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="Ex: 09:30 / Hikari 502" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
                                                     </div>
 
-                                                    {{-- Classe / Option --}}
                                                     <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            Classe / Option
-                                                        </label>
+                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Classe / Option</label>
                                                         <select wire:model.live="customValues.transport_routes.{{ $index }}.option_id" style="width: 100%; padding: 0.45rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; color: #1e293b; font-weight: 600;">
                                                             <option value="">Standard / Sans supplément</option>
                                                             @foreach($product->productOptions as $opt)
                                                                 <option value="{{ $opt->id }}">
-                                                                    {{ $opt->name }} @if(($opt->price_modifier ?? 0) > 0) (+{{ number_format($opt->price_modifier, 0, '.', ' ') }} ¥) @endif
+                                                                    {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}
                                                                 </option>
                                                             @endforeach
                                                         </select>
                                                     </div>
 
-                                                    {{-- Nombre de Passagers* --}}
                                                     <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            Nombre de Passagers<span style="color: #dc2626;">*</span>
-                                                        </label>
-                                                        <input type="number" 
-                                                               min="1"
-                                                               wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" 
-                                                               style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
+                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Nombre de Passagers<span style="color: #dc2626;">*</span></label>
+                                                        <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
                                                     </div>
 
                                                 </div>
@@ -349,7 +338,6 @@
                                         @endforeach
                                     </div>
 
-                                    {{-- Bouton centré : Ajouter un trajet --}}
                                     <div style="text-align: center; margin-top: 1.25rem;">
                                         <button type="button" wire:click="addTransportRoute" style="background: #ffffff; color: #374151; border: 1px solid #d1d5db; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#9ca3af';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#d1d5db';">
                                             Ajouter un trajet
@@ -357,45 +345,38 @@
                                     </div>
                                 @endif
 
-                                {{-- UNIQUE BLOC ESTIMATION DES FRAIS D'ÉMISSION (CONFORME À LA CAPTURE) --}}
-                                @php
-                                    $estimate = $this->getEstimatedPrice();
-                                @endphp
+                                @php $estimate = $this->getEstimatedPrice(); @endphp
                                 <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.75rem; padding: 1.25rem; margin-top: 1.25rem;">
-                                    <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
+                                    <h4 style="font-size: 0.95rem; font-weight: 800; color: #b45309; margin: 0 0 0.75rem 0;">
                                         Estimation de vos frais d'émission :
                                     </h4>
 
                                     <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
-                                        
-                                        {{-- Ligne 1 : Frais de service de l'agence --}}
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span style="color: #78350f; font-weight: 500;">
-                                                • Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} pax total)
+                                                • Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} trajet{{ ($estimate['qty'] ?? 1) > 1 ? 's' : '' }} total)
                                             </span>
-                                            <span style="font-weight: 600; color: #78350f;">
+                                            <span style="font-weight: 800; color: #78350f;">
                                                 {{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥
                                             </span>
                                         </div>
 
-                                        {{-- Ligne 2 : Suppléments Classe / Option si sélectionnés --}}
                                         @if(($estimate['total_options'] ?? 0) > 0)
                                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                                 <span style="color: #096a61; font-weight: 600;">
                                                     • Suppléments classes / options
                                                 </span>
-                                                <span style="font-weight: 600; color: #096a61;">
+                                                <span style="font-weight: 800; color: #096a61;">
                                                     + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
                                                 </span>
                                             </div>
                                         @endif
 
-                                        {{-- Ligne 3 : Prix des billets --}}
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span style="color: #b45309; font-weight: 500;">
                                                 • Prix des billets (Train / Bus)
                                             </span>
-                                            <span style="font-weight: 600; color: #b45309;">
+                                            <span style="font-weight: 800; color: #b45309;">
                                                 Sur devis (Prix coutant)
                                             </span>
                                         </div>
@@ -405,7 +386,7 @@
 
                             </div>
                         @else
-                            {{-- CAS 2 : SELECTION DATE ET PAX POUR PRODUIT STANDARD (NON TRANSPORT) --}}
+                            {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
                             <div style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem; margin-bottom: 1.5rem;">
                                 <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;" 
                                      x-data="{ 
@@ -472,7 +453,7 @@
                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);">
                                             <div @click.away="open = false" style="background: white; border-radius: 1.25rem; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">Sélectionnez une date</h3>
+                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: #1e293b;">Sélectionnez une date</h3>
                                                     <button type="button" @click="open = false" style="background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">
                                                         <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                                     </button>
@@ -529,7 +510,6 @@
                                 </div>
                             </div>
 
-                            {{-- DECLINAISONS ET OPTIONS COMPLEMENTAIRES POUR PRODUITS CLASSIQUES --}}
                             @php
                                 $requiredGrouped = $product->productOptions
                                     ->filter(fn($o) => $o->is_required || !empty($o->group_name))
@@ -564,8 +544,8 @@
                                                     onfocus="this.style.borderColor='#096a61';" onblur="this.style.borderColor='#d1d5db';">
                                                 @foreach($groupOptions as $option)
                                                     @php $isSelected = !empty($selectedOptions[$option->id]['enabled']); @endphp
-                                                    <option value="{{ $option->id }}" @if($isSelected) selected @endif>
-                                                        {{ $option->name }} @if(($option->price_modifier ?? 0) > 0) (+ {{ number_format($option->price_modifier, 0, '.', ' ') }} ¥) @endif
+                                                    <option value="{{ $option->id }}" {{ $isSelected ? 'selected' : '' }}>
+                                                        {{ $option->name }}{{ (($option->price_modifier ?? 0) > 0) ? ' (+ '.number_format($option->price_modifier, 0, '.', ' ').' ¥)' : '' }}
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -600,7 +580,6 @@
                                 </div>
                             @endif
 
-                            {{-- INFORMATIONS LOGISTIQUES REQUISES --}}
                             @if(!empty($product->custom_field_definitions) && count($product->custom_field_definitions) > 0)
                                 @php
                                     $globalFields = [];
@@ -616,7 +595,7 @@
                                 @endphp
 
                                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
+                                    <h4 style="font-size: 0.85rem; font-weight: 800; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
                                     
                                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         
@@ -796,72 +775,72 @@
                                                                                        style="display: none;">
                                                                             </label>
 
-                                                                            @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
-                                                                        </div>
-                                                                    @else
-                                                                        <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                                    @endif
-                                                                    @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
-                                                                </div>
-                                                            @endforeach
-                                                        </div>
-                                                    @endfor
-                                                </div>
+                                                                        @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
+                                                                    </div>
+                                                                @else
+                                                                    <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                @endif
+                                                                @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @endfor
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- RECAPITULATIF DU TARIF POUR PRODUIT STANDARD (NON TRANSPORT) --}}
+                        <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
+                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">Récapitulatif du tarif :</h4>
+                            @php
+                                $estimate = $this->getEstimatedPrice();
+                            @endphp
+
+                            @if($estimate['is_on_demand'])
+                                <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
+                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 800;">⚠️ Tarif sur Devis</h4>
+                                    <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
+                                </div>
+                            @else
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                            Prestation {{ $estimate['has_date'] ? '('.$estimate['qty'].' pax)' : '(À partir de)' }}
+                                        </span>
+                                        <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
+                                    </div>
+
+                                    <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
+                                        @if($estimate['total_options'] > 0)
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Déclinaisons / Options</span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
+                                        @endif
+                                    </div>
+                                    
+                                    <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                                        <span style="font-size: 1rem; font-weight: 800; color: #1e293b; text-transform: uppercase;">Total</span>
+                                        <span style="font-size: 2.25rem; font-weight: 800; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
+                                            {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
+                                        </span>
+                                    </div>
+                                    
+                                    <div style="min-height: {{ $estimate['has_date'] ? '0' : '4rem' }}; transition: min-height 0.2s;">
+                                        @if(!$estimate['has_date'])
+                                            <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
+                                                <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                Veuillez sélectionner une date d'activité pour obtenir le tarif exact.
                                             </div>
                                         @endif
                                     </div>
                                 </div>
                             @endif
-
-                            {{-- RECAPITULATIF DU TARIF POUR PRODUIT STANDARD (NON TRANSPORT) --}}
-                            <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
-                                <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">Récapitulatif du tarif :</h4>
-                                @php
-                                    $estimate = $this->getEstimatedPrice();
-                                @endphp
-
-                                @if($estimate['is_on_demand'])
-                                    <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
-                                        <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ Tarif sur Devis</h4>
-                                        <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
-                                    </div>
-                                @else
-                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
-                                        
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                                Prestation {{ $estimate['has_date'] ? '('.$estimate['qty'].' pax)' : '(À partir de)' }}
-                                            </span>
-                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
-                                        </div>
-
-                                        <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
-                                            @if($estimate['total_options'] > 0)
-                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Déclinaisons / Options</span>
-                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
-                                            @endif
-                                        </div>
-                                        
-                                        <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
-                                        
-                                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                                            <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
-                                            <span style="font-size: 2.25rem; font-weight: 600; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
-                                                {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
-                                            </span>
-                                        </div>
-                                        
-                                        <div style="min-height: {{ $estimate['has_date'] ? '0' : '4rem' }}; transition: min-height 0.2s;">
-                                            @if(!$estimate['has_date'])
-                                                <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
-                                                    <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                    Veuillez sélectionner une date d'activité pour obtenir le tarif exact.
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endif
-                            </div>
+                        </div>
                         @endif
 
                         {{-- DOSSIER ET ACTION --}}
@@ -924,8 +903,10 @@
                         @endif
 
                     </div>
-                
-                @elseif($this->isAdmin)
+                @endif
+
+                {{-- BLOC 2 : VUE ADMINISTRATEUR --}}
+                @if(!$this->activeAgencyId && $this->isAdmin)
                     <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #e0f2fe; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
                         <div style="color: #0284c7; background: #e0f2fe; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #bae6fd;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -933,8 +914,10 @@
                         <h3 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">Vue Administrateur</h3>
                         <p style="color: #475569; font-size: 0.9rem; line-height: 1.6; margin: 0;">Vous explorez le catalogue avec un compte administrateur. Pour utiliser la fonction d'ajout au panier, veuillez vous connecter avec un véritable compte Agence partenaire.</p>
                     </div>
+                @endif
 
-                @else
+                {{-- BLOC 3 : PROMO CONNEXION POUR UTILISATEUR NON-MEMBRE --}}
+                @if(!$this->activeAgencyId && !$this->isAdmin)
                     <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #f1f5f9; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
                         <div style="color: #d97706; background: #fffbeb; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #fde68a;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
@@ -947,6 +930,7 @@
                         </a>
                     </div>
                 @endif
+
             </div>
         </div>
 
