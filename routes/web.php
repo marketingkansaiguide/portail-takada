@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request; // 💡 IMPORT AJOUTÉ POUR LE TÉLÉCHARGEMENT
 use App\Models\Folder;
+use App\Models\FolderItem; // 💡 IMPORT AJOUTÉ POUR LES ÉTIQUETTES DE TRAIN
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ContactController; // 💡 IMPORT AJOUTÉ POUR QUE LA CLASSE SOIT RECONNUE
 
@@ -191,3 +192,11 @@ Route::get('/pdf/labels', function (Illuminate\Http\Request $request) {
 
     return view('pdf.labels', compact('folders'));
 })->name('pdf.labels')->middleware('auth');
+
+Route::get('/pdf/train-labels', function (Request $request) {
+    // On récupère les IDs sélectionnés passés en paramètre
+    $ids = explode(',', $request->get('ids'));
+    $items = FolderItem::with('folder')->whereIn('id', $ids)->get();
+    
+    return view('pdf.train-labels', compact('items'));
+})->name('pdf.train-labels')->middleware('auth');
