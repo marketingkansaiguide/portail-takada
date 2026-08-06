@@ -545,17 +545,20 @@ class AgencyFolderResource extends Resource
                                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
                                                     TextInput::make('departure_time')
-                                                        ->label('Heure / N° Train ou Bus')
-                                                        ->placeholder('Ex: 09:30 / Hikari 502'),
+                                                        ->label('Heure souhaitée de départ')
+                                                        ->placeholder('Ex: 09:30'),
+
+                                                    TextInput::make('train_number')
+                                                        ->label('N° Train ou Bus')
+                                                        ->placeholder('Ex: Hikari 502'),
 
                                                     Select::make('option_id')
                                                         ->label('Classe / Option')
                                                         ->options(function (Get $get, $livewire) {
-                                                            // Le niveau Repeater requiert 2 remontees pour arriver au form racine
                                                             $productId = $get('../../product_id') 
-                                                                      ?? data_get($livewire, 'mountedTableActionData.product_id') 
-                                                                      ?? data_get($livewire, 'mountedActionData.product_id');
-                                                                      
+                                                                    ?? data_get($livewire, 'mountedTableActionData.product_id') 
+                                                                    ?? data_get($livewire, 'mountedActionData.product_id');
+                                                                    
                                                             if (!$productId) return [];
                                                             return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
                                                         })
@@ -569,7 +572,7 @@ class AgencyFolderResource extends Resource
                                                         ->minValue(1)
                                                         ->live()
                                                         ->required(),
-                                                ])->columns(4),
+                                                ])->columns(5),
                                             ]),
 
                                         // 💡 Affichage du Prix Estimé pour les Transports (Frais fixes + Devis)

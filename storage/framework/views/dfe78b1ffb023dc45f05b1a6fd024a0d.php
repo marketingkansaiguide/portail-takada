@@ -2,9 +2,8 @@
 
 $__newAttributes = [];
 $__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames(([
-    'columnSpan' => [],
-    'columnStart' => [],
-    'height' => null,
+    'inlinePrefix' => false,
+    'inlineSuffix' => false,
 ]));
 
 foreach ($attributes->all() as $__key => $__value) {
@@ -21,9 +20,8 @@ unset($__propNames);
 unset($__newAttributes);
 
 foreach (array_filter(([
-    'columnSpan' => [],
-    'columnStart' => [],
-    'height' => null,
+    'inlinePrefix' => false,
+    'inlineSuffix' => false,
 ]), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
     $$__key = $$__key ?? $__value;
 }
@@ -36,11 +34,14 @@ foreach ($attributes->all() as $__key => $__value) {
 
 unset($__defined_vars, $__key, $__value); ?>
 
-<div
-    <?php echo e(($attributes ?? new \Illuminate\View\ComponentAttributeBag)
-            ->gridColumn($columnSpan, $columnStart)
-            ->class(['fi-section fi-loading-section'])
-            ->style(['height: ' . e($height ?? '8rem')])); ?>
+<select
+    <?php echo e($attributes->class([
+            'fi-select-input',
+            'fi-select-input-has-inline-prefix' => $inlinePrefix,
+        ])); ?>
 
-></div>
-<?php /**PATH C:\Users\marke\Herd\portail-takada\vendor\filament\support\resources\views/components/loading-section.blade.php ENDPATH**/ ?>
+>
+    <?php echo e($slot); ?>
+
+</select>
+<?php /**PATH C:\Users\marke\Herd\portail-takada\vendor\filament\support\resources\views/components/input/select.blade.php ENDPATH**/ ?>

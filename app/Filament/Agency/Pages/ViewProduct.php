@@ -12,6 +12,7 @@ use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Panel;
 use BackedEnum;
+use UnitEnum;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
@@ -96,16 +97,19 @@ class ViewProduct extends Page
         }
 
         if ($this->product->product_type === 'transport') {
-            $this->customValues['transport_routes'] = [
-                [
-                    'departure_station' => '',
-                    'arrival_station' => '',
-                    'departure_date' => '',
-                    'departure_time' => '',
-                    'option_id' => null,
-                    'pax_count' => 1,
-                ]
-            ];
+            if (empty($this->customValues['transport_routes'])) {
+                $this->customValues['transport_routes'] = [
+                    [
+                        'departure_station' => '',
+                        'arrival_station' => '',
+                        'departure_date' => now()->format('Y-m-d'),
+                        'departure_time' => '',
+                        'train_number' => '',
+                        'option_id' => null,
+                        'pax_count' => 1,
+                    ]
+                ];
+            }
         } elseif (!empty($this->product->custom_field_definitions)) {
             foreach ($this->product->custom_field_definitions as $def) {
                 $key = !empty($def['key']) ? $def['key'] : Str::slug($def['name'] ?? 'custom', '_');
@@ -128,8 +132,9 @@ class ViewProduct extends Page
         $this->customValues['transport_routes'][] = [
             'departure_station' => '',
             'arrival_station' => '',
-            'departure_date' => '',
+            'departure_date' => now()->format('Y-m-d'),
             'departure_time' => '',
+            'train_number' => '',
             'option_id' => null,
             'pax_count' => 1,
         ];
@@ -141,6 +146,58 @@ class ViewProduct extends Page
             unset($this->customValues['transport_routes'][$index]);
             $this->customValues['transport_routes'] = array_values($this->customValues['transport_routes']);
         }
+    }
+
+    public function getStationMapUrl(?string $stationName): ?string
+    {
+        if (!$stationName) return null;
+
+        $stationNameClean = trim($stationName);
+        
+        $train = TrainStation::where('name_en', $stationNameClean)
+            ->orWhere('name_ja', $stationNameClean)
+            ->first();
+
+        if ($train && !empty($train->google_maps_url)) {
+            return $train->google_maps_url;
+        }
+
+        $bus = BusStation::where('name_en', $stationNameClean)
+            ->orWhere('name_ja', $stationNameClean)
+            ->first();
+
+        if ($bus && !empty($bus->google_maps_url)) {
+            return $bus->google_maps_url;
+        }
+
+        return null;
+    }
+
+    #[Computed]
+    public function stationsList()
+    {
+        $trains = TrainStation::orderBy('importance_score', 'desc')
+            ->orderBy('name_en', 'asc')
+            ->get(['name_en', 'name_ja', 'city', 'prefecture', 'importance_score', 'google_maps_url'])
+            ->map(fn($s) => [
+                'name' => $s->name_en,
+                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->city ? " - {$s->city}" : ($s->prefecture ? " - {$s->prefecture}" : "")),
+                'type' => 'train',
+                'score' => $s->importance_score ?? 10,
+                'maps_url' => $s->google_maps_url
+            ]);
+
+        $buses = BusStation::orderBy('name_en', 'asc')
+            ->get(['name_en', 'name_ja', 'address', 'google_maps_url'])
+            ->map(fn($s) => [
+                'name' => $s->name_en,
+                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->address ? " - {$s->address}" : ""),
+                'type' => 'bus',
+                'score' => 50,
+                'maps_url' => $s->google_maps_url
+            ]);
+
+        return $trains->concat($buses)->sortByDesc('score')->values();
     }
 
     public function selectGroupVariant(string $groupName, $selectedOptionId): void
@@ -423,14 +480,69 @@ class ViewProduct extends Page
         if (!$this->product) return [];
 
         if ($this->product->product_type === 'transport') {
+            $routes = $this->customValues['transport_routes'] ?? [];
+            $totalBase = 0;
+            $totalOptions = 0;
+            $totalPax = 0;
+
+            foreach ($routes as $route) {
+                $pax = intval($route['pax_count'] ?? 1);
+                if ($pax < 1) $pax = 1;
+                $totalPax += $pax;
+                
+                $rDate = $route['departure_date'] ?? null;
+                $mdStr = !empty($rDate) ? \Carbon\Carbon::parse($rDate)->format('m-d') : now()->format('m-d');
+
+                // 1. Calcul des Frais de service / émission Takada définis dans l'Admin pour ce trajet
+                $routeBaseFee = 0;
+                if ($this->product->productPeriods && $this->product->productPeriods->isNotEmpty()) {
+                    foreach ($this->product->productPeriods as $period) {
+                        $inPeriod = true;
+                        if ($period->start_date && $period->end_date) {
+                            $inPeriod = ($period->start_date <= $period->end_date) 
+                                ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
+                                : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                        }
+
+                        if ($inPeriod && $period->productPrices) {
+                            $validPrices = $period->productPrices->where('min_pax', '<=', $pax)->where('max_pax', '>=', $pax);
+                            if ($validPrices->isNotEmpty()) {
+                                $routeBaseFee = $validPrices->first()->price;
+                            } else {
+                                $routeBaseFee = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+                $totalBase += $routeBaseFee;
+
+                // 2. Calcul des suppléments de classe / options pour ce trajet
+                if (!empty($route['option_id'])) {
+                    $opt = $this->product->productOptions->firstWhere('id', (int)$route['option_id']);
+                    if ($opt) {
+                        $mod = (float)($opt->price_modifier ?? 0);
+                        if ($opt->billing_type === 'per_pax') {
+                            $totalOptions += $mod * $pax;
+                        } else {
+                            $totalOptions += $mod;
+                        }
+                    }
+                }
+            }
+
+            $unitFee = $totalPax > 0 ? round($totalBase / $totalPax) : 0;
+            $grandTotal = $totalBase + $totalOptions;
+
             return [
                 'is_on_demand' => true,
                 'has_date' => true,
-                'unit_base' => 0,
-                'total_base' => 0,
-                'total_options' => 0,
-                'grand_total' => 0,
-                'qty' => 1
+                'unit_base' => $unitFee,
+                'total_base' => $totalBase,
+                'total_options' => $totalOptions,
+                'grand_total' => $grandTotal,
+                'qty' => $totalPax,
+                'route_count' => count($routes)
             ];
         }
 
@@ -450,7 +562,7 @@ class ViewProduct extends Page
             
             if ($this->product->productPeriods) {
                 foreach ($this->product->productPeriods as $period) {
-                    $inPeriod = true; // Accepte "Toute l'année" par défaut
+                    $inPeriod = true; 
                     
                     if ($period->start_date && $period->end_date) {
                         $inPeriod = ($period->start_date <= $period->end_date) 
@@ -540,8 +652,8 @@ class ViewProduct extends Page
             $messages = [
                 'selectedFolderId.required' => 'Veuillez sélectionner un dossier de voyage.',
                 'customValues.transport_routes.required' => 'Au moins un trajet est requis.',
-                'customValues.transport_routes.*.departure_station.required' => 'La gare de départ est obligatoire.',
-                'customValues.transport_routes.*.arrival_station.required' => 'La gare d\'arrivée est obligatoire.',
+                'customValues.transport_routes.*.departure_station.required' => 'Le point de départ est obligatoire.',
+                'customValues.transport_routes.*.arrival_station.required' => 'Le point d\'arrivée est obligatoire.',
                 'customValues.transport_routes.*.departure_date.required' => 'La date du trajet est obligatoire.',
                 'customValues.transport_routes.*.pax_count.required' => 'Le nombre de passagers est requis.',
             ];
@@ -575,7 +687,7 @@ class ViewProduct extends Page
                 'selected_options' => [],
                 'custom_values' => ['transport_routes' => $routes],
                 'item_status_id' => $status->id,
-                'unit_price' => 0,
+                'unit_price' => 0,                            
                 'total_price' => 0,
             ]);
 
@@ -588,8 +700,8 @@ class ViewProduct extends Page
             }
 
             Notification::make()
-                ->title('Demande de transport ajoutée au dossier !')
-                ->body('Vos trajets de transport ont été enregistrés avec le statut "En attente de validation".')
+                ->title('Demande de trajet ajoutée au dossier !')
+                ->body('Vos trajets ont été enregistrés. Notre équipe va établir l\'itinéraire optimal.')
                 ->success()
                 ->send();
 
