@@ -19,6 +19,7 @@ class Product extends Model
         'is_on_demand' => 'boolean',
         'is_public' => 'boolean',
         'supplier_fax_header' => 'array',
+        'transport_routes' => 'array',
     ];
 
     public function isTransport(): bool

@@ -1271,7 +1271,7 @@ public static function updateItemPrices($set, $get)
                                                     ->schema([
                                                         Repeater::make('transport_routes')
                                                             ->hiddenLabel()
-                                                            ->addActionLabel(__('Ajouter un trajet (Étape)'))
+                                                            ->addActionLabel(__('Ajouter un trajet'))
                                                             ->itemLabel(fn (array $state): ?string => 
                                                                 (!empty($state['departure_station']) && !empty($state['arrival_station']))
                                                                     ? "{$state['departure_station']} ➔ {$state['arrival_station']}" . (!empty($state['departure_date']) ? " ({$state['departure_date']})" : "")
