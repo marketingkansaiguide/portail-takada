@@ -1135,24 +1135,43 @@ Repeater::make('transport_routes')
                                                     $dep = e($r['departure_station'] ?? 'Inconnu');
                                                     $arr = e($r['arrival_station'] ?? 'Inconnu');
                                                     $rDate = !empty($r['departure_date']) ? \Carbon\Carbon::parse($r['departure_date'])->format('d/m/Y') : '---';
-                                                    $rTime = !empty($r['departure_time']) ? ' (' . e($r['departure_time']) . ')' : '';
                                                     $rPax = !empty($r['pax_count']) ? $r['pax_count'] . ' pax' : '1 pax';
 
+                                                    // Horaires
+                                                    $timeDisplay = '';
+                                                    if (!empty($r['departure_time']) && !empty($r['arrival_time'])) {
+                                                        $timeDisplay = " | 🕒 " . e($r['departure_time']) . " ➔ " . e($r['arrival_time']);
+                                                    } elseif (!empty($r['departure_time'])) {
+                                                        $timeDisplay = " | 🕒 " . e($r['departure_time']);
+                                                    }
+
+                                                    // Numéro de train/bus
+                                                    $trainNum = !empty($r['train_number']) ? " | 🎫 " . e($r['train_number']) : '';
+
+                                                    // Option / Classe
                                                     $optName = '';
                                                     if (!empty($r['option_id'])) {
                                                         $optModel = \App\Models\ProductOption::find($r['option_id']);
-                                                        if ($optModel) $optName = " | Classe : " . e($optModel->name);
+                                                        if ($optModel) $optName = " | 💺 " . e($optModel->name);
                                                     }
 
                                                     $num = $idx + 1;
-                                                    $routeLines[] = "• <b>Trajet {$num} :</b> {$dep} ➔ {$arr} | 📅 {$rDate}{$rTime} | 👥 {$rPax}{$optName}";
+                                                    $routeLines[] = "<div style='margin-bottom: 0.6rem;'>
+                                                        <span style='font-weight:700;'>• Trajet {$num} : {$dep} ➔ {$arr}</span><br>
+                                                        <span style='margin-left: 0.8rem; font-size: 0.8rem; opacity: 0.85;'>📅 {$rDate}{$timeDisplay}{$trainNum} | 👥 {$rPax}{$optName}</span>
+                                                    </div>";
                                                 }
                                                 $routesHtml = "
-                                                    <div style='margin-top:0.5rem; padding:0.75rem; background:#f0f9ff; border-radius:0.5rem; border:1px solid #bae6fd; font-size:0.85rem; color:#0369a1; line-height:1.5;'>
-                                                        " . implode('<br>', $routeLines) . "
+                                                    <div style='margin-top:0.5rem; padding:0.75rem; padding-bottom: 0.15rem; background:#f0f9ff; border-radius:0.5rem; border:1px solid #bae6fd; font-size:0.85rem; color:#0369a1; line-height:1.4;'>
+                                                        " . implode('', $routeLines) . "
                                                     </div>
                                                 ";
                                             }
+
+                                            // On définit le texte à afficher selon le statut de la prestation
+                                            $prixSidenote = ($statusName !== 'Confirmé') 
+                                                ? "<span style='font-size:0.85rem; color:#64748b; font-style:italic;'>Prix définitif communiqué après confirmation</span>" 
+                                                : "<div></div>";
 
                                             return new HtmlString("
                                                 <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
@@ -1165,7 +1184,7 @@ Repeater::make('transport_routes')
                                                     </div>
                                                     {$routesHtml}
                                                     <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed #cbd5e1;'>
-                                                        <span style='font-size:0.85rem; color:#64748b; font-style:italic;'>Prix définitif communiqué après confirmation</span>
+                                                        {$prixSidenote}
                                                         <span style='font-size:1.1rem; font-weight:800; color:#096a61;'>" . number_format($item->total_price, 0, '.', ' ') . " ¥</span>
                                                     </div>
                                                 </div>

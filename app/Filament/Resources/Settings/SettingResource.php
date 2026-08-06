@@ -9,6 +9,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -65,6 +66,18 @@ class SettingResource extends Resource
                                 ->minValue(1)
                                 ->suffix('heures')
                                 ->columnSpanFull(),
+                        ]),
+                        
+                    Section::make(__('Configuration des transports'))
+                        ->description(__('Définissez les paramètres liés aux réservations de transport.'))
+                        ->schema([
+                            CheckboxList::make('train_ticket_suppliers')
+                                ->label(__('Fournisseurs de billets de train'))
+                                ->options(\App\Models\Supplier::pluck('name', 'id'))
+                                ->columns(3)
+                                ->gridDirection('row')
+                                ->columnSpanFull()
+                                ->helperText(__('Sélectionnez les fournisseurs (ex: JR, Willer Express) qui gèrent la billetterie de train.')),
                         ]),
                         
                     Section::make(__('Politique d\'annulation globale'))
