@@ -14,6 +14,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\FileUpload;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -54,11 +55,11 @@ class TransportProductResource extends Resource
             ->components([
                 Group::make()->schema([
                     Section::make(__('Présentation du Billet / Transport'))
-                        ->description(__('Renseignez le nom du billet (ex: Billet Shinkansen à l\'unité, Pass Bus...) et la description.'))
+                        ->description(__('Renseignez le nom de la prestation, sa description et ajoutez les visuels.'))
                         ->schema([
                             TextInput::make('name')
                                 ->label(__('Nom du Billet / Prestation'))
-                                ->placeholder(__('Ex: Billet Shinkansen (Train) à l\'unité'))
+                                ->placeholder(__('Ex: Billet de train / bus à l\'unité'))
                                 ->required()
                                 ->columnSpanFull(),
 
@@ -68,163 +69,20 @@ class TransportProductResource extends Resource
                                 ->rows(4)
                                 ->columnSpanFull(),
 
-                            // --- BLOC RÉPÉTEUR : TRAJETS (COMME CÔTÉ AGENCE) ---
-                            Repeater::make('transport_routes')
-                                ->label('Trajets du billet (Étapes)')
-                                ->addActionLabel('Ajouter un trajet (Étape)')
-                                ->itemLabel(fn (array $state): ?string => 
-                                    (!empty($state['departure_station']) && !empty($state['arrival_station']))
-                                        ? "{$state['departure_station']} ➔ {$state['arrival_station']}"
-                                        : 'Nouveau trajet'
-                                )
-                                ->collapsible()
-                                ->defaultItems(1)
+                            // Visuels du produit
+                            FileUpload::make('images')
+                                ->label(__('Photos / Visuels du produit'))
+                                ->image()
+                                ->multiple()
+                                ->reorderable()
+                                ->directory('products')
+                                ->panelLayout('grid')
                                 ->columnSpanFull()
-                                ->schema([
-                                    Group::make()->schema([
-                                        Select::make('departure_station')
-                                            ->label('Gare / Station de départ')
-                                            ->searchable()
-                                            ->live()
-                                            ->placeholder('Rechercher gare ou station...')
-                                            ->getSearchResultsUsing(function (string $search): array {
-                                                $trains = \App\Models\TrainStation::where(function($q) use ($search) {
-                                                        $q->where('name_en', 'like', "%{$search}%")
-                                                          ->orWhere('name_ja', 'like', "%{$search}%")
-                                                          ->orWhere('name_kana', 'like', "%{$search}%")
-                                                          ->orWhere('prefecture', 'like', "%{$search}%")
-                                                          ->orWhere('city', 'like', "%{$search}%")
-                                                          ->orWhere('aliases', 'like', "%{$search}%");
-                                                    })
-                                                    ->orderBy('importance_score', 'desc')
-                                                    ->orderBy('name_en', 'asc')
-                                                    ->limit(15)
-                                                    ->get()
-                                                    ->map(function ($s) {
-                                                        $location = $s->city ?: $s->prefecture;
-                                                        $locationSuffix = $location ? " - {$location}" : "";
-                                                        return [
-                                                            'id' => $s->name_en,
-                                                            'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . $locationSuffix,
-                                                            'score' => $s->importance_score ?? 10
-                                                        ];
-                                                    });
-
-                                                $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
-                                                    ->orWhere('name_ja', 'like', "%{$search}%")
-                                                    ->orWhere('address', 'like', "%{$search}%")
-                                                    ->limit(10)
-                                                    ->get()
-                                                    ->map(function ($s) {
-                                                        return [
-                                                            'id' => $s->name_en,
-                                                            'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                                                            'score' => 90
-                                                        ];
-                                                    });
-
-                                                return $trains->concat($buses)
-                                                    ->sortByDesc('score')
-                                                    ->take(15)
-                                                    ->pluck('label', 'id')
-                                                    ->toArray();
-                                            })
-                                            ->getOptionLabelUsing(function ($value) {
-                                                $station = \App\Models\TrainStation::where('name_en', $value)->first() ?? \App\Models\BusStation::where('name_en', $value)->first();
-                                                if ($station) {
-                                                    $type = $station instanceof \App\Models\TrainStation ? '🚆' : '🚌 [Bus]';
-                                                    $locationSuffix = ($station instanceof \App\Models\TrainStation && $station->city) ? " - {$station->city}" : "";
-                                                    return "{$type} {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix;
-                                                }
-                                                return $value;
-                                            })
-                                            ->helperText(function ($get) {
-                                                $stationName = $get('departure_station');
-                                                if (!$stationName) return null;
-                                                
-                                                $station = \App\Models\TrainStation::where('name_en', $stationName)->first() 
-                                                        ?? \App\Models\BusStation::where('name_en', $stationName)->first();
-                                                        
-                                                if ($station && !empty($station->google_maps_url)) {
-                                                    return new \Illuminate\Support\HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
-                                                }
-                                                return null;
-                                            }),
-
-                                        Select::make('arrival_station')
-                                            ->label('Gare / Station d\'arrivée')
-                                            ->searchable()
-                                            ->live()
-                                            ->placeholder('Rechercher gare ou station...')
-                                            ->getSearchResultsUsing(function (string $search): array {
-                                                $trains = \App\Models\TrainStation::where(function($q) use ($search) {
-                                                        $q->where('name_en', 'like', "%{$search}%")
-                                                          ->orWhere('name_ja', 'like', "%{$search}%")
-                                                          ->orWhere('name_kana', 'like', "%{$search}%")
-                                                          ->orWhere('prefecture', 'like', "%{$search}%")
-                                                          ->orWhere('city', 'like', "%{$search}%")
-                                                          ->orWhere('aliases', 'like', "%{$search}%");
-                                                    })
-                                                    ->orderBy('importance_score', 'desc')
-                                                    ->orderBy('name_en', 'asc')
-                                                    ->limit(15)
-                                                    ->get()
-                                                    ->map(function ($s) {
-                                                        $location = $s->city ?: $s->prefecture;
-                                                        $locationSuffix = $location ? " - {$location}" : "";
-                                                        return [
-                                                            'id' => $s->name_en,
-                                                            'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . $locationSuffix,
-                                                            'score' => $s->importance_score ?? 10
-                                                        ];
-                                                    });
-
-                                                $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
-                                                    ->orWhere('name_ja', 'like', "%{$search}%")
-                                                    ->orWhere('address', 'like', "%{$search}%")
-                                                    ->limit(10)
-                                                    ->get()
-                                                    ->map(function ($s) {
-                                                        return [
-                                                            'id' => $s->name_en,
-                                                            'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                                                            'score' => 90
-                                                        ];
-                                                    });
-
-                                                return $trains->concat($buses)
-                                                    ->sortByDesc('score')
-                                                    ->take(15)
-                                                    ->pluck('label', 'id')
-                                                    ->toArray();
-                                            })
-                                            ->getOptionLabelUsing(function ($value) {
-                                                $station = \App\Models\TrainStation::where('name_en', $value)->first() ?? \App\Models\BusStation::where('name_en', $value)->first();
-                                                if ($station) {
-                                                    $type = $station instanceof \App\Models\TrainStation ? '🚆' : '🚌 [Bus]';
-                                                    $locationSuffix = ($station instanceof \App\Models\TrainStation && $station->city) ? " - {$station->city}" : "";
-                                                    return "{$type} {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix;
-                                                }
-                                                return $value;
-                                            })
-                                            ->helperText(function ($get) {
-                                                $stationName = $get('arrival_station');
-                                                if (!$stationName) return null;
-                                                
-                                                $station = \App\Models\TrainStation::where('name_en', $stationName)->first() 
-                                                        ?? \App\Models\BusStation::where('name_en', $stationName)->first();
-                                                        
-                                                if ($station && !empty($station->google_maps_url)) {
-                                                    return new \Illuminate\Support\HtmlString("<a href='{$station->google_maps_url}' target='_blank' style='color: #2563eb; text-decoration: underline; font-size: 0.8rem; display: flex; align-items: center; gap: 4px; margin-top: 4px;'><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor' style='width: 14px; height: 14px;'><path fill-rule='evenodd' d='M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.976.544l.062.029.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z' clip-rule='evenodd' /></svg> Voir sur Google Maps</a>");
-                                                }
-                                                return null;
-                                            }),
-                                    ])->columns(2),
-                                ]),
+                                ->helperText(__('Vous pouvez ajouter plusieurs images et les réorganiser par glisser-déposer.')),
                         ]),
 
                     Section::make(__('Classes & Options de transport'))
-                        ->description(__('Définissez les classes ou options disponibles (ex: Voiture Standard, Green Car, Gran Class, Siege Réservé...).'))
+                        ->description(__('Définissez les classes ou options sélectionnables par l\'agence pour ses trajets (ex: Voiture Standard, Green Car, Gran Class...).'))
                         ->schema([
                             Repeater::make('productOptions')
                                 ->relationship()
@@ -271,7 +129,7 @@ class TransportProductResource extends Resource
                         ]),
 
                     Section::make(__('Frais de Réservation / Émission'))
-                        ->description(__('Grille tarifaire des frais fixes/frais d\'émission Takada.'))
+                        ->description(__('Grille tarifaire des frais de service / émission Takada.'))
                         ->schema([
                             Repeater::make('productPeriods')
                                 ->relationship()
@@ -328,6 +186,12 @@ class TransportProductResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('images')
+                    ->label(__('Visuel'))
+                    ->circular()
+                    ->stacked()
+                    ->limit(2),
+
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('Billet / Transport'))
                     ->searchable()

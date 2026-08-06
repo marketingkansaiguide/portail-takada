@@ -52,7 +52,7 @@
 
     <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
         
-        {{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
+{{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
         <div style="grid-column: span 12 / span 12;" class="xl:col-span-8">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
                 
@@ -83,18 +83,24 @@
                         </div>
                     </div>
 
-                    @php $images = is_array($product->images) ? $product->images : []; @endphp
+                    {{-- GESTION DES IMAGES AVEC CONVERSION NATIVE STORAGE::URL --}}
+                    @php 
+                        $rawImages = is_array($product->images) ? $product->images : (json_decode($product->images, true) ?? []);
+                        $images = array_map(function($img) {
+                            return \Illuminate\Support\Facades\Storage::disk('public')->url($img);
+                        }, $rawImages);
+                    @endphp
 
                     @if(count($images) > 0)
-                        <div x-data="{ mainImage: '{{ asset('storage/' . $images[0]) }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div x-data="{ mainImage: '{{ $images[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
                             <div style="border-radius: 1.25rem; overflow: hidden; height: 540px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
-                                <img :src="mainImage" src="{{ asset('storage/' . $images[0]) }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
+                                <img :src="mainImage" src="{{ $images[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
                             </div>
                             @if(count($images) > 1)
                                 <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
-                                    @foreach($images as $img)
-                                        <div @click="mainImage = '{{ asset('storage/' . $img) }}'" class="gallery-thumb" :class="{ 'active': mainImage === '{{ asset('storage/' . $img) }}' }">
-                                            <img src="{{ asset('storage/' . $img) }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                    @foreach($images as $imgUrl)
+                                        <div @click="mainImage = '{{ $imgUrl }}'" class="gallery-thumb" :class="{ 'active': mainImage === '{{ $imgUrl }}' }">
+                                            <img src="{{ $imgUrl }}" style="width: 100%; height: 100%; object-fit: cover;">
                                         </div>
                                     @endforeach
                                 </div>
@@ -106,14 +112,13 @@
                         </div>
                     @endif
 
+                    {{-- BLOC PRÉSENTATION ET DESCRIPTION AVEC SAUTS DE LIGNE CONSERVÉS --}}
                     <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <h2 style="font-size: 1.4rem; font-weight: 700; color: #096a61; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
                             Présentation de la prestation
                         </h2>
-                        <div style="color: #475569; line-height: 1.8; font-size: 1.05rem;">
-                            {!! $product->description !!}
-                        </div>
+                        <div style="color: #475569; line-height: 1.8; font-size: 1.05rem; white-space: pre-line;">{!! nl2br(e($product->description)) !!}</div>
                     </div>
 
                 </div>
@@ -127,7 +132,7 @@
                 @if($this->activeAgencyId)
                     <div style="background: white; border-radius: 1.25rem; padding: 1.75rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
-                        {{-- PRODUIT DE TYPE TRANSPORT : MODULE DES TRAJETS COMPACT ET IDENTIQUE AU DOSSIER --}}
+                        {{-- CAS 1 : PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())
                             <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                 
@@ -286,8 +291,8 @@
 
                                                 </div>
 
-                                                {{-- Ligne 2 : Date, Heure souhaitée de départ, N° Train ou Bus, Classe / Option, Passagers --}}
-                                                <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem;">
+                                                {{-- Ligne 2 : Date, Heure / N° Train ou Bus, Classe / Option, Passagers --}}
+                                                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem;">
                                                     
                                                     {{-- Date du trajet* --}}
                                                     <div>
@@ -302,24 +307,14 @@
                                                         @enderror
                                                     </div>
 
-                                                    {{-- Heure souhaitée de départ --}}
+                                                    {{-- Heure / N° Train ou Bus --}}
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            Heure souhaitée de départ
-                                                        </label>
-                                                        <input type="time" 
-                                                               wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" 
-                                                               style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
-                                                    </div>
-
-                                                    {{-- N° Train ou Bus --}}
-                                                    <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
-                                                            N° Train ou Bus
+                                                            Heure / N° Train ou Bus
                                                         </label>
                                                         <input type="text" 
-                                                               wire:model.live="customValues.transport_routes.{{ $index }}.train_number" 
-                                                               placeholder="Ex: Hikari 502"
+                                                               wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" 
+                                                               placeholder="Ex: 09:30 / Hikari 502"
                                                                style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
                                                     </div>
 
@@ -339,7 +334,7 @@
                                                     </div>
 
                                                     {{-- Nombre de Passagers* --}}
-                                                    <div style="grid-column: span 2 / span 2;">
+                                                    <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">
                                                             Nombre de Passagers<span style="color: #dc2626;">*</span>
                                                         </label>
@@ -362,7 +357,7 @@
                                     </div>
                                 @endif
 
-                                {{-- BLOC ESTIMATION DES FRAIS D'ÉMISSION (IDENTIQUE À LA CAPTURE DU DOSSIER AGENCE) --}}
+                                {{-- UNIQUE BLOC ESTIMATION DES FRAIS D'ÉMISSION (CONFORME À LA CAPTURE) --}}
                                 @php
                                     $estimate = $this->getEstimatedPrice();
                                 @endphp
@@ -410,7 +405,7 @@
 
                             </div>
                         @else
-                            {{-- SELECTION DATE ET PAX POUR PRODUIT STANDARD (NON TRANSPORT) --}}
+                            {{-- CAS 2 : SELECTION DATE ET PAX POUR PRODUIT STANDARD (NON TRANSPORT) --}}
                             <div style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem; margin-bottom: 1.5rem;">
                                 <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;" 
                                      x-data="{ 
@@ -604,311 +599,270 @@
                                     </div>
                                 </div>
                             @endif
-                        @endif
 
-                        {{-- INFORMATIONS LOGISTIQUES REQUISES (SI PRODUIT NON-TRANSPORT) --}}
-                        @if(!$product->isTransport() && !empty($product->custom_field_definitions) && count($product->custom_field_definitions) > 0)
-                            @php
-                                $globalFields = [];
-                                $paxFields = [];
-                                foreach($product->custom_field_definitions as $def) {
-                                    if ($def['is_per_passenger'] ?? false) {
-                                        $paxFields[] = $def;
-                                    } else {
-                                        $globalFields[] = $def;
+                            {{-- INFORMATIONS LOGISTIQUES REQUISES --}}
+                            @if(!empty($product->custom_field_definitions) && count($product->custom_field_definitions) > 0)
+                                @php
+                                    $globalFields = [];
+                                    $paxFields = [];
+                                    foreach($product->custom_field_definitions as $def) {
+                                        if ($def['is_per_passenger'] ?? false) {
+                                            $paxFields[] = $def;
+                                        } else {
+                                            $globalFields[] = $def;
+                                        }
                                     }
-                                }
-                                $qty = intval($quantity) > 0 ? intval($quantity) : 1;
-                            @endphp
+                                    $qty = intval($quantity) > 0 ? intval($quantity) : 1;
+                                @endphp
 
-                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
-                                <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
-                                
-                                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
+                                    <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
                                     
-                                    @if(count($globalFields) > 0)
-                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
-                                            @foreach($globalFields as $def)
-                                                @php 
-                                                    $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
-                                                    $isRequired = $def['is_required'] ?? false;
-                                                    $modelKey = "customValues.{$key}";
-                                                @endphp
-                                                <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
-                                                    <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
-                                                        {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
-                                                    </label>
-
-                                                    @if($def['type'] === 'textarea')
-                                                        <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
-                                                    @elseif($def['type'] === 'select')
-                                                        <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
-                                                            <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
-                                                            @foreach($def['choices'] ?? [] as $choice)
-                                                                <option value="{{ $choice }}">{{ $choice }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    @elseif($def['type'] === 'date')
-                                                        <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                    @elseif($def['type'] === 'number')
-                                                        <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                    @elseif($def['type'] === 'toggle')
-                                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
-                                                            <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:#096a61;">
-                                                            <label for="check_global_{{ $key }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
-                                                        </div>
-                                                    @elseif($def['type'] === 'file')
-                                                        <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
-                                                             x-on:livewire-upload-start="isUploading = true"
-                                                             x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
-                                                             x-on:livewire-upload-error="isUploading = false"
-                                                             style="position: relative; margin-top: 0.25rem;">
-
-                                                            <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
-                                                                   onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
-                                                                   onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
-
-                                                                <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
-                                                                    <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                                                    </svg>
-                                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez un fichier ici</span>
-                                                                    <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
-                                                                </div>
-
-                                                                <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
-                                                                    <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
-                                                                        <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                        <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
-                                                                    <span>Transfert en cours...</span>
-                                                                </div>
-
-                                                                <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
-                                                                    <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                                    </svg>
-                                                                    <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
-                                                                </div>
-
-                                                                <input type="file"
-                                                                       wire:model="{{ $modelKey }}"
-                                                                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                                       x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
-                                                                       style="display: none;">
-                                                            </label>
-
-                                                            @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
-                                                        </div>
-                                                    @else
-                                                        <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                    @endif
-                                                    @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-
-                                    @if(count($paxFields) > 0)
-                                        @if(count($globalFields) > 0)
-                                            <div style="height: 1px; background: #e2e8f0; margin: 0.25rem 0;"></div>
-                                        @endif
+                                    <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         
-                                        <div x-data="{ activeTab: 0 }" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                            
-                                            <div class="pax-tabs-row" style="display: flex; gap: 0.4rem; overflow-x: auto; padding: 2px 0;">
-                                                @for($i = 0; $i < $qty; $i++)
-                                                    <button type="button" 
-                                                            @click="activeTab = {{ $i }}" 
-                                                            class="pax-tab-item"
-                                                            :class="{ 'pax-tab-item-active': activeTab === {{ $i }} }">
-                                                        <svg width="14" height="14" style="width: 14px !important; height: 14px !important; flex-shrink: 0 !important; opacity: 0.75; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                                        <span>Pax {{ $i + 1 }}</span>
-                                                    </button>
-                                                @endfor
-                                            </div>
+                                        @if(count($globalFields) > 0)
+                                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+                                                @foreach($globalFields as $def)
+                                                    @php 
+                                                        $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
+                                                        $isRequired = $def['is_required'] ?? false;
+                                                        $modelKey = "customValues.{$key}";
+                                                    @endphp
+                                                    <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                        <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
+                                                            {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
+                                                        </label>
 
-                                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
-                                                @for($i = 0; $i < $qty; $i++)
-                                                    <div x-show="activeTab === {{ $i }}" style="display:none; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;" :style="activeTab === {{ $i }} ? 'display:grid;' : 'display:none;'">
-                                                        @foreach($paxFields as $def)
-                                                            @php 
-                                                                $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
-                                                                $isRequired = $def['is_required'] ?? false;
-                                                                $modelKey = "customValues.{$key}.{$i}";
-                                                            @endphp
-                                                            
-                                                            <div wire:key="field-{{ $key }}-{{ $i }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
-                                                                <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
-                                                                    {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
+                                                        @if($def['type'] === 'textarea')
+                                                            <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
+                                                        @elseif($def['type'] === 'select')
+                                                            <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
+                                                                <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
+                                                                @foreach($def['choices'] ?? [] as $choice)
+                                                                    <option value="{{ $choice }}">{{ $choice }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        @elseif($def['type'] === 'date')
+                                                            <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                        @elseif($def['type'] === 'number')
+                                                            <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                        @elseif($def['type'] === 'toggle')
+                                                            <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
+                                                                <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:#096a61;">
+                                                                <label for="check_global_{{ $key }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
+                                                            </div>
+                                                        @elseif($def['type'] === 'file')
+                                                            <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
+                                                                 x-on:livewire-upload-start="isUploading = true"
+                                                                 x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
+                                                                 x-on:livewire-upload-error="isUploading = false"
+                                                                 style="position: relative; margin-top: 0.25rem;">
+
+                                                                <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                       onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                       onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
+
+                                                                    <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
+                                                                        <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                                        </svg>
+                                                                        <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez un fichier ici</span>
+                                                                        <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
+                                                                    </div>
+
+                                                                    <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                        <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
+                                                                            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                        </svg>
+                                                                        <span>Transfert en cours...</span>
+                                                                    </div>
+
+                                                                    <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
+                                                                        <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                        <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                                    </div>
+
+                                                                    <input type="file"
+                                                                           wire:model="{{ $modelKey }}"
+                                                                           accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                                           x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                                                           style="display: none;">
                                                                 </label>
 
-                                                                @if($def['type'] === 'textarea')
-                                                                    <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
-                                                                @elseif($def['type'] === 'select')
-                                                                    <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
-                                                                        <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
-                                                                        @foreach($def['choices'] ?? [] as $choice)
-                                                                            <option value="{{ $choice }}">{{ $choice }}</option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                @elseif($def['type'] === 'date')
-                                                                    <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                                @elseif($def['type'] === 'number')
-                                                                    <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                                @elseif($def['type'] === 'toggle')
-                                                                    <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
-                                                                        <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:#096a61;">
-                                                                        <label for="check_pax_{{ $key }}_{{ $i }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
-                                                                    </div>
-                                                                @elseif($def['type'] === 'file')
-                                                                    <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
-                                                                         x-on:livewire-upload-start="isUploading = true"
-                                                                         x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
-                                                                         x-on:livewire-upload-error="isUploading = false"
-                                                                         style="position: relative; margin-top: 0.25rem;">
-
-                                                                        <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
-                                                                               onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
-                                                                               onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
-
-                                                                            <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
-                                                                                <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                                                                </svg>
-                                                                                <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez le document du Pax {{ $i + 1 }}</span>
-                                                                                <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
-                                                                            </div>
-
-                                                                            <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
-                                                                                <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
-                                                                                    <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                                    <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                                </svg>
-                                                                                <span>Transfert en cours...</span>
-                                                                            </div>
-
-                                                                            <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
-                                                                                <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                                                                </svg>
-                                                                                <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
-                                                                            </div>
-
-                                                                            <input type="file"
-                                                                                   wire:model="{{ $modelKey }}"
-                                                                                   accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                                                                                   x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
-                                                                                   style="display: none;">
-                                                                        </label>
-
-                                                                        @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
-                                                                    </div>
-                                                                @else
-                                                                    <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
-                                                                @endif
-                                                                @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
+                                                                @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
                                                             </div>
-                                                        @endforeach
+                                                        @else
+                                                            <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                        @endif
+                                                        @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
                                                     </div>
-                                                @endfor
-                                            </div>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        @endif
-
-                        {{-- RECAPITULATIF DU TARIF DYNAMIQUE IDENTIQUE AU DOSSIER --}}
-                        <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
-                            @php
-                                $estimate = $this->getEstimatedPrice();
-                            @endphp
-
-                            @if($product->isTransport())
-                                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.75rem; padding: 1.25rem;">
-                                    <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
-                                        Estimation de vos frais d'émission :
-                                    </h4>
-
-                                    <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
-                                        
-                                        {{-- Ligne 1 : Frais de service de l'agence --}}
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="color: #78350f; font-weight: 500;">
-                                                • Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} pax total)
-                                            </span>
-                                            <span style="font-weight: 600; color: #78350f;">
-                                                {{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥
-                                            </span>
-                                        </div>
-
-                                        {{-- Ligne 2 : Suppléments Classe / Option si sélectionnés --}}
-                                        @if(($estimate['total_options'] ?? 0) > 0)
-                                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                <span style="color: #096a61; font-weight: 600;">
-                                                    • Suppléments classes / options
-                                                </span>
-                                                <span style="font-weight: 600; color: #096a61;">
-                                                    + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
-                                                </span>
+                                                @endforeach
                                             </div>
                                         @endif
 
-                                        {{-- Ligne 3 : Prix des billets --}}
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="color: #b45309; font-weight: 500;">
-                                                • Prix des billets (Train / Bus)
-                                            </span>
-                                            <span style="font-weight: 600; color: #b45309;">
-                                                Sur devis (Prix coutant)
-                                            </span>
-                                        </div>
+                                        @if(count($paxFields) > 0)
+                                            @if(count($globalFields) > 0)
+                                                <div style="height: 1px; background: #e2e8f0; margin: 0.25rem 0;"></div>
+                                            @endif
+                                            
+                                            <div x-data="{ activeTab: 0 }" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                                
+                                                <div class="pax-tabs-row" style="display: flex; gap: 0.4rem; overflow-x: auto; padding: 2px 0;">
+                                                    @for($i = 0; $i < $qty; $i++)
+                                                        <button type="button" 
+                                                                @click="activeTab = {{ $i }}" 
+                                                                class="pax-tab-item"
+                                                                :class="{ 'pax-tab-item-active': activeTab === {{ $i }} }">
+                                                            <svg width="14" height="14" style="width: 14px !important; height: 14px !important; flex-shrink: 0 !important; opacity: 0.75; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                            <span>Pax {{ $i + 1 }}</span>
+                                                        </button>
+                                                    @endfor
+                                                </div>
 
-                                    </div>
-                                </div>
-                            @elseif($estimate['is_on_demand'])
-                                <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
-                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 800;">⚠️ Tarif sur Devis</h4>
-                                    <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
-                                </div>
-                            @else
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
-                                    
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                        <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                            Prestation {{ $estimate['has_date'] ? '('.$estimate['qty'].' pax)' : '(À partir de)' }}
-                                        </span>
-                                        <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
-                                    </div>
+                                                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
+                                                    @for($i = 0; $i < $qty; $i++)
+                                                        <div x-show="activeTab === {{ $i }}" style="display:none; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;" :style="activeTab === {{ $i }} ? 'display:grid;' : 'display:none;'">
+                                                            @foreach($paxFields as $def)
+                                                                @php 
+                                                                    $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
+                                                                    $isRequired = $def['is_required'] ?? false;
+                                                                    $modelKey = "customValues.{$key}.{$i}";
+                                                                @endphp
+                                                                
+                                                                <div wire:key="field-{{ $key }}-{{ $i }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                                    <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
+                                                                        {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
+                                                                    </label>
 
-                                    <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
-                                        @if($estimate['total_options'] > 0)
-                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Options</span>
-                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
-                                        @endif
-                                    </div>
-                                    
-                                    <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
-                                    
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                                        <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
-                                        <span style="font-size: 2.25rem; font-weight: 600; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
-                                            {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
-                                        </span>
-                                    </div>
-                                    
-                                    <div style="min-height: {{ $estimate['has_date'] ? '0' : '4rem' }}; transition: min-height 0.2s;">
-                                        @if(!$estimate['has_date'])
-                                            <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
-                                                <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                Veuillez sélectionner une date d'activité pour obtenir le tarif exact.
+                                                                    @if($def['type'] === 'textarea')
+                                                                        <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
+                                                                    @elseif($def['type'] === 'select')
+                                                                        <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
+                                                                            <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
+                                                                            @foreach($def['choices'] ?? [] as $choice)
+                                                                                <option value="{{ $choice }}">{{ $choice }}</option>
+                                                                            @endforeach
+                                                                        </select>
+                                                                    @elseif($def['type'] === 'date')
+                                                                        <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    @elseif($def['type'] === 'number')
+                                                                        <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    @elseif($def['type'] === 'toggle')
+                                                                        <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
+                                                                            <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:#096a61;">
+                                                                            <label for="check_pax_{{ $key }}_{{ $i }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
+                                                                        </div>
+                                                                    @elseif($def['type'] === 'file')
+                                                                        <div x-data="{ isUploading: false, isUploaded: false, fileName: '' }"
+                                                                             x-on:livewire-upload-start="isUploading = true"
+                                                                             x-on:livewire-upload-finish="isUploading = false; isUploaded = true"
+                                                                             x-on:livewire-upload-error="isUploading = false"
+                                                                             style="position: relative; margin-top: 0.25rem;">
+
+                                                                            <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                                   onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                                   onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
+
+                                                                                <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
+                                                                                    <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                                                    </svg>
+                                                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez le document du Pax {{ $i + 1 }}</span>
+                                                                                    <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
+                                                                                </div>
+
+                                                                                <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                                    <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
+                                                                                        <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                                        <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                                    </svg>
+                                                                                    <span>Transfert en cours...</span>
+                                                                                </div>
+
+                                                                                <div x-show="isUploaded && !isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #166534; font-size: 0.85rem; font-weight: 700;">
+                                                                                    <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                                    </svg>
+                                                                                    <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                                                </div>
+
+                                                                                <input type="file"
+                                                                                       wire:model="{{ $modelKey }}"
+                                                                                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                                                                                       x-on:change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                                                                                       style="display: none;">
+                                                                            </label>
+
+                                                                            @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
+                                                                        </div>
+                                                                    @else
+                                                                        <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    @endif
+                                                                    @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
+                                                                </div>
+                                                            @endforeach
+                                                        </div>
+                                                    @endfor
+                                                </div>
                                             </div>
                                         @endif
                                     </div>
                                 </div>
                             @endif
-                        </div>
+
+                            {{-- RECAPITULATIF DU TARIF POUR PRODUIT STANDARD (NON TRANSPORT) --}}
+                            <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
+                                <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">Récapitulatif du tarif :</h4>
+                                @php
+                                    $estimate = $this->getEstimatedPrice();
+                                @endphp
+
+                                @if($estimate['is_on_demand'])
+                                    <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
+                                        <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ Tarif sur Devis</h4>
+                                        <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
+                                    </div>
+                                @else
+                                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
+                                        
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                Prestation {{ $estimate['has_date'] ? '('.$estimate['qty'].' pax)' : '(À partir de)' }}
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
+                                        </div>
+
+                                        <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
+                                            @if($estimate['total_options'] > 0)
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Déclinaisons / Options</span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
+                                            @endif
+                                        </div>
+                                        
+                                        <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
+                                        
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                                            <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
+                                            <span style="font-size: 2.25rem; font-weight: 600; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
+                                                {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
+                                            </span>
+                                        </div>
+                                        
+                                        <div style="min-height: {{ $estimate['has_date'] ? '0' : '4rem' }}; transition: min-height 0.2s;">
+                                            @if(!$estimate['has_date'])
+                                                <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
+                                                    <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    Veuillez sélectionner une date d'activité pour obtenir le tarif exact.
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
 
                         {{-- DOSSIER ET ACTION --}}
                         <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
@@ -985,7 +939,7 @@
                         <div style="color: #d97706; background: #fffbeb; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #fde68a;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                         </div>
-                        <h3 style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin: 0 0 0.5rem 0;">Tarifs et Réservations Pro</h3>
+                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">Tarifs et Réservations Pro</h3>
                         <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.75rem 0;">Les grilles tarifaires japonaises (saisonnières/enfants) ainsi que les modules de devis direct sont réservés aux agences de voyages partenaires.</p>
                         
                         <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: #096a61; color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgba(9, 106, 97, 0.2); transition: background 0.2s;" onmouseover="this.style.background='#07534c'" onmouseout="this.style.background='#096a61'">

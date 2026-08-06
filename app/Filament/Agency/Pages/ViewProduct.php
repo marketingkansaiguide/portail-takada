@@ -193,7 +193,7 @@ class ViewProduct extends Page
                 'name' => $s->name_en,
                 'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->address ? " - {$s->address}" : ""),
                 'type' => 'bus',
-                'score' => 50,
+                'score' => 50, // Score d'importance à 50
                 'maps_url' => $s->google_maps_url
             ]);
 
@@ -483,18 +483,19 @@ class ViewProduct extends Page
             $routes = $this->customValues['transport_routes'] ?? [];
             $totalBase = 0;
             $totalOptions = 0;
-            $totalPax = 0;
+            $totalTickets = 0;
+            $unitFeeDisplay = 0;
 
             foreach ($routes as $route) {
                 $pax = intval($route['pax_count'] ?? 1);
                 if ($pax < 1) $pax = 1;
-                $totalPax += $pax;
+                $totalTickets += $pax; // Chaque passager sur un trajet = 1 billet
                 
                 $rDate = $route['departure_date'] ?? null;
                 $mdStr = !empty($rDate) ? \Carbon\Carbon::parse($rDate)->format('m-d') : now()->format('m-d');
 
-                // 1. Calcul des Frais de service / émission Takada définis dans l'Admin pour ce trajet
-                $routeBaseFee = 0;
+                // 1. Calcul des Frais de service / émission Takada par billet pour ce trajet
+                $routeUnitFee = 0;
                 if ($this->product->productPeriods && $this->product->productPeriods->isNotEmpty()) {
                     foreach ($this->product->productPeriods as $period) {
                         $inPeriod = true;
@@ -507,15 +508,21 @@ class ViewProduct extends Page
                         if ($inPeriod && $period->productPrices) {
                             $validPrices = $period->productPrices->where('min_pax', '<=', $pax)->where('max_pax', '>=', $pax);
                             if ($validPrices->isNotEmpty()) {
-                                $routeBaseFee = $validPrices->first()->price;
+                                $routeUnitFee = $validPrices->first()->price;
                             } else {
-                                $routeBaseFee = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
+                                $routeUnitFee = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
                             }
                             break;
                         }
                     }
                 }
-                $totalBase += $routeBaseFee;
+
+                if ($unitFeeDisplay === 0 && $routeUnitFee > 0) {
+                    $unitFeeDisplay = $routeUnitFee;
+                }
+
+                // FRAIS TOTAL DE SERVICE = Frais unitaire x Nombre de passagers (billets) sur ce trajet
+                $totalBase += ($routeUnitFee * $pax);
 
                 // 2. Calcul des suppléments de classe / options pour ce trajet
                 if (!empty($route['option_id'])) {
@@ -531,17 +538,20 @@ class ViewProduct extends Page
                 }
             }
 
-            $unitFee = $totalPax > 0 ? round($totalBase / $totalPax) : 0;
+            if ($unitFeeDisplay === 0 && $totalTickets > 0 && $totalBase > 0) {
+                $unitFeeDisplay = round($totalBase / $totalTickets);
+            }
+
             $grandTotal = $totalBase + $totalOptions;
 
             return [
                 'is_on_demand' => true,
                 'has_date' => true,
-                'unit_base' => $unitFee,
+                'unit_base' => $unitFeeDisplay,
                 'total_base' => $totalBase,
                 'total_options' => $totalOptions,
                 'grand_total' => $grandTotal,
-                'qty' => $totalPax,
+                'qty' => $totalTickets, // Nombre total de billets
                 'route_count' => count($routes)
             ];
         }
