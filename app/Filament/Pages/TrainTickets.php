@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\FolderItem;
+use App\Models\ItemStatus;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -10,9 +11,13 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables;
+use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -28,7 +33,7 @@ class TrainTickets extends Page implements HasTable
     protected string $view = 'filament.pages.train-tickets';
 
     /**
-     * Requête pour cibler les billets de transport (trains) dans les dossiers confirmés
+     * Requête pour cibler les billets de transport (trains)
      */
     public static function getTrainItemsQuery(): Builder
     {
@@ -40,18 +45,17 @@ class TrainTickets extends Page implements HasTable
                 'itemStatus',
                 'supplier',
             ])
-            // 💡 Filtre strict : Dossiers "Confirmés" uniquement (à venir)
             ->whereHas('folder', function (Builder $q) {
                 $q->where('status', 'confirmed');
             })
-            // 💡 Filtre : Produits de type "Transport"
             ->whereHas('product', function (Builder $q) {
                 $q->where('product_type', 'transport');
             })
-            // 💡 Filtre : Prestations dont le statut de la ligne est validé/confirmé
+            // Filtre : "Confirmé", "Validé" ou "Ouverture des réservations"
             ->whereHas('itemStatus', function (Builder $q) {
                 $q->where('name', 'like', '%Confirmé%')
-                  ->orWhere('name', 'like', '%Validé%');
+                  ->orWhere('name', 'like', '%Validé%')
+                  ->orWhere('name', 'like', '%ouverture%'); 
             });
     }
 
@@ -115,7 +119,6 @@ class TrainTickets extends Page implements HasTable
                     ->html()
                     ->getStateUsing(function (FolderItem $record) {
                         $customVals = $record->custom_values ?? [];
-                        // On vient lire dynamiquement le Repeater des trajets
                         if (!is_array($customVals) || empty($customVals['transport_routes'])) {
                             return '<span class="text-gray-500 italic">Aucun trajet défini</span>';
                         }
@@ -138,19 +141,35 @@ class TrainTickets extends Page implements HasTable
                         return implode('', $routesHtml);
                     }),
 
-                Tables\Columns\TextColumn::make('supplier.name')
-                    ->label('Transporteur')
-                    ->searchable()
-                    ->sortable()
-                    ->default('Non défini'),
-
                 Tables\Columns\TextColumn::make('itemStatus.name')
-                    ->label('Statut')
+                    ->label('Statut Presta.')
                     ->badge()
                     ->color(fn (FolderItem $record) => $record->itemStatus?->color ?? 'success')
                     ->sortable(),
+
+                Tables\Columns\TextColumn::make('label_exported_at')
+                    ->label('Statut Étiquette')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? '🏷️ Exportée' : '⏳ Non exportée')
+                    ->color(fn ($state) => $state ? 'success' : 'gray')
+                    ->description(fn (FolderItem $record) => $record->label_exported_at ? 'Le ' . Carbon::parse($record->label_exported_at)->format('d/m/Y à H:i') : null)
+                    ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('label_exported')
+                    ->label('Statut Étiquette')
+                    ->options([
+                        'pending' => '⏳ Non exportée',
+                        'exported' => '🏷️ Exportée',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'pending' => $query->whereNull('label_exported_at'),
+                            'exported' => $query->whereNotNull('label_exported_at'),
+                            default => $query,
+                        };
+                    }),
+
                 Filter::make('service_period')
                     ->form([
                         DatePicker::make('from')->label('Trajet après le'),
@@ -168,17 +187,54 @@ class TrainTickets extends Page implements HasTable
                             );
                     }),
             ])
+            ->recordActions([
+                Action::make('updateStatus')
+                    ->label('Statut')
+                    ->icon('heroicon-o-adjustments-horizontal')
+                    ->color('warning')
+                    ->form([
+                        Select::make('item_status_id')
+                            ->label('Nouveau statut')
+                            ->options(fn () => ItemStatus::pluck('name', 'id'))
+                            ->required()
+                            ->default(fn (FolderItem $record) => $record->item_status_id),
+                    ])
+                    ->action(function (FolderItem $record, array $data) {
+                        $record->item_status_id = $data['item_status_id'];
+                        $record->save();
+                        
+                        Notification::make()->title('Statut mis à jour')->success()->send();
+                    }),
+
+                Action::make('toggleLabelExport')
+                    ->label(fn (FolderItem $record) => $record->label_exported_at ? 'Marquer non exportée' : 'Marquer exportée')
+                    ->icon(fn (FolderItem $record) => $record->label_exported_at ? 'heroicon-o-arrow-path' : 'heroicon-o-check-circle')
+                    ->color(fn (FolderItem $record) => $record->label_exported_at ? 'gray' : 'success')
+                    ->action(function (FolderItem $record) {
+                        $record->label_exported_at = $record->label_exported_at ? null : now();
+                        $record->save();
+                    }),
+
+                Action::make('openFolder')
+                    ->label('Dossier')
+                    ->icon('heroicon-o-folder-open')
+                    ->color('primary')
+                    ->url(fn (FolderItem $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record->folder_id])),
+            ])
             ->bulkActions([
-                // 💡 Action groupée pour l'export des étiquettes (envoi d'IDs multiples)
                 BulkAction::make('export_train_labels')
                     ->label('Imprimer les étiquettes')
                     ->icon('heroicon-o-printer')
                     ->color('success')
                     ->action(function (Collection $records, $livewire) {
+                        $records->each(function ($record) {
+                            $record->label_exported_at = now();
+                            $record->save();
+                        });
+
                         $ids = $records->pluck('id')->implode(',');
                         $url = route('pdf.train-labels', ['ids' => $ids]);
                         
-                        // Ouvre le PDF / Vue d'impression dans un nouvel onglet
                         $livewire->js("window.open('{$url}', '_blank')");
                     }),
             ]);

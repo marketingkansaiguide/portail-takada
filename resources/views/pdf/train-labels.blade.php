@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <title>Étiquettes Billets de Train</title>
     <style>
-        /* Configuration de la page d'impression A4 Portrait */
+        /* Format A4 Portrait selon tes dimensions exactes */
         @page {
             size: A4 portrait;
             margin-top: 18.5mm;
@@ -12,146 +12,273 @@
             margin-left: 19mm;
             margin-right: 19mm;
         }
-        
-        body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: transparent;
-            font-size: 0; /* Annule l'espacement natif HTML entre les blocs inline */
-        }
 
-        *, *::before, *::after {
+        * {
             box-sizing: border-box;
         }
 
-        .label {
-            /* L'utilisation d'inline-flex permet de garder le flux de la grille tout en centrant en interne */
-            display: inline-flex;
+        body {
+            font-family: 'Helvetica', 'Arial', 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+            color: #000000;
+        }
+
+        /* Barre d'actions supérieure (Masquée à l'impression) */
+        .controls-header {
+            background: #ffffff;
+            border-bottom: 1px solid #cccccc;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .btn-print {
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-print:hover {
+            background-color: #333333;
+        }
+
+        .edit-notice {
+            background-color: #f0f0f0;
+            border: 1px solid #cccccc;
+            color: #000000;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* Conteneur d'impression - Format Portrait */
+        .print-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding-bottom: 30px;
+        }
+
+        /* Feuille A4 Portrait (172mm de largeur imprimable) */
+        .page-sheet {
+            width: 172mm; /* Largeur disponible */
+            min-height: 260mm; /* Hauteur disponible approximative */
+            background: #ffffff;
+            /* La grille CSS gère parfaitement le placement mathématique sans espaces inline parasites */
+            display: grid;
+            grid-template-columns: repeat(4, 40mm);
+            grid-auto-rows: 40mm;
+            column-gap: 4mm; /* Écart horizontal demandé */
+            row-gap: 4mm;    /* Écart vertical demandé */
+            page-break-after: always;
+            page-break-inside: avoid;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .page-sheet:last-child {
+            page-break-after: avoid;
+        }
+
+        /* L'étiquette de 40x40mm (centrée mathématiquement sur les deux axes) */
+        .label-card {
+            width: 40mm;
+            height: 40mm;
+            border: 1px dashed #cccccc;
+            padding: 2mm;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
-            
-            width: 40mm;
-            height: 40mm;
-            margin-right: 4mm;
-            margin-bottom: 4mm;
-            padding: 2mm;
-            border: 1px dashed #cbd5e1;
-            border-radius: 2px;
-            vertical-align: top;
-            background-color: #fff;
-            page-break-inside: avoid;
+            background: #ffffff;
+            color: #000000;
         }
 
-        /* Retrait de la marge droite pour la 4ème étiquette de chaque ligne */
-        .label:nth-child(4n) {
-            margin-right: 0;
-        }
-
+        /* Le titre : Nom du dossier */
         .label-title {
-            font-size: 10pt; 
+            font-size: 10pt; /* Police agrandie pour optimiser l'espace */
             font-weight: bold;
-            color: #0f172a;
+            color: #000000;
+            line-height: 1.1;
             margin-bottom: 2mm;
-            line-height: 1.2;
             width: 100%;
+            word-break: break-word; /* Pas de troncature */
         }
 
+        /* La zone de détails */
         .label-info {
-            font-size: 8pt; 
-            color: #334155;
+            font-size: 8pt; /* Police agrandie */
+            color: #333333;
+            line-height: 1.1;
             margin-bottom: 1.5mm;
-            line-height: 1.2;
             width: 100%;
+            word-break: break-word; /* Pas de troncature */
         }
-
+        
         .label-info:last-child {
-            margin-bottom: 0; 
+            margin-bottom: 0;
         }
 
-        .label-info strong {
-            color: #0f172a;
+        /* Les sous-titres (Date, Départ, Arrivée) */
+        .label-subtitle {
+            color: #555555;
             display: block; 
-            font-size: 6.5pt; 
+            font-size: 6pt;
             text-transform: uppercase;
+            font-weight: bold;
             margin-bottom: 0.5mm;
-            /* On s'assure que le titre du champ ne soit pas modifiable par erreur */
-            pointer-events: none; 
+            pointer-events: none; /* Rendu non modifiable */
             user-select: none;
         }
 
-        /* Indication visuelle pour les champs modifiables (écran uniquement) */
+        /* Interaction d'édition à l'écran (reproduit depuis labels.blade.php) */
         [contenteditable="true"] {
-            outline: none;
             border-radius: 2px;
             padding: 1px 2px;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s ease;
+            display: inline-block;
+            width: 100%;
         }
-        [contenteditable="true"]:hover, [contenteditable="true"]:focus {
-            background-color: #f1f5f9;
-            box-shadow: 0 0 0 1px #cbd5e1;
+
+        [contenteditable="true"]:hover {
+            outline: 1px dashed #000000;
+            background-color: #f5f5f5;
             cursor: text;
         }
 
-        /* On cache les effets de survol/focus lors de l'impression */
+        [contenteditable="true"]:focus {
+            outline: 1.5px solid #000000;
+            background-color: #ffffff;
+        }
+
+        /* Impression propre */
         @media print {
-            [contenteditable="true"]:hover, [contenteditable="true"]:focus {
-                background-color: transparent;
+            body {
+                background: white;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-container {
+                padding: 0;
+                gap: 0;
+            }
+
+            .page-sheet {
                 box-shadow: none;
+                margin: 0;
+            }
+
+            .label-card {
+                /* On garde la bordure pointillée pour faciliter la découpe, 
+                   tu peux la passer à 'solid' ou 'transparent' selon ton besoin */
+                border-style: dashed;
+                border-color: #cccccc;
+            }
+
+            [contenteditable="true"]:hover,
+            [contenteditable="true"]:focus {
+                outline: none !important;
+                background-color: transparent !important;
             }
         }
     </style>
 </head>
 <body>
-    @foreach($items as $item)
-        @php
-            $routes = $item->custom_values['transport_routes'] ?? [];
-        @endphp
-        
-        @if(!empty($routes))
-            @foreach($routes as $route)
-                <div class="label">
-                    <div class="label-title" contenteditable="true">{{ $item->folder->folder_name ?? 'Inconnu' }}</div>
-                    <div class="label-info">
-                        <strong>Date du trajet</strong> 
-                        <span contenteditable="true">{{ !empty($route['departure_date']) ? \Carbon\Carbon::parse($route['departure_date'])->format('d/m/Y') : 'À définir' }}</span>
-                    </div>
-                    <div class="label-info">
-                        <strong>Gare de départ</strong> 
-                        <span contenteditable="true">{{ $route['departure_station'] ?? 'N/A' }}</span>
-                    </div>
-                    <div class="label-info">
-                        <strong>Gare d'arrivée</strong> 
-                        <span contenteditable="true">{{ $route['arrival_station'] ?? 'N/A' }}</span>
-                    </div>
-                </div>
-            @endforeach
-        @else
-            <!-- Cas de secours si une prestation train n'a pas de tableau de trajets défini -->
-            <div class="label">
-                <div class="label-title" contenteditable="true">{{ $item->folder->folder_name ?? 'Inconnu' }}</div>
-                <div class="label-info">
-                    <strong>Date du trajet</strong> 
-                    <span contenteditable="true">{{ $item->service_date ? \Carbon\Carbon::parse($item->service_date)->format('d/m/Y') : 'À définir' }}</span>
-                </div>
-                <div class="label-info">
-                    <span contenteditable="true"><em>Aucune gare trouvée</em></span>
-                </div>
-            </div>
-        @endif
-    @endforeach
 
-    <script>
-        // Si vous avez besoin de modifier le texte, annulez simplement 
-        // la boîte de dialogue d'impression, modifiez le texte, 
-        // puis refaites Ctrl+P / Cmd+P.
-        window.onload = function() {
-            setTimeout(() => {
-                window.print();
-            }, 300);
-        }
-    </script>
+    <!-- Barre d'actions non imprimable -->
+    <div class="controls-header no-print">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="edit-notice">
+                <strong>Texte modifiable :</strong> Vous pouvez cliquer directement sur les textes ci-dessous pour ajuster vos étiquettes (ex: raccourcir un nom de gare long) avant impression.
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <button onclick="window.print()" class="btn-print">
+                Imprimer la plaquette
+            </button>
+        </div>
+    </div>
+
+    <!-- Conteneur d'impression -->
+    <div class="print-container">
+        {{-- Préparation des données aplaties pour la grille --}}
+        @php
+            $allRoutes = collect();
+            foreach($items as $item) {
+                $routes = $item->custom_values['transport_routes'] ?? [];
+                if(!empty($routes)) {
+                    foreach($routes as $route) {
+                        $allRoutes->push([
+                            'folder_name' => $item->folder->folder_name ?? 'Inconnu',
+                            'date' => !empty($route['departure_date']) ? \Carbon\Carbon::parse($route['departure_date'])->format('d/m/Y') : 'À définir',
+                            'departure' => $route['departure_station'] ?? 'N/A',
+                            'arrival' => $route['arrival_station'] ?? 'N/A'
+                        ]);
+                    }
+                } else {
+                    $allRoutes->push([
+                        'folder_name' => $item->folder->folder_name ?? 'Inconnu',
+                        'date' => $item->service_date ? \Carbon\Carbon::parse($item->service_date)->format('d/m/Y') : 'À définir',
+                        'departure' => 'Aucune gare trouvée',
+                        'arrival' => ''
+                    ]);
+                }
+            }
+            // Avec un format A4 de 4 colonnes, on estime qu'on peut mettre environ 6 lignes (24 étiquettes) par page.
+            // (La hauteur max disponible étant de 260mm / 44mm d'encombrement par ligne = ~5.9 lignes).
+            // Si tu souhaites imprimer plus/moins d'étiquettes par page, modifie le chiffre '24' ci-dessous.
+            $chunks = $allRoutes->chunk(24);
+        @endphp
+
+        @foreach($chunks as $chunk)
+            <div class="page-sheet">
+                @foreach($chunk as $routeData)
+                    <div class="label-card">
+                        
+                        <!-- 1. Nom du dossier -->
+                        <div class="label-title" contenteditable="true">
+                            {{ $routeData['folder_name'] }}
+                        </div>
+                        
+                        <!-- 2. Date -->
+                        <div class="label-info">
+                            <span class="label-subtitle">Date du trajet</span>
+                            <span contenteditable="true">{{ $routeData['date'] }}</span>
+                        </div>
+                        
+                        <!-- 3. Départ -->
+                        <div class="label-info">
+                            <span class="label-subtitle">Gare de départ</span>
+                            <span contenteditable="true">{{ $routeData['departure'] }}</span>
+                        </div>
+                        
+                        <!-- 4. Arrivée (Si renseignée) -->
+                        @if(!empty($routeData['arrival']))
+                            <div class="label-info">
+                                <span class="label-subtitle">Gare d'arrivée</span>
+                                <span contenteditable="true">{{ $routeData['arrival'] }}</span>
+                            </div>
+                        @endif
+
+                    </div>
+                @endforeach
+            </div>
+        @endforeach
+    </div>
+
 </body>
 </html>

@@ -15,6 +15,7 @@ class FolderItem extends Model
         'service_date', 'quantity', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values', 
         'selected_options', 'invoice_received_at', 'google_calendar_event_id',
         'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
+        'label_exported_at',
     ];
 
     protected $casts = [
@@ -24,6 +25,7 @@ class FolderItem extends Model
         'custom_values' => 'array', 'selected_options' => 'array',
         'invoice_received_at' => 'date',
         'is_internal' => 'boolean',
+        'label_exported_at' => 'datetime',
     ];
 
     public function getProductSupplierData()
