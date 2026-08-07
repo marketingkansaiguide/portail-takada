@@ -11,7 +11,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables;
-use Filament\Actions\BulkAction;
+use Filament\Tables\Actions\BulkAction; 
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\DatePicker;
@@ -32,27 +32,47 @@ class IwaOrders extends Page implements HasTable
 
     protected string $view = 'filament.pages.train-tickets'; 
 
+    /**
+     * LOGIQUE INFAILLIBLE : On détecte d'abord les prestations, puis on boucle sur les trajets en PHP.
+     */
     public static function getIwaItemsQuery(): Builder
     {
-        return FolderItem::query()
-            ->with([
-                'folder.agency',
-                'folder.folderPassengers',
-                'product',
-                'itemStatus',
-            ])
+        // 1. On récupère les items avec le statut 1 (sans filtrer par product_type pour éviter les faux négatifs)
+        $potentialItems = FolderItem::query()
             ->whereHas('folder', function (Builder $q) {
-                // Le dossier ne doit être ni en brouillon, ni annulé
                 $q->whereNotIn('status', ['draft', 'cancelled']);
             })
-            // 💡 Filtre strict : Statut ID 1 (En attente d'ouverture des réservations)
             ->where('item_status_id', 1)
-            // 💡 TOLÉRANCE DE DONNÉES : On cherche le fournisseur IWA (ID 4) à la racine OU dans le JSON
-            ->where(function (Builder $q) {
-                $q->where('supplier_id', 4)
-                  ->orWhere('custom_values', 'LIKE', '%"supplier_id":"4"%')
-                  ->orWhere('custom_values', 'LIKE', '%"supplier_id":4%');
-            });
+            ->get();
+
+        $validItemIds = [];
+
+        // 2. On boucle dedans pour valider les fournisseurs de chaque trajet
+        foreach ($potentialItems as $item) {
+            // Sécurité de décodage du JSON
+            $customVals = is_string($item->custom_values) ? json_decode($item->custom_values, true) : ($item->custom_values ?? []);
+            $routes = $customVals['transport_routes'] ?? [];
+
+            if (is_array($routes)) {
+                foreach ($routes as $route) {
+                    $supplierId = $route['supplier_id'] ?? null;
+                    
+                    // Sécurité : le supplier_id peut être un entier, une string, ou un tableau (si multi-select)
+                    $isIwa = is_array($supplierId) ? (in_array(4, $supplierId) || in_array('4', $supplierId)) : ($supplierId == 4);
+
+                    // Dès qu'on trouve au moins UN trajet géré par IWA, on valide la prestation
+                    if ($isIwa) {
+                        $validItemIds[] = $item->id;
+                        break; 
+                    }
+                }
+            }
+        }
+
+        // 3. On retourne la requête finale avec uniquement les prestations retenues
+        return FolderItem::query()
+            ->with(['folder.agency', 'folder.folderPassengers', 'product', 'itemStatus'])
+            ->whereIn('id', $validItemIds);
     }
 
     public static function getNavigationBadge(): ?string
@@ -95,20 +115,19 @@ class IwaOrders extends Page implements HasTable
                     ->label('Détails des Trajets (IWA)')
                     ->html()
                     ->getStateUsing(function (FolderItem $record) {
-                        $customVals = $record->custom_values ?? [];
+                        $customVals = is_string($record->custom_values) ? json_decode($record->custom_values, true) : ($record->custom_values ?? []);
                         if (!is_array($customVals) || empty($customVals['transport_routes'])) {
                             return '<span class="text-gray-500 italic">Aucun trajet</span>';
                         }
                         
-                        $rootSupplierId = $record->supplier_id;
                         $routesHtml = [];
 
                         foreach ($customVals['transport_routes'] as $r) {
-                            // 💡 HÉRITAGE : Si le trajet n'a pas de fournisseur, il hérite de la racine de la prestation
-                            $supplierId = $r['supplier_id'] ?? $rootSupplierId;
+                            $supplierId = $r['supplier_id'] ?? null;
+                            $isIwa = is_array($supplierId) ? (in_array(4, $supplierId) || in_array('4', $supplierId)) : ($supplierId == 4);
                             
-                            // On ignore ce trajet s'il n'est pas géré par IWA
-                            if ($supplierId != 4) continue;
+                            // On affiche UNIQUEMENT les trajets IWA
+                            if (!$isIwa) continue;
 
                             $dep = e($r['departure_station'] ?? '?');
                             $arr = e($r['arrival_station'] ?? '?');
@@ -123,7 +142,7 @@ class IwaOrders extends Page implements HasTable
                         }
 
                         if (empty($routesHtml)) {
-                            return '<span class="text-red-500 italic">Trajet(s) sans gares</span>';
+                            return '<span class="text-red-500 italic">Aucun trajet IWA trouvé</span>';
                         }
 
                         return implode('', $routesHtml);
@@ -186,41 +205,43 @@ class IwaOrders extends Page implements HasTable
                         $routesData = collect();
 
                         foreach ($records as $item) {
-                            $rootSupplierId = $item->supplier_id;
-                            $routes = $item->custom_values['transport_routes'] ?? [];
+                            $customVals = is_string($item->custom_values) ? json_decode($item->custom_values, true) : ($item->custom_values ?? []);
+                            $routes = $customVals['transport_routes'] ?? [];
+                            
                             $paxName = $item->folder?->lead_traveler_name ?? 'Client';
                             $adults = $item->folder?->pax_adults ?? 1;
                             $children = $item->folder?->pax_children ?? 0;
 
                             $hasExportedAtLeastOneIwaRoute = false;
 
-                            foreach ($routes as $route) {
-                                // On vérifie si ce trajet appartient à IWA (racine ou JSON)
-                                $supplierId = $route['supplier_id'] ?? $rootSupplierId;
-                                if ($supplierId != 4) {
-                                    continue;
+                            if (is_array($routes)) {
+                                foreach ($routes as $route) {
+                                    $supplierId = $route['supplier_id'] ?? null;
+                                    $isIwa = is_array($supplierId) ? (in_array(4, $supplierId) || in_array('4', $supplierId)) : ($supplierId == 4);
+                                    
+                                    if (!$isIwa) continue;
+
+                                    $hasExportedAtLeastOneIwaRoute = true;
+
+                                    $optName = '普通車 (Ordinary)';
+                                    if (!empty($route['option_id'])) {
+                                        $opt = ProductOption::find($route['option_id']);
+                                        if ($opt) $optName = $opt->name;
+                                    }
+
+                                    $routesData->push([
+                                        'pax_name' => $paxName,
+                                        'date' => !empty($route['departure_date']) ? Carbon::parse($route['departure_date'])->format('Y-m-d') : '',
+                                        'train_name' => $route['train_number'] ?? '',
+                                        'departure' => $route['departure_station'] ?? '',
+                                        'arrival' => $route['arrival_station'] ?? '',
+                                        'dep_time' => $route['departure_time'] ?? '',
+                                        'arr_time' => $route['arrival_time'] ?? '',
+                                        'class' => $optName,
+                                        'pax_adults' => $adults,
+                                        'pax_children' => $children,
+                                    ]);
                                 }
-
-                                $hasExportedAtLeastOneIwaRoute = true;
-
-                                $optName = '普通車 (Ordinary)';
-                                if (!empty($route['option_id'])) {
-                                    $opt = ProductOption::find($route['option_id']);
-                                    if ($opt) $optName = $opt->name;
-                                }
-
-                                $routesData->push([
-                                    'pax_name' => $paxName,
-                                    'date' => !empty($route['departure_date']) ? Carbon::parse($route['departure_date'])->format('Y-m-d') : '',
-                                    'train_name' => $route['train_number'] ?? '',
-                                    'departure' => $route['departure_station'] ?? '',
-                                    'arrival' => $route['arrival_station'] ?? '',
-                                    'dep_time' => $route['departure_time'] ?? '',
-                                    'arr_time' => $route['arrival_time'] ?? '',
-                                    'class' => $optName,
-                                    'pax_adults' => $adults,
-                                    'pax_children' => $children,
-                                ]);
                             }
 
                             if ($hasExportedAtLeastOneIwaRoute) {

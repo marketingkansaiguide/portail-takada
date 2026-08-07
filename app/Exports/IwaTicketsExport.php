@@ -10,6 +10,7 @@ use Maatwebsite\Excel\Concerns\WithCustomStartCell;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class IwaTicketsExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithCustomStartCell, ShouldAutoSize
 {
@@ -27,14 +28,12 @@ class IwaTicketsExport implements FromCollection, WithHeadings, WithMapping, Wit
 
     public function startCell(): string
     {
-        // On commence à écrire les données (les lignes) à partir de la ligne 5
-        // (les en-têtes seront sur la ligne 4, et les coordonnées ligne 2)
-        return 'B5';
+        // 💡 Les en-têtes seront sur la ligne 4, les données à partir de la ligne 5, Colonne B.
+        return 'B4';
     }
 
     public function headings(): array
     {
-        // Ces en-têtes seront placés juste avant startCell() -> Ligne 4
         return [
             'お客様名',
             '日程',
@@ -54,37 +53,36 @@ class IwaTicketsExport implements FromCollection, WithHeadings, WithMapping, Wit
 
     public function map($route): array
     {
-        // $route contient les données préparées depuis le BulkAction
         return [
-            $route['pax_name'] . ' 様', // Nom du pax leader
-            $route['date'],            // Date (YYYY-MM-DD)
-            $route['train_name'],      // Nom du train
-            $route['departure'],       // Gare de départ
-            $route['arrival'],         // Gare d'arrivée
-            $route['dep_time'],        // Heure de départ
-            $route['arr_time'],        // Heure d'arrivée
-            $route['class'],           // Option / Classe (ex: GREEN)
-            '〇',                       // Billet de base inclus (par défaut rond O)
-            $route['departure'],       // Début de validité du billet
-            $route['arrival'],         // Fin de validité du billet
-            $route['pax_adults'],      // Nb adultes
-            $route['pax_children']     // Nb enfants
+            $route['pax_name'] . ' 様', // お客様名
+            $route['date'],            // 日程
+            $route['train_name'],      // 列車名
+            $route['departure'],       // 出発
+            $route['arrival'],         // 到着
+            $route['dep_time'],        // 出発時刻
+            $route['arr_time'],        // 到着時刻
+            $route['class'],           // 席類
+            '〇',                       // 乗車券込み
+            $route['departure'],       // 乗車券開始
+            $route['arrival'],         // 乗車券終了
+            $route['pax_adults'],      // 大人人数
+            $route['pax_children']     // 子供人数
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        // Ligne 2 : Informations de TAKADA TRAVEL
+        // Ligne 2 : Informations de TAKADA TRAVEL (En B2, C2, etc.)
         $sheet->setCellValue('B2', "TAKADA TRAVEL合同会社\n06-6195-9799\n担当者：ノロ/シンディ/田中");
         $sheet->getStyle('B2')->getAlignment()->setWrapText(true);
-        $sheet->getRowDimension(2)->setRowHeight(60);
+        $sheet->getRowDimension(2)->setRowHeight(45);
 
         // Style des en-têtes (Ligne 4)
         $sheet->getStyle('B4:N4')->getFont()->setBold(true);
         $sheet->getStyle('B4:N4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet->getStyle('B4:N4')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
         $sheet->getStyle('B4:N4')->getAlignment()->setWrapText(true);
-        $sheet->getRowDimension(4)->setRowHeight(40);
+        $sheet->getRowDimension(4)->setRowHeight(30);
 
         // Alignement général des données
         $highestRow = $sheet->getHighestRow();
@@ -92,11 +90,11 @@ class IwaTicketsExport implements FromCollection, WithHeadings, WithMapping, Wit
         $sheet->getStyle('B5:N' . $highestRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
         
         return [
-            // Bordures autour du tableau de données (Ligne 4 à la fin)
+            // Bordures autour du tableau de données
             'B4:N' . $highestRow => [
                 'borders' => [
                     'allBorders' => [
-                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                        'borderStyle' => Border::BORDER_THIN,
                     ],
                 ],
             ],
