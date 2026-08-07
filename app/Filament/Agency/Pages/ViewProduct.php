@@ -657,6 +657,7 @@ class ViewProduct extends Page
                 'customValues.transport_routes.*.arrival_station' => 'required|string',
                 'customValues.transport_routes.*.departure_date' => 'required|date',
                 'customValues.transport_routes.*.pax_count' => 'required|integer|min:1',
+                'customValues.transport_routes.*.option_id' => 'required',
             ];
 
             $messages = [
@@ -665,9 +666,9 @@ class ViewProduct extends Page
                 'customValues.transport_routes.*.departure_station.required' => 'Le point de départ est obligatoire.',
                 'customValues.transport_routes.*.arrival_station.required' => 'Le point d\'arrivée est obligatoire.',
                 'customValues.transport_routes.*.departure_date.required' => 'La date du trajet est obligatoire.',
-                'customValues.transport_routes.*.pax_count.required' => 'Le nombre de passagers est requis.',
+                'customValues.transport_routes.*.option_id.required' => 'Veuillez sélectionner une classe',
             ];
-
+            
             try {
                 $this->validate($rules, $messages);
             } catch (\Illuminate\Validation\ValidationException $e) {

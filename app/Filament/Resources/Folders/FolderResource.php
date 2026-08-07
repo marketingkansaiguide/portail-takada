@@ -1384,10 +1384,10 @@ Repeater::make('transport_routes')
                 ->placeholder(__('Ex: Hikari 502 / Voiture 3')),
 
             Select::make('option_id')
-                ->label(__('Classe / Option'))
+                ->label(__('Classe'))
                 ->options(fn () => \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id'))
                 ->searchable()
-                ->nullable(),
+                ->required(),
 
             TextInput::make('pax_count')
                 ->label(__('Passagers (Pax)'))

@@ -522,7 +522,7 @@ Repeater::make('transport_routes')
                 ->live(),
 
             Select::make('option_id')
-                ->label('Classe / Option')
+                ->label('Classe')
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get, $livewire) {
                     $productId = $get('../../product_id') 
                               ?? data_get($livewire, 'mountedTableActionData.product_id') 
@@ -532,7 +532,7 @@ Repeater::make('transport_routes')
                     return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
                 })
                 ->searchable()
-                ->nullable(),
+                ->required(),
 
             TextInput::make('pax_count')
                 ->label('Passagers (Pax)')
