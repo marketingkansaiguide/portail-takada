@@ -1295,18 +1295,45 @@ Repeater::make('transport_routes')
                             ->extraAttributes(['class' => 'text-primary-600 font-bold']),
 
                         Placeholder::make('total_price_display')
-                            ->label('Montant total estimé (¥)')
-                            ->content(function (Get $get) {
+                            ->label('Détail du montant estimé')
+                            ->content(function ($get) {
                                 $items = $get('folderItems') ?? [];
-                                $total = array_sum(array_map(fn($i) => (float)($i['total_price'] ?? 0), $items));
-                                return number_format($total, 0, '.', ' ') . ' ¥';
-                            })
-                            ->extraAttributes(['class' => 'text-xl font-bold']),
+                                $itemsTotal = array_sum(array_map(fn($i) => (float)($i['total_price'] ?? 0), $items));
+                                
+                                // 💡 Règle intelligente : si le dossier est un brouillon et que les frais sont à 0 (bug précédent), on récupère les frais du groupe client de l'agence.
+                                $folderFee = (float) ($get('folder_fee') ?? 0);
+                                if ($folderFee === 0.0 && $get('status') === 'draft') {
+                                    $folderFee = (float) (\Filament\Facades\Filament::auth()->user()->agency?->clientGroup?->folder_fee ?? 0);
+                                }
+
+                                $grandTotal = $itemsTotal + $folderFee;
+
+                                $itemsTotalFmt = number_format($itemsTotal, 0, '.', ' ') . ' ¥';
+                                $folderFeeFmt = number_format($folderFee, 0, '.', ' ') . ' ¥';
+                                $grandTotalFmt = number_format($grandTotal, 0, '.', ' ') . ' ¥';
+
+                                return new \Illuminate\Support\HtmlString("
+                                    <div style='display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; width: 100%; min-width: 250px;'>
+                                        <div style='display: flex; justify-content: space-between; color: #475569;'>
+                                            <span>Prestations :</span>
+                                            <strong>{$itemsTotalFmt}</strong>
+                                        </div>
+                                        <div style='display: flex; justify-content: space-between; color: #475569; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 2px;'>
+                                            <span>Frais de dossier :</span>
+                                            <strong>{$folderFeeFmt}</strong>
+                                        </div>
+                                        <div style='display: flex; justify-content: space-between; font-size: 1.25rem; color: #1e3a8a; font-weight: bold;'>
+                                            <span>TOTAL ESTIMÉ :</span>
+                                            <span>{$grandTotalFmt}</span>
+                                        </div>
+                                    </div>
+                                ");
+                            }),
                             
                         Hidden::make('status')->default('draft'),
                         Hidden::make('total_price')->default(0),
-                        Hidden::make('folder_fee')->default(0),
-                        Hidden::make('agency_id')->default(fn () => Filament::auth()->user()->agency_id),
+                        Hidden::make('folder_fee')->default(fn () => \Filament\Facades\Filament::auth()->user()->agency?->clientGroup?->folder_fee ?? 0),
+                        Hidden::make('agency_id')->default(fn () => \Filament\Facades\Filament::auth()->user()->agency_id),
                     ]),
 
                 Section::make('Informations de Vol')
@@ -1419,6 +1446,17 @@ Repeater::make('transport_routes')
                 Tables\Columns\TextColumn::make('total_price')
                     ->label('Total Estimé')
                     ->money('JPY')
+                    ->getStateUsing(function ($record) {
+                        $itemsTotal = $record->folderItems->sum('total_price');
+                        $fee = (float) ($record->folder_fee ?? 0);
+                        
+                        // 💡 Le rattrapage intelligent pour les brouillons :
+                        if ($fee === 0.0 && $record->status === 'draft') {
+                            $fee = (float) ($record->agency?->clientGroup?->folder_fee ?? 0);
+                        }
+                        
+                        return $itemsTotal + $fee;
+                    })
                     ->sortable(),
             ])
             ->filters([])

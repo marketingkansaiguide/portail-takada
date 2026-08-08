@@ -1652,6 +1652,17 @@ Repeater::make('transport_routes')
                 TextColumn::make('total_price')
                     ->label(__('Montant total'))
                     ->money('JPY')
+                    ->getStateUsing(function ($record) {
+                        $itemsTotal = $record->folderItems->sum('total_price');
+                        $fee = (float) ($record->folder_fee ?? 0);
+                        
+                        // 💡 Le rattrapage intelligent pour les brouillons :
+                        if ($fee === 0.0 && $record->status === 'draft') {
+                            $fee = (float) ($record->agency?->clientGroup?->folder_fee ?? 0);
+                        }
+                        
+                        return $itemsTotal + $fee;
+                    })
                     ->sortable(),
             ])
             ->filters([])

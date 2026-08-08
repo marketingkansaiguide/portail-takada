@@ -371,7 +371,7 @@ class ViewProduct extends Page
                     'first_hotel_address' => $data['first_hotel_address'] ?? null,
                     'status' => 'draft',
                     'total_price' => 0,
-                    'folder_fee' => 0,
+                    'folder_fee' => \Filament\Facades\Filament::auth()->user()->agency?->clientGroup?->folder_fee ?? 0,
                     'ticket_dispatch_method' => 'hotel',
                 ]);
 
@@ -668,7 +668,7 @@ class ViewProduct extends Page
                 'customValues.transport_routes.*.departure_date.required' => 'La date du trajet est obligatoire.',
                 'customValues.transport_routes.*.option_id.required' => 'Veuillez sélectionner une classe',
             ];
-            
+
             try {
                 $this->validate($rules, $messages);
             } catch (\Illuminate\Validation\ValidationException $e) {

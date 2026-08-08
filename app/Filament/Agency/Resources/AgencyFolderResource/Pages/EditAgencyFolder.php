@@ -17,7 +17,6 @@ class EditAgencyFolder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // 1. Bouton : Valider et transmettre le dossier à Takada
             Actions\Action::make('validateFolder')
                 ->label('🚀 Valider et transmettre le dossier')
                 ->color('success')
@@ -31,14 +30,14 @@ class EditAgencyFolder extends EditRecord
                 ->form(function ($record) {
                     $items = $record->folderItems;
                     $itemsHtml = '';
-                    $total = 0;
+                    $itemsTotal = 0;
 
                     foreach ($items as $item) {
                         $pName = e($item->product->name ?? 'Prestation');
                         $date = $item->service_date ? $item->service_date->format('d/m/Y') : '---';
                         $qty = $item->quantity;
                         $price = number_format($item->total_price, 0, '.', ' ') . ' ¥';
-                        $total += $item->total_price;
+                        $itemsTotal += $item->total_price;
 
                         $itemsHtml .= "
                             <tr style='border-bottom: 1px solid #e2e8f0;'>
@@ -50,7 +49,17 @@ class EditAgencyFolder extends EditRecord
                         ";
                     }
 
-                    $totalFormatted = number_format($total, 0, '.', ' ') . ' ¥';
+                    // 💡 Rattrapage dynamique des frais pour la Pop-in
+                    $folderFee = (float) ($record->folder_fee ?? 0);
+                    if ($folderFee === 0.0 && $record->status === 'draft') {
+                        $folderFee = (float) ($record->agency?->clientGroup?->folder_fee ?? 0);
+                    }
+
+                    $grandTotal = $itemsTotal + $folderFee;
+
+                    $itemsTotalFormatted = number_format($itemsTotal, 0, '.', ' ') . ' ¥';
+                    $folderFeeFormatted = number_format($folderFee, 0, '.', ' ') . ' ¥';
+                    $grandTotalFormatted = number_format($grandTotal, 0, '.', ' ') . ' ¥';
 
                     return [
                         Placeholder::make('recap_modal')
@@ -71,9 +80,17 @@ class EditAgencyFolder extends EditRecord
                                             {$itemsHtml}
                                         </tbody>
                                         <tfoot>
+                                            <tr style='border-top: 2px solid #cbd5e1; color: #475569;'>
+                                                <td colspan='3' style='padding: 8px 10px; text-align: right;'>Sous-total prestations :</td>
+                                                <td style='padding: 8px 10px; text-align: right; font-weight: bold;'>{$itemsTotalFormatted}</td>
+                                            </tr>
+                                            <tr style='color: #475569;'>
+                                                <td colspan='3' style='padding: 8px 10px; text-align: right;'>Frais de gestion dossier :</td>
+                                                <td style='padding: 8px 10px; text-align: right; font-weight: bold;'>{$folderFeeFormatted}</td>
+                                            </tr>
                                             <tr style='background-color: #eff6ff; font-weight: bold; color: #1e3a8a;'>
-                                                <td colspan='3' style='padding: 10px;'>TOTAL ESTIMÉ DU DOSSIER :</td>
-                                                <td style='padding: 10px; text-align: right; font-size: 1.1rem;'>{$totalFormatted}</td>
+                                                <td colspan='3' style='padding: 10px; text-align: right; font-size: 1.05rem;'>TOTAL ESTIMÉ DU DOSSIER :</td>
+                                                <td style='padding: 10px; text-align: right; font-size: 1.2rem;'>{$grandTotalFormatted}</td>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -94,7 +111,16 @@ class EditAgencyFolder extends EditRecord
                     ];
                 })
                 ->action(function ($record) {
-                    $record->update(['status' => 'confirmed']);
+                    // 💡 Avant de confirmer, on enregistre DÉFINITIVEMENT les frais de dossier dans la base !
+                    $folderFee = (float) ($record->folder_fee ?? 0);
+                    if ($folderFee === 0.0) {
+                        $folderFee = (float) ($record->agency?->clientGroup?->folder_fee ?? 0);
+                    }
+                    
+                    $record->update([
+                        'status' => 'confirmed',
+                        'folder_fee' => $folderFee
+                    ]);
 
                     try {
                         if (class_exists('\App\Models\FolderTask')) {
@@ -148,16 +174,17 @@ class EditAgencyFolder extends EditRecord
                         ->body('Votre dossier est désormais pris en charge par l\'équipe Takada.')
                         ->success()
                         ->send();
+                        
+                    return redirect(AgencyFolderResource::getUrl('index'));
                 }),
 
-            // 2. Bouton : Annuler / Supprimer le brouillon
             Actions\Action::make('cancelFolderDraft')
                 ->label('🗑️ Annuler / Supprimer le brouillon')
                 ->color('danger')
                 ->icon('heroicon-o-trash')
                 ->requiresConfirmation()
                 ->modalHeading('Annuler et supprimer ce dossier brouillon ?')
-                ->modalDescription('Ce dossier n\'a pas encore été transmitted. Sa suppression entraînera le retrait définitif du brouillon.')
+                ->modalDescription('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.')
                 ->modalSubmitActionLabel('Oui, supprimer le brouillon')
                 ->modalCancelActionLabel('Conserver le brouillon')
                 ->visible(fn ($record) => $record && $record->status === 'draft')
@@ -183,7 +210,15 @@ class EditAgencyFolder extends EditRecord
                 $totalItems += (float) ($item['total_price'] ?? 0);
             }
         }
-        $data['total_price'] = $totalItems;
+        
+        // 💡 Enregistre les frais de dossier dans la BDD s'ils étaient restés à 0 suite à l'ancien bug
+        $folderFee = (float) ($this->record->folder_fee ?? 0);
+        if ($folderFee === 0.0 && $this->record->status === 'draft') {
+            $folderFee = (float) (\Filament\Facades\Filament::auth()->user()->agency?->clientGroup?->folder_fee ?? 0);
+            $data['folder_fee'] = $folderFee;
+        }
+
+        $data['total_price'] = $totalItems + $folderFee;
         
         return $data;
     }
