@@ -18,6 +18,7 @@ use UnitEnum;
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
@@ -31,6 +32,20 @@ class UserResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Utilisateurs & Accès');
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email', 'role', 'agency.name'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Email') => $record->email,
+            __('Rôle') => $record->role,
+            __('Agence') => $record->agency?->name,
+        ]);
     }
 
     public static function form(Schema $schema): Schema

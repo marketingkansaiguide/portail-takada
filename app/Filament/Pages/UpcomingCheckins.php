@@ -26,7 +26,12 @@ class UpcomingCheckins extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
     protected static ?string $navigationLabel = 'Check-ins';
-    protected static ?string $title = 'Planning des Check-ins à venir';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Planning des Check-ins à venir');
+    }
     protected static ?int $navigationSort = 3;
 
     protected string $view = 'filament.pages.upcoming-checkins';
@@ -52,7 +57,7 @@ class UpcomingCheckins extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('checkin_date')
-                    ->label('Check-in')
+                    ->label(__('Check-in'))
                     ->getStateUsing(fn (Folder $record) => $record->first_hotel_check_in ?? $record->start_date)
                     ->date('d/m/Y')
                     ->badge()
@@ -69,29 +74,29 @@ class UpcomingCheckins extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('reference')
-                    ->label('Réf. Dossier')
+                    ->label(__('Réf. Dossier'))
                     ->searchable(['reference', 'folder_name'])
                     ->weight('bold')
                     ->description(fn (Folder $record) => $record->folder_name),
 
                 Tables\Columns\TextColumn::make('lead_traveler_name')
-                    ->label('Pax Leader')
+                    ->label(__('Pax Leader'))
                     ->searchable()
                     ->weight('semibold'),
 
                 Tables\Columns\TextColumn::make('first_hotel_name')
-                    ->label('1er Hôtel (Nom)')
+                    ->label(__('1er Hébergement (Nom)'))
                     ->searchable()
                     ->default('---')
                     ->description(fn (Folder $record) => Str::limit($record->first_hotel_address ?? '', 35)),
 
                 Tables\Columns\TextColumn::make('ticket_dispatch_method')
-                    ->label('Méthode d\'envoi')
+                    ->label(__('Méthode d\'envoi'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'hotel' => '🏨 Hôtel',
-                        'guide' => '👤 Guide',
-                        'autre' => '📍 Autre',
+    'hotel' => __('🏨 Hôtel'),
+    'guide' => __('👤 Guide'),
+    'autre' => __('📍 Autre'),
                         default => $state ?? '🏨 Hôtel',
                     })
                     ->color(fn (?string $state): string => match ($state) {
@@ -102,21 +107,21 @@ class UpcomingCheckins extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('dispatch_address')
-                    ->label('Adresse d\'envoi')
+                    ->label(__('Adresse d\'envoi'))
                     ->limit(40)
                     ->tooltip(fn (Folder $record) => $record->dispatch_address),
 
                 // 🏷️ RAPPEL VISUEL DE L'ÉTAT D'EXPORTATION DE L'ÉTIQUETTE
                 Tables\Columns\TextColumn::make('label_exported_at')
-                    ->label('Statut Étiquette')
+                    ->label(__('Statut Étiquette'))
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? '🏷️ Exportée' : '⏳ Non exportée')
+                    ->formatStateUsing(fn ($state) => $state ? __('🏷️ Exportée') : __('⏳ Non exportée'))
                     ->color(fn ($state) => $state ? 'success' : 'gray')
-                    ->description(fn (Folder $record) => $record->label_exported_at ? 'Le ' . $record->label_exported_at->format('d/m/Y à H:i') : null)
+                    ->description(fn (Folder $record) => $record->label_exported_at ? __('Le') . ' ' . $record->label_exported_at->format('d/m/Y') . ' ' . __('à') . ' ' . $record->label_exported_at->format('H:i') : null)
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('agency.name')
-                    ->label('Agence')
+                    ->label(__('Agence'))
                     ->searchable()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -124,10 +129,10 @@ class UpcomingCheckins extends Page implements HasTable
             ->filters([
                 // 🔍 FILTRE SUR L'EXPORT DE L'ÉTIQUETTE
                 SelectFilter::make('label_exported')
-                    ->label('Statut Étiquette')
+                    ->label(__('Statut Étiquette'))
                     ->options([
-                        'pending' => '⏳ Non exportée',
-                        'exported' => '🏷️ Exportée',
+                    'pending' => __('⏳ Non exportée'),
+                    'exported' => __('🏷️ Exportée'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
@@ -138,17 +143,17 @@ class UpcomingCheckins extends Page implements HasTable
                     }),
 
                 SelectFilter::make('ticket_dispatch_method')
-                    ->label('Mode d\'envoi')
+                    ->label(__('Mode d\'envoi'))
                     ->options([
-                        'hotel' => 'Hôtel',
-                        'guide' => 'Guide',
-                        'autre' => 'Autre',
+                    'hotel' => __('Hôtel'),
+                    'guide' => __('Guide'),
+                    'autre' => __('Autre'),
                     ]),
 
                 Filter::make('checkin_period')
                     ->form([
-                        DatePicker::make('from')->label('Check-in après le'),
-                        DatePicker::make('until')->label('Check-in avant le'),
+                        DatePicker::make('from')->label(__('Check-in après le')),
+                        DatePicker::make('until')->label(__('Check-in avant le')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -165,7 +170,7 @@ class UpcomingCheckins extends Page implements HasTable
             ->recordActions([
                 // 🔄 ACTION INDIVIDUELLE : Basculer/Réinitialiser le statut d'export
                 Action::make('toggleLabelExport')
-                    ->label(fn (Folder $record) => $record->label_exported_at ? 'Marquer non exportée' : 'Marquer exportée')
+                    ->label(fn (Folder $record) => $record->label_exported_at ? __('Marquer non exportée') : __('Marquer exportée'))
                     ->icon(fn (Folder $record) => $record->label_exported_at ? 'heroicon-o-arrow-path' : 'heroicon-o-check-circle')
                     ->color(fn (Folder $record) => $record->label_exported_at ? 'gray' : 'success')
                     ->action(function (Folder $record) {
@@ -175,14 +180,14 @@ class UpcomingCheckins extends Page implements HasTable
                     }),
 
                 Action::make('openFolder')
-                    ->label('Dossier')
+                    ->label(__('Dossier'))
                     ->icon('heroicon-o-pencil-square')
                     ->color('primary')
                     ->url(fn (Folder $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record])),
             ])
             ->bulkActions([
                 BulkAction::make('export_labels')
-                    ->label('Imprimer la plaquette d\'étiquettes')
+                    ->label(__('Imprimer la plaquette d\'étiquettes'))
                     ->icon('heroicon-o-printer')
                     ->color('success')
                     ->action(function (Collection $records, $livewire) {

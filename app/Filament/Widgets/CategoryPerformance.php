@@ -16,7 +16,12 @@ class CategoryPerformance extends BaseWidget
 
     protected static bool $isLazy = false; // 💡 Sécurité anti-crash Windows
     protected int | string | array $columnSpan = 'full';
-    protected static ?string $heading = 'CA & Rentabilité par Catégorie de prestation';
+    protected static ?string $heading = null;
+
+    protected function getTableHeading(): ?string
+    {
+        return __('CA & Rentabilité par Catégorie de prestation');
+    }
 
     public function table(Table $table): Table
     {
@@ -54,24 +59,24 @@ class CategoryPerformance extends BaseWidget
             )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Catégorie')
+                    ->label(__('Catégorie'))
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('items_count')
-                    ->label('Volume (Qté vendue)')
+                ->label(__('Volume (Qté vendue)'))
                     ->badge()
                     ->color('primary')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_ca')
-                    ->label('Chiffre d\'Affaires')
+                ->label(__('Chiffre d\'Affaires'))
                     ->money('JPY')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('marge_brute')
-                    ->label('Marge Dégagée')
+                ->label(__('Marge Dégagée'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
@@ -79,7 +84,7 @@ class CategoryPerformance extends BaseWidget
 
                 // 💡 NOUVEAU KPI BONUS : Le taux de marge en pourcentage
                 Tables\Columns\TextColumn::make('taux_marge')
-                    ->label('Taux de Marge (%)')
+                ->label(__('Taux de Marge (%)'))
                     ->getStateUsing(function ($record) {
                         $marge = $record->total_ca - $record->total_purchase;
                         return $record->total_ca > 0 ? ($marge / $record->total_ca) * 100 : 0;

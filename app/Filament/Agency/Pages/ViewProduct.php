@@ -8,6 +8,7 @@ use App\Models\FolderItem;
 use App\Models\FolderPassenger;
 use App\Models\TrainStation;
 use App\Models\BusStation;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Panel;
@@ -35,7 +36,12 @@ class ViewProduct extends Page
     protected static string|BackedEnum|null $navigationIcon = null; 
 
     protected string $view = 'filament.agency.pages.view-product';
-    protected static ?string $title = 'Détails du Produit';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Détails du Produit');
+    }
     protected ?string $heading = ''; 
 
     public ?Product $product = null;
@@ -43,12 +49,34 @@ class ViewProduct extends Page
     public ?int $selectedFolderId = null;
     public ?string $serviceDate = null;
     public ?int $quantity = 1;
+    public int $ageSelectorAdults = 1;
+    public int $ageSelectorChildren = 0;
+    public int $ageSelectorTeenagers = 0;
 
     public array $selectedOptions = []; 
     public array $customValues = [];
 
     public ?int $activeAgencyId = null;
     public bool $isAdmin = false;
+
+    protected function notifyRequestDeadlineExceeded(string $serviceDate): void
+    {
+        $deadline = $this->product?->getAgencyRequestDeadline($serviceDate);
+
+        Notification::make()
+            ->title(__('Délai de demande dépassé'))
+            ->body(__('Cette prestation devait être demandée au plus tard le :date. Contactez-nous via le formulaire pour connaître les alternatives encore possibles.', [
+                'date' => $deadline?->format('d/m/Y'),
+            ]))
+            ->danger()
+            ->persistent()
+            ->actions([
+                Action::make('contact')
+                    ->label(__('Nous contacter'))
+                    ->url(route('filament.agency.pages.assistance-sur-mesure')),
+            ])
+            ->send();
+    }
 
     public static function shouldRegisterNavigation(): bool
     {
@@ -57,8 +85,6 @@ class ViewProduct extends Page
 
     public function mount($record): void
     {
-        $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
-
         $user = Filament::auth()->user() ?? auth('agency')->user() ?? auth('web')->user();
         if ($user) {
             if ($user->agency_id) {
@@ -71,7 +97,7 @@ class ViewProduct extends Page
 
         if (isset($this->product->is_public) && !$this->product->is_public) {
             if (!$this->activeAgencyId) {
-                abort(403, 'Cette activité requiert un compte partenaire B2B privilégié.');
+            abort(403, __('Cette activité requiert un compte partenaire B2B privilégié.'));
             }
         }
 
@@ -231,6 +257,39 @@ class ViewProduct extends Page
         }
     }
 
+    public function updatedAgeSelectorAdults($value): void
+    {
+        $this->ageSelectorAdults = max(0, (int) $value);
+        $this->syncAgeSelectorQuantity();
+    }
+
+    public function updatedAgeSelectorChildren($value): void
+    {
+        $this->ageSelectorChildren = max(0, (int) $value);
+        $this->syncAgeSelectorQuantity();
+    }
+
+    public function updatedAgeSelectorTeenagers($value): void
+    {
+        $this->ageSelectorTeenagers = max(0, (int) $value);
+        $this->syncAgeSelectorQuantity();
+    }
+
+    protected function syncAgeSelectorQuantity(): void
+    {
+        if (!$this->product?->usesAgeSelector()) {
+            return;
+        }
+
+        if (($this->ageSelectorAdults + $this->ageSelectorChildren + $this->ageSelectorTeenagers) < 1) {
+            $this->ageSelectorAdults = 1;
+        }
+
+        $this->ageSelectorChildren = $this->product->hasChildSelector() ? $this->ageSelectorChildren : 0;
+        $this->ageSelectorTeenagers = $this->product->hasTeenSelector() ? $this->ageSelectorTeenagers : 0;
+        $this->quantity = $this->ageSelectorAdults + $this->ageSelectorChildren + $this->ageSelectorTeenagers;
+    }
+
     #[Computed]
     public function foldersList()
     {
@@ -247,105 +306,105 @@ class ViewProduct extends Page
     public function createFolderAction(): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('createFolder')
-            ->label('Nouveau dossier')
+            ->label(__('Nouveau dossier'))
             ->icon('heroicon-m-plus')
             ->color('gray')
             ->size('sm')
-            ->modalHeading('Créer un nouveau dossier')
+            ->modalHeading(__('Créer un nouveau dossier'))
             ->modalWidth('4xl')
             ->form([
-                Section::make('Informations Principales')->columns(2)->schema([
+                Section::make(__('Informations Principales'))->columns(2)->schema([
                     TextInput::make('folder_name')
-                        ->label('Nom du dossier / Réf. Groupe')
+                        ->label(__('Nom du dossier / Réf. Groupe'))
                         ->required(),
 
                     TextInput::make('lead_traveler_name')
-                        ->label('Nom du voyageur principal')
+                        ->label(__('Nom complet du pax principal'))
                         ->required(),
 
                     TextInput::make('hotel_booking_name')
-                        ->label('Nom réservation hôtel')
-                        ->placeholder('Si différent du voyageur principal')
+                        ->label(__('Nom complet réservation hôtel'))
+                        ->placeholder(__('Si différent du voyageur principal'))
                         ->columnSpanFull(),
 
                     DatePicker::make('start_date')
-                        ->label('Date d\'arrivée au Japon')
+                         ->label(__('Date d\'arrivée au Japon'))
                         ->live()
                         ->required()
                         ->beforeOrEqual('end_date')
                         ->validationMessages([
-                            'before_or_equal' => 'L\'arrivée doit être avant ou le jour du départ.',
+                            'before_or_equal' => __('L\'arrivée doit être avant ou le jour du départ.'),
                         ]),
 
                     DatePicker::make('end_date')
-                        ->label('Date de départ')
+                         ->label(__('Date de départ'))
                         ->live()
                         ->required()
                         ->afterOrEqual('start_date')
                         ->validationMessages([
-                            'after_or_equal' => 'Le départ doit être après ou le jour de l\'arrivée.',
+                            'after_or_equal' => __('Le départ doit être après ou le jour de l\'arrivée.'),
                         ])
                         ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
 
                     Repeater::make('contact_phones')
-                        ->label('Contact du voyageur pendant le séjour')
+                        ->label(__('Contact du voyageur pendant le séjour'))
                         ->addable(false)
                         ->deletable(false)
                         ->reorderable(false)
                         ->defaultItems(1)
                         ->schema([
                             TextInput::make('phone')
-                                ->label('Téléphone')
+                                ->label(__('Téléphone'))
                                 ->tel()
                                 ->required()
-                                ->placeholder('+33 6...'),
+                                ->placeholder(__('+33 6...')),
                             TextInput::make('email')
-                                ->label('Adresse E-mail')
+                                ->label(__('Adresse E-mail'))
                                 ->email()
-                                ->placeholder('voyageur@email.com'),
+                                ->placeholder(__('voyageur@email.com')),
                         ])
                         ->columnSpanFull()
                         ->columns(2),
                 ]),
 
-                Section::make('Liste des Voyageurs')->schema([
+                Section::make(__('Liste des Voyageurs'))->schema([
                     Repeater::make('passengers')
                         ->hiddenLabel()
-                        ->addActionLabel('Ajouter un voyageur')
+                        ->addActionLabel(__('Ajouter un voyageur'))
                         ->defaultItems(1)
                         ->schema([
                             Group::make()->schema([
-                                TextInput::make('last_name')->label('Nom')->required(),
-                                TextInput::make('first_name')->label('Prénom')->required(),
-                                DatePicker::make('birth_date')->label('Date de naissance')->required(),
-                                TextInput::make('nationality')->label('Nationalité')->default('Française')->required(),
+                                TextInput::make('last_name')->label(__('Nom'))->required(),
+                                TextInput::make('first_name')->label(__('Prénom'))->required(),
+                                 DatePicker::make('birth_date')->label(__('Date de naissance'))->required(),
+                                TextInput::make('nationality')->label(__('Nationalité'))->default('Française')->required(),
                             ])->columns(4),
                             
-                            Textarea::make('dietary_restrictions')->label('Allergies / Restrictions alimentaires')->rows(1),
-                            Textarea::make('mobility_concerns')->label('Besoins PMR / Handicap')->rows(1),
+                            Textarea::make('dietary_restrictions')->label(__('Allergies / Restrictions alimentaires'))->rows(1),
+                            Textarea::make('mobility_concerns')->label(__('Besoins PMR / Handicap'))->rows(1),
                         ])
                         ->required(),
                 ]),
 
-                Section::make('Logistique d\'arrivée')->schema([
-                    Textarea::make('flight_info')->label('Vols (Arrivée/Départ)')->rows(3),
-                    TextInput::make('first_hotel_name')->label('1er Hôtel (Nom)'),
+                Section::make(__('Logistique d\'arrivée'))->schema([
+                    Textarea::make('flight_info')->label(__('Vols (Arrivée/Départ)'))->rows(3),
+                    TextInput::make('first_hotel_name')->label(__('1er Hébergement (Nom)')),
 
                     DatePicker::make('first_hotel_check_in')
-                        ->label('Date Check-in 1er Hôtel')
+                        ->label(__('Date Check-in 1er Hébergement'))
                         ->live()
                         ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
                         ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
                         ->afterOrEqual('start_date')
                         ->beforeOrEqual('end_date')
                         ->validationMessages([
-                            'after_or_equal' => 'Le check-in doit avoir lieu après l\'arrivée.',
-                            'before_or_equal' => 'Le check-in doit avoir lieu avant le départ.',
+                            'after_or_equal' => __('Le check-in doit avoir lieu après l\'arrivée.'),
+                            'before_or_equal' => __('Le check-in doit avoir lieu avant le départ.'),
                         ]),
 
                     Textarea::make('first_hotel_address')
-                        ->label('Adresse du premier hôtel')
-                        ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
+                        ->label(__('Adresse du premier hébergement'))
+                        ->placeholder(__('Adresse complète pour l\'envoi éventuel de documents...'))
                         ->rows(2),
                 ])
             ])
@@ -353,7 +412,7 @@ class ViewProduct extends Page
                 $agencyId = $livewire->activeAgencyId ?? Filament::auth()->user()?->agency_id;
 
                 if (!$agencyId) {
-                    Notification::make()->title('Erreur')->body('La session agence est expirée ou introuvable.')->danger()->send();
+                    Notification::make()->title(__('Erreur'))->body('La session agence est expirée ou introuvable.')->danger()->send();
                     return;
                 }
 
@@ -408,7 +467,7 @@ class ViewProduct extends Page
                 unset($livewire->foldersList);
 
                 Notification::make()
-                    ->title('Dossier créé avec succès !')
+                    ->title(__('Dossier créé avec succès !'))
                     ->success()
                     ->send();
             });
@@ -563,6 +622,8 @@ class ViewProduct extends Page
         }
 
         $basePricePerUnit = 0;
+        $ageBaseTotal = null;
+        $ageBaseBreakdown = null;
         $hasDate = !empty($this->serviceDate);
         $isOnDemand = $this->product->is_on_demand ?? false;
 
@@ -584,6 +645,16 @@ class ViewProduct extends Page
                         $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
                         if ($validPrices->isNotEmpty()) {
                             $matchedPrice = $validPrices->first()->price;
+                            if ($this->product->enable_age_selector) {
+                                $ageBaseBreakdown = $this->product->calculateAgeBasedBreakdown(
+                                    $period,
+                                    $qty,
+                                    $this->ageSelectorAdults,
+                                    $this->ageSelectorChildren,
+                                    $this->ageSelectorTeenagers,
+                                );
+                                $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
+                            }
                         } else {
                             $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
                         }
@@ -594,10 +665,28 @@ class ViewProduct extends Page
             $basePricePerUnit = $matchedPrice ?? 0;
         } else {
             $minPrice = null;
+            $minAgeBaseTotal = null;
             if ($this->product->productPeriods) {
                 foreach($this->product->productPeriods as $period) {
                     if ($period->productPrices) {
                         $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
+
+                        if ($this->product->enable_age_selector && $validPrices->isNotEmpty()) {
+                            $candidateAgeBreakdown = $this->product->calculateAgeBasedBreakdown(
+                                $period,
+                                $qty,
+                                $this->ageSelectorAdults,
+                                $this->ageSelectorChildren,
+                                $this->ageSelectorTeenagers,
+                            );
+
+                            if ($candidateAgeBreakdown !== null
+                                && ($minAgeBaseTotal === null || $candidateAgeBreakdown['total'] < $minAgeBaseTotal)) {
+                                $minAgeBaseTotal = $candidateAgeBreakdown['total'];
+                                $ageBaseBreakdown = $candidateAgeBreakdown;
+                            }
+                        }
+
                         foreach($validPrices as $price) {
                             if ($minPrice === null || $price->price < $minPrice) {
                                 $minPrice = $price->price;
@@ -606,19 +695,53 @@ class ViewProduct extends Page
                     }
                 }
             }
-            $basePricePerUnit = $minPrice ?? 0;
+
+            if ($minAgeBaseTotal !== null) {
+                $ageBaseTotal = $minAgeBaseTotal;
+                $basePricePerUnit = $minAgeBaseTotal / max(1, $qty);
+            } else {
+                $basePricePerUnit = $minPrice ?? 0;
+            }
         }
 
-        $totalBase = $basePricePerUnit * $qty;
+        $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
+
+        if (! $this->isAdmin && ! $this->product->isAvailableForAgency($this->activeAgencyId)) {
+            abort(403, __('Cette prestation n’est pas disponible pour le groupe de votre agence.'));
+        }
+
+        if ($this->product->usesAgeSelector()) {
+            $this->ageSelectorAdults = max(1, (int) ($this->ageSelectorAdults ?: $this->quantity ?: 1));
+            $this->ageSelectorChildren = max(0, (int) $this->ageSelectorChildren);
+            $this->ageSelectorTeenagers = max(0, (int) $this->ageSelectorTeenagers);
+            $this->syncAgeSelectorQuantity();
+        }
+
+        $totalBase = $ageBaseTotal !== null
+            ? $ageBaseTotal
+            : ($basePricePerUnit * $qty);
         
         $optionsPrice = 0;
+        $optionsAdultTotal = 0;
+        $optionsChildTotal = 0;
+        $optionsTeenTotal = 0;
         if ($this->product->productOptions) {
             foreach ($this->product->productOptions as $option) {
                 $optData = $this->selectedOptions[$option->id] ?? [];
                 if (!empty($optData['enabled'])) {
                     $mod = $option->price_modifier ?? 0;
                     if ($option->billing_type === 'per_pax') {
-                        $optionsPrice += $mod * $qty;
+                        if ($this->product->enable_age_selector) {
+                            $adultTotal = $option->priceModifierForAge(false) * $this->ageSelectorAdults;
+                            $childTotal = $option->priceModifierForAge(true) * $this->ageSelectorChildren;
+                            $teenTotal = $option->priceModifierForAgeGroup('teen') * $this->ageSelectorTeenagers;
+                            $optionsAdultTotal += $adultTotal;
+                            $optionsChildTotal += $childTotal;
+                            $optionsTeenTotal += $teenTotal;
+                            $optionsPrice += $adultTotal + $childTotal + $teenTotal;
+                        } else {
+                            $optionsPrice += $mod * $qty;
+                        }
                     } elseif ($option->billing_type === 'per_booking') {
                         $optionsPrice += $mod;
                     } elseif ($option->billing_type === 'manual') {
@@ -632,9 +755,18 @@ class ViewProduct extends Page
         return [
             'is_on_demand' => $isOnDemand,
             'has_date' => $hasDate,
-            'unit_base' => $basePricePerUnit,
+            'unit_base' => $ageBaseTotal !== null ? ($ageBaseTotal / max(1, $qty)) : $basePricePerUnit,
             'total_base' => $totalBase,
+            'base_adult_unit' => $ageBaseBreakdown['adult_unit'] ?? null,
+            'base_child_unit' => $ageBaseBreakdown['child_unit'] ?? null,
+            'base_teen_unit' => $ageBaseBreakdown['teen_unit'] ?? null,
+            'base_adult_total' => $ageBaseBreakdown['adult_total'] ?? null,
+            'base_child_total' => $ageBaseBreakdown['child_total'] ?? null,
+            'base_teen_total' => $ageBaseBreakdown['teen_total'] ?? null,
             'total_options' => $optionsPrice,
+            'options_adult_total' => $optionsAdultTotal,
+            'options_child_total' => $optionsChildTotal,
+            'options_teen_total' => $optionsTeenTotal,
             'grand_total' => $totalBase + $optionsPrice,
             'qty' => $qty
         ];
@@ -645,7 +777,7 @@ class ViewProduct extends Page
         $agencyId = $this->activeAgencyId ?? Filament::auth()->user()?->agency_id;
 
         if (!$agencyId) {
-            Notification::make()->title('Session Expirée')->danger()->send();
+            Notification::make()->title(__('Session Expirée'))->danger()->send();
             return;
         }
 
@@ -661,20 +793,20 @@ class ViewProduct extends Page
             ];
 
             $messages = [
-                'selectedFolderId.required' => 'Veuillez sélectionner un dossier de voyage.',
-                'customValues.transport_routes.required' => 'Au moins un trajet est requis.',
-                'customValues.transport_routes.*.departure_station.required' => 'Le point de départ est obligatoire.',
-                'customValues.transport_routes.*.arrival_station.required' => 'Le point d\'arrivée est obligatoire.',
-                'customValues.transport_routes.*.departure_date.required' => 'La date du trajet est obligatoire.',
-                'customValues.transport_routes.*.option_id.required' => 'Veuillez sélectionner une classe',
+                'selectedFolderId.required' => __('Veuillez sélectionner un dossier de voyage.'),
+                'customValues.transport_routes.required' => __('Au moins un trajet est requis.'),
+                'customValues.transport_routes.*.departure_station.required' => __('Le point de départ est obligatoire.'),
+                'customValues.transport_routes.*.arrival_station.required' => __('Le point d\'arrivée est obligatoire.'),
+                'customValues.transport_routes.*.departure_date.required' => __('La date du trajet est obligatoire.'),
+                'customValues.transport_routes.*.option_id.required' => __('Veuillez sélectionner une classe'),
             ];
 
             try {
                 $this->validate($rules, $messages);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 Notification::make()
-                    ->title('Informations manquantes')
-                    ->body('Veuillez renseigner tous les détails de vos trajets avant de valider.')
+                    ->title(__('Informations manquantes'))
+                    ->body(__('Veuillez renseigner tous les détails de vos trajets avant de valider.'))
                     ->danger()
                     ->send();
                 throw $e;
@@ -684,6 +816,16 @@ class ViewProduct extends Page
             $firstRoute = $routes[0] ?? null;
             $serviceDate = !empty($firstRoute['departure_date']) ? $firstRoute['departure_date'] : now()->format('Y-m-d');
             $quantity = !empty($firstRoute['pax_count']) ? (int)$firstRoute['pax_count'] : 1;
+
+            foreach ($routes as $route) {
+                $departureDate = $route['departure_date'] ?? null;
+
+                if ($departureDate && $this->product->isAgencyRequestDeadlineExceeded($departureDate)) {
+                    $this->notifyRequestDeadlineExceeded($departureDate);
+
+                    return;
+                }
+            }
 
             $status = \App\Models\ItemStatus::firstOrCreate(
                 ['name' => 'En attente de validation'],
@@ -711,12 +853,12 @@ class ViewProduct extends Page
             }
 
             Notification::make()
-                ->title('Demande de trajet ajoutée au dossier !')
-                ->body('Vos trajets ont été enregistrés. Notre équipe va établir l\'itinéraire optimal.')
+                ->title(__('Demande de trajet ajoutée au dossier !'))
+                ->body(__('Vos trajets ont été enregistrés. Notre équipe va établir l\'itinéraire optimal.'))
                 ->success()
                 ->send();
 
-            $this->reset(['serviceDate', 'quantity', 'selectedFolderId']);
+            $this->reset(['serviceDate', 'quantity', 'selectedFolderId', 'ageSelectorAdults', 'ageSelectorChildren', 'ageSelectorTeenagers']);
             $this->mount($this->product->id);
             return;
         }
@@ -727,16 +869,27 @@ class ViewProduct extends Page
             'quantity' => 'required|integer|min:1',
         ];
 
+        if ($this->product?->usesAgeSelector()) {
+            $rules['ageSelectorAdults'] = 'required|integer|min:0';
+            if ($this->product->hasChildSelector()) {
+                $rules['ageSelectorChildren'] = 'required|integer|min:0';
+            }
+            if ($this->product->hasTeenSelector()) {
+                $rules['ageSelectorTeenagers'] = 'required|integer|min:0';
+            }
+            $this->syncAgeSelectorQuantity();
+        }
+
         $messages = [
-            'selectedFolderId.required' => 'Veuillez sélectionner un dossier de voyage.',
-            'serviceDate.required' => 'La date de la prestation est obligatoire.',
-            'quantity.required' => 'Le nombre de personnes est requis.',
-            'quantity.min' => 'Il faut au minimum 1 personne.',
+            'selectedFolderId.required' => __('Veuillez sélectionner un dossier de voyage.'),
+            'serviceDate.required' => __('La date de la prestation est obligatoire.'),
+            'quantity.required' => __('Le nombre de personnes est requis.'),
+            'quantity.min' => __('Il faut au minimum 1 personne.'),
         ];
 
         if ($this->product && $this->product->max_pax) {
             $rules['quantity'] .= '|max:' . $this->product->max_pax;
-            $messages['quantity.max'] = 'Cette prestation est limitée à ' . $this->product->max_pax . ' participants au maximum.';
+            $messages['quantity.max'] = __('Cette prestation est limitée à :max participants au maximum.', ['max' => $this->product->max_pax]);
         }
 
         $groupedRequired = $this->product->productOptions
@@ -753,10 +906,10 @@ class ViewProduct extends Page
             }
 
             if (!$hasChoiceSelected) {
-                $displayName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                $displayName = ($groupName === 'default_required') ? __('Déclinaison') : $groupName;
                 Notification::make()
                     ->title(__('Déclinaison obligatoire manquante'))
-                    ->body("Veuillez sélectionner un choix pour '{$displayName}'.")
+                    ->body(__('Veuillez sélectionner un choix pour :name.', ['name' => $displayName]))
                     ->danger()
                     ->send();
 
@@ -800,16 +953,33 @@ class ViewProduct extends Page
             }
         }
 
+        if ($this->product?->usesAgeSelector()) {
+            $this->customValues['_age_selector'] = [
+                'adults' => $this->ageSelectorAdults,
+                'children' => $this->ageSelectorChildren,
+                'teenagers' => $this->ageSelectorTeenagers,
+                'total' => $this->quantity,
+                'child_age_limit' => (int) ($this->product->child_age_limit ?? 11),
+                'teen_age_limit' => $this->product->teen_age_limit ? (int) $this->product->teen_age_limit : null,
+            ];
+        }
+
         try {
             $this->validate($rules, $messages);
         } catch (\Illuminate\Validation\ValidationException $e) {
             Notification::make()
-                ->title('Informations manquantes')
-                ->body('Veuillez vérifier les champs en rouge avant d\'ajouter au dossier.')
+                ->title(__('Informations manquantes'))
+                ->body(__('Veuillez vérifier les champs en rouge avant d\'ajouter au dossier.'))
                 ->danger()
                 ->send();
                 
             throw $e;
+        }
+
+        if ($this->product->isAgencyRequestDeadlineExceeded($this->serviceDate)) {
+            $this->notifyRequestDeadlineExceeded($this->serviceDate);
+
+            return;
         }
 
         if (!empty($this->product->custom_field_definitions)) {
@@ -841,8 +1011,8 @@ class ViewProduct extends Page
 
             if ($serviceDateObj->lt($folderStart) || $serviceDateObj->gt($folderEnd)) {
                 Notification::make()
-                    ->title('Date hors séjour')
-                    ->body("La date choisie (" . $serviceDateObj->format('d/m/Y') . ") est en dehors des dates du dossier sélectionné (du " . $folderStart->format('d/m/Y') . " au " . $folderEnd->format('d/m/Y') . ").")
+                    ->title(__('Date hors séjour'))
+                ->body(__('La date choisie (:date) est en dehors des dates du dossier sélectionné (du :start au :end).', ['date' => $serviceDateObj->format('d/m/Y'), 'start' => $folderStart->format('d/m/Y'), 'end' => $folderEnd->format('d/m/Y')]))
                     ->danger()
                     ->send();
                 return; 
@@ -869,6 +1039,9 @@ class ViewProduct extends Page
             'product_id' => $this->product->id,
             'service_date' => $this->serviceDate,
             'quantity' => $this->quantity,
+            'pax_adults' => $this->product->enable_age_selector ? $this->ageSelectorAdults : null,
+            'pax_children' => $this->product->enable_age_selector ? $this->ageSelectorChildren : null,
+            'pax_teenagers' => $this->product->enable_age_selector ? $this->ageSelectorTeenagers : null,
             'selected_options' => $formattedOptions, 
             'custom_values' => $this->customValues,
             'item_status_id' => $status->id,
@@ -884,12 +1057,12 @@ class ViewProduct extends Page
         }
 
         Notification::make()
-            ->title('Demande ajoutée au dossier !')
-            ->body('La prestation ainsi que ses options et configurations logistiques ont été enregistrées avec le statut "En attente de validation".')
+            ->title(__('Demande ajoutée au dossier !'))
+                ->body(__('La prestation ainsi que ses options et configurations logistiques ont été enregistrées avec le statut "En attente de validation".'))
             ->success()
             ->send();
 
-        $this->reset(['serviceDate', 'quantity', 'selectedFolderId']);
+        $this->reset(['serviceDate', 'quantity', 'selectedFolderId', 'ageSelectorAdults', 'ageSelectorChildren', 'ageSelectorTeenagers']);
         $this->mount($this->product->id);
     }
 

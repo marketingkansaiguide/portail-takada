@@ -25,7 +25,12 @@ class SevenTicketsOrders extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';
     protected static ?string $navigationLabel = 'Commandes Seven Tickets';
-    protected static ?string $title = 'Prestations Seven Tickets (F14)';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Prestations Seven Tickets');
+    }
     protected static ?int $navigationSort = 7;
 
     protected string $view = 'filament.pages.train-tickets'; // On réutilise ta vue de base Filament si elle contient ton squelette
@@ -80,19 +85,19 @@ class SevenTicketsOrders extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('service_date')
-                    ->label('Date')
+                    ->label(__('Date'))
                     ->getStateUsing(fn (FolderItem $record) => $record->service_date ?? $record->folder?->start_date)
                     ->date('d/m/Y')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('folder.folder_name')
-                    ->label('Dossier')
+                    ->label(__('Dossier'))
                     ->searchable()
                     ->weight('bold')
                     ->description(fn (FolderItem $record) => $record->folder?->lead_traveler_name),
 
                 Tables\Columns\TextColumn::make('product.name')
-                    ->label('Prestation')
+                    ->label(__('Prestation'))
                     ->wrap()
                     ->description(function (FolderItem $record) {
                         $customVals = is_string($record->custom_values) ? json_decode($record->custom_values, true) : ($record->custom_values ?? []);
@@ -104,33 +109,35 @@ class SevenTicketsOrders extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('pax_count')
-                    ->label('Passagers')
+                    ->label(__('Passagers'))
                     ->getStateUsing(function (FolderItem $record) {
-                        $adults = $record->folder->pax_adults ?? 1;
-                        $children = $record->folder->pax_children ?? 0;
-                        return "{$adults} AD / {$children} ENF";
+                        $pax = $record->getPaxBreakdown();
+
+                        return $pax['has_age_breakdown']
+                            ? "{$pax['adults']} AD" . ($pax['teenagers'] > 0 ? " / {$pax['teenagers']} ADO" : '') . " / {$pax['children']} ENF"
+                            : "{$pax['total']} PAX";
                     }),
 
                 Tables\Columns\TextColumn::make('itemStatus.name')
-                    ->label('Statut')
+                    ->label(__('Statut'))
                     ->badge()
                     ->color('warning')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('label_exported_at')
-                    ->label('Statut Étiquettes')
+                    ->label(__('Statut Étiquettes'))
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? '✅ Imprimée' : '⏳ En attente')
+                    ->formatStateUsing(fn ($state) => $state ? __('✅ Imprimée') : __('⏳ En attente'))
                     ->color(fn ($state) => $state ? 'success' : 'danger')
                     ->description(fn (FolderItem $record) => $record->label_exported_at ? Carbon::parse($record->label_exported_at)->format('d/m/Y à H:i') : null)
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('label_exported')
-                    ->label('Statut Impression')
+                    ->label(__('Statut Impression'))
                     ->options([
-                        'pending' => '⏳ En attente (Non imprimé)',
-                        'exported' => '✅ Imprimé',
+                    'pending' => __('⏳ En attente (Non imprimé)'),
+                    'exported' => __('✅ Imprimé'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
@@ -143,8 +150,8 @@ class SevenTicketsOrders extends Page implements HasTable
 
                 Filter::make('service_period')
                     ->form([
-                        DatePicker::make('from')->label('Prestation après le'),
-                        DatePicker::make('until')->label('Prestation avant le'),
+                        DatePicker::make('from')->label(__('Prestation après le')),
+                        DatePicker::make('until')->label(__('Prestation avant le')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -160,27 +167,18 @@ class SevenTicketsOrders extends Page implements HasTable
             ])
             ->bulkActions([
                 BulkAction::make('print_labels')
-                    ->label('Imprimer les étiquettes')
+                    ->label(__('Imprimer les étiquettes'))
                     ->icon('heroicon-o-printer')
                     ->color('success')
-                    ->action(function (Collection $records) {
+                    ->action(function (Collection $records, $livewire) {
                         
                         // 1. On marque les dossiers sélectionnés comme exportés/imprimés
                         FolderItem::whereIn('id', $records->pluck('id'))->update(['label_exported_at' => now()]);
 
-                        Notification::make()
-                            ->title('Étiquettes générées !')
-                            ->body('Le fichier d\'impression a été téléchargé et les statuts mis à jour.')
-                            ->success()
-                            ->send();
-
-                        // 2. On génère le fichier HTML d'impression au format A4
-                        $htmlContent = view('pdf.seven-tickets-labels', ['records' => $records])->render();
-                        $fileName = 'Etiquettes_SevenTickets_' . now()->format('Ymd_His') . '.html';
-
-                        return response()->streamDownload(function () use ($htmlContent) {
-                            echo $htmlContent;
-                        }, $fileName);
+                        // Même prévisualisation modifiable que les étiquettes de check-in.
+                        $ids = $records->pluck('id')->implode(',');
+                        $url = route('pdf.seven-tickets-labels', ['ids' => $ids]);
+                        $livewire->js("window.open('{$url}', '_blank')");
                     }),
             ]);
     }

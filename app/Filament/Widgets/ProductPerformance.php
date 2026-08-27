@@ -15,7 +15,12 @@ class ProductPerformance extends BaseWidget
     protected static bool $isDiscovered = false;
     protected static bool $isLazy = false;
     protected int | string | array $columnSpan = 'full';
-    protected static ?string $heading = 'Popularité & Rentabilité par Prestation (Produit)';
+    protected static ?string $heading = null;
+
+    protected function getTableHeading(): ?string
+    {
+        return __('Popularité & Rentabilité par Prestation (Produit)');
+    }
 
     public function table(Table $table): Table
     {
@@ -53,31 +58,31 @@ class ProductPerformance extends BaseWidget
             )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nom de la prestation')
+                ->label(__('Nom de la prestation'))
                     ->searchable()
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                    ->label('Présent dans X Dossiers')
+                ->label(__('Présent dans X Dossiers'))
                     ->badge()
                     ->color('info')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_ca')
-                    ->label('CA Généré (¥)')
+                ->label(__('CA Généré (¥)'))
                     ->money('JPY')
                     ->weight('bold')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                    ->label('Marge Totale (¥)')
+                ->label(__('Marge Totale (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                    ->label('Marge Moy. / Dossier incluant ce produit')
+                ->label(__('Marge Moy. / Dossier incluant ce produit'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
             ])

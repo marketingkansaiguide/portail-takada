@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 class AgencyResource extends Resource
 {
     protected static ?string $model = Agency::class;
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
 
@@ -30,6 +31,20 @@ class AgencyResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Agences');
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'contact_name', 'email', 'phone', 'address'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Contact') => $record->contact_name,
+            __('Email') => $record->email,
+            __('Téléphone') => $record->phone,
+        ]);
     }
 
     public static function form(Schema $schema): Schema

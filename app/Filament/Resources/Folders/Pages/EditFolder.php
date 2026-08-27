@@ -10,14 +10,12 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
-use Carbon\Carbon;
 use Illuminate\Support\HtmlString;
 
 class EditFolder extends EditRecord
 {
     protected static string $resource = FolderResource::class;
 
-    protected ?string $historyMessage = null;
     protected ?string $historyNote = null;
 
     protected function getHeaderActions(): array
@@ -79,8 +77,6 @@ class EditFolder extends EditRecord
     protected function beforeSave(): void
     {
         $record = $this->getRecord();
-        $oldData = $record->getOriginal();
-        
         $formState = $this->form->getRawState();
         $this->historyNote = $formState['history_note'] ?? null;
 
@@ -98,122 +94,18 @@ class EditFolder extends EditRecord
         $newData['total_price'] = $totalItems + $fee;
         $record->total_price = $newData['total_price'];
 
-        $changesText = [];
-
-        $labels = [
-            'agency_id' => __('Agence'),
-            'folder_name' => __('Nom du dossier'),
-            'lead_traveler_name' => __('Voyageur principal'),
-            'hotel_booking_name' => __("Nom de réservation d'hôtel"),
-            'contact_phones' => __('Téléphones de contact'),
-            'pax_adults' => __("Nombre d'adultes"),
-            'pax_children' => __("Nombre d'enfants"),
-            'start_date' => __('Date de début'),
-            'end_date' => __('Date de fin'),
-            'status' => __('Statut'),
-            'folder_fee' => __('Frais de dossier'),
-            'total_price' => __('Prix total'),
-            'flight_info' => __('Informations de vol'),
-            'first_hotel_check_in' => __('Premier check-in hôtel'),
-            'first_hotel_name' => __('Nom du premier hôtel'),
-            'first_hotel_address' => __('Adresse du premier hôtel'),
-            'ticket_dispatch_method' => __('Méthode d’envoi des billets'),
-            'ticket_dispatch_other' => __('Autre méthode d’envoi'),
-        ];
-
-        $statusKeys = [
-            'draft' => 'Brouillon',
-            'pending' => 'En attente de validation',
-            'confirmed' => 'Confirmé / Validé',
-            'completed' => 'Voyage terminé',
-            'cancelled' => 'Annulé',
-        ];
-
-        foreach ($newData as $key => $newValue) {
-            if (!array_key_exists($key, $labels)) {
-                continue;
-            }
-
-            $oldValue = $oldData[$key] ?? null;
-
-            if ($key === 'agency_id') {
-                $oldAgency = $oldValue ? (\App\Models\Agency::find($oldValue)?->name ?? __('Inconnue')) : __('Non renseignée');
-                $newAgency = $newValue ? (\App\Models\Agency::find($newValue)?->name ?? __('Inconnue')) : __('Vide');
-                
-                if ($oldAgency !== $newAgency) {
-                    $changesText[] = "• " . __('Agence modifiée') . " : '" . $oldAgency . "' ➔ '" . $newAgency . "'";
-                }
-                continue;
-            }
-
-            if ($key === 'status') {
-                if ((string)$oldValue !== (string)$newValue) {
-                    $oldStatus = __($statusKeys[$oldValue] ?? $oldValue ?? 'Aucun');
-                    $newStatus = __($statusKeys[$newValue] ?? $newValue ?? 'Aucun');
-                    $changesText[] = "• " . __('Le statut du dossier est passé de') . " '" . $oldStatus . "' " . __('à') . " '" . $newStatus . "'";
-                }
-                continue;
-            }
-
-            if (is_array($oldValue) || is_array($newValue)) {
-                if (json_encode($oldValue) !== json_encode($newValue)) {
-                    $changesText[] = "• " . __('Les coordonnées') . " '" . $labels[$key] . "' " . __('ont été mises à jour.');
-                }
-                continue;
-            }
-
-            if (($oldValue instanceof \DateTime || $oldValue instanceof Carbon) || ($newValue instanceof \DateTime || $newValue instanceof Carbon) || $key === 'start_date' || $key === 'end_date' || $key === 'first_hotel_check_in') {
-                try {
-                    $oldString = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : __('Non renseignée');
-                    $newString = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : __('Vide');
-                    
-                    if ($oldString !== $newString) {
-                        $changesText[] = "• " . $labels[$key] . " " . __('modifié') . " : '" . $oldString . "' ➔ '" . $newString . "'";
-                    }
-                } catch (\Exception $e) {
-                    if ((string)$oldValue !== (string)$newValue) {
-                        $changesText[] = "• " . $labels[$key] . " " . __('modifié') . " : '" . ($oldValue ?? __('Vide')) . "' ➔ '" . ($newValue ?? __('Vide')) . "'";
-                    }
-                }
-                continue;
-            }
-
-            if ((string)$oldValue !== (string)$newValue) {
-                $oldString = $oldValue !== null && $oldValue !== '' ? (string)$oldValue : __('Non renseigné');
-                $newString = $newValue !== null && $newValue !== '' ? (string)$newValue : __('Vide');
-                $changesText[] = "• " . $labels[$key] . " " . __('modifié') . " : '" . $oldString . "' ➔ '" . $newString . "'";
-            }
-        }
-
-        if (!empty($changesText)) {
-            $this->historyMessage = __('Mise à jour des données du dossier') . " :\n" . implode("\n", $changesText);
-        } else {
-            $this->historyMessage = null;
-        }
     }
 
     protected function afterSave(): void
     {
-        if ($this->historyMessage) {
-            $finalSummary = $this->historyMessage;
-            
-            if (!empty($this->historyNote)) {
-                $finalSummary .= "\n\n📝 " . __('Note ajoutée') . " :\n" . trim($this->historyNote);
-            }
-
-            // 💡 On utilise logConsolidated pour fusionner !
-            \App\Models\FolderHistory::logConsolidated(
-                $this->getRecord()->id,
-                __('Mise à jour'),
-                $finalSummary
-            );
-        } 
-        elseif (!empty($this->historyNote)) {
-            // 💡 On utilise logConsolidated pour fusionner !
+        if (!empty($this->historyNote)) {
             \App\Models\FolderHistory::logConsolidated(
                 $this->getRecord()->id,
                 __('Note'),
-                "📝 " . __('Note ajoutée au dossier') . " :\n" . trim($this->historyNote)
+                "📝 " . __('Note ajoutée au dossier') . " :\n" . trim($this->historyNote),
+                'note',
+                [],
+                ['event' => 'manual_note'],
             );
         }
     }

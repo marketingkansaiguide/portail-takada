@@ -13,11 +13,10 @@ class ProductsTable
     {
         return $table
             ->columns([
-                ImageColumn::make('images')
+                ImageColumn::make('primary_image_url')
                     ->label(__('Photo'))
                     ->circular()
-                    ->stacked()
-                    ->limit(3),
+                    ->imageSize(48),
 
                 TextColumn::make('name')
                     ->label(__('Prestation'))
@@ -35,7 +34,7 @@ class ProductsTable
                     ->sortable(),
 
                 IconColumn::make('is_lottery')
-                    ->label(__('Loterie'))
+                    ->label(__('Disponibilité limitée'))
                     ->boolean(),
 
                 IconColumn::make('is_on_demand')

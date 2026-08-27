@@ -12,25 +12,25 @@ class SuppliersTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nom')
+                    ->label(__('Nom'))
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('contact_name')
-                    ->label('Contact')
+                    ->label(__('Contact'))
                     ->searchable(),
 
                 TextColumn::make('phone')
-                    ->label('Téléphone'),
+                    ->label(__('Téléphone')),
 
                 // 💡 NOUVELLE COLONNE
                 TextColumn::make('payment_type')
-                    ->label('Paiement')
+                    ->label(__('Paiement'))
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('commission')
-                    ->label('Commission')
+                    ->label(__('Commission'))
                     ->suffix(' %')
                     ->sortable(),
             ]);

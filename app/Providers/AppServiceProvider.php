@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\Folder;
+use App\Observers\FolderObserver;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\Repeater;
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Folder::observe(FolderObserver::class);
+
         // 🔒 1. PRINCIPAL : Popin sur toutes les suppressions individuelles (Pages et Tableaux)
         DeleteAction::configureUsing(function (DeleteAction $action) {
             $action

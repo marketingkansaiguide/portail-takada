@@ -15,6 +15,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
@@ -25,6 +26,7 @@ use Filament\Tables\Table;
 class TransportProductResource extends Resource
 {
     protected static ?string $model = Product::class;
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';
 
@@ -41,6 +43,19 @@ class TransportProductResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Transports');
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'description', 'category.name', 'supplier.name'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Catégorie') => $record->category?->name,
+            __('Fournisseur') => $record->supplier?->name,
+        ]);
     }
 
     public static function getEloquentQuery(): Builder
@@ -178,6 +193,27 @@ class TransportProductResource extends Resource
                             Toggle::make('is_public')
                                 ->label(__('Visible sur le catalogue B2B'))
                                 ->default(true),
+
+                            CheckboxList::make('clientGroups')
+                                ->label(__('Groupes d’agences autorisés'))
+                                ->relationship('clientGroups', 'name')
+                                ->columns(1)
+                                ->helperText(__('Laissez vide pour permettre à toutes les agences de demander ce transport.')),
+
+                            TextInput::make('days_before_opening')
+                                ->label(__('Ouverture des ventes (J-)'))
+                                ->placeholder(__('Ex: 30'))
+                                ->numeric()
+                                ->minValue(0)
+                                ->suffix(__('jours')),
+
+                            TextInput::make('days_before_request_deadline')
+                                ->label(__('Date limite de demande (J-)'))
+                                ->placeholder(__('Ex: 7'))
+                                ->numeric()
+                                ->minValue(0)
+                                ->suffix(__('jours'))
+                                ->helperText(__('L’agence ne pourra plus demander cette prestation après ce délai.')),
                         ]),
                 ])->columnSpan(['lg' => 1]),
             ]);
@@ -187,11 +223,10 @@ class TransportProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\ImageColumn::make('images')
+                Tables\Columns\ImageColumn::make('primary_image_url')
                     ->label(__('Visuel'))
                     ->circular()
-                    ->stacked()
-                    ->limit(2),
+                    ->imageSize(48),
 
                 Tables\Columns\TextColumn::make('name')
                     ->label(__('Billet / Transport'))

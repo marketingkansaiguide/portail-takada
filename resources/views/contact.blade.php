@@ -25,7 +25,7 @@
                 </a>
                 
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">Demande Sur-Mesure</h1>
-                <p class="text-gray-500">Un groupe important ou une demande spécifique ? Détaillez-nous votre besoin, notre équipe vous préparera un devis personnalisé.</p>
+<p class="text-gray-500">{{ __('Un groupe important ou une demande spécifique ? Détaillez-nous votre besoin, notre équipe vous préparera un devis personnalisé.') }}</p>
             </div>
 
             <!-- Affichage du message de succès -->
@@ -78,8 +78,8 @@
 
                 <!-- Message -->
                 <div>
-                    <label for="message" class="block text-sm font-medium text-gray-700">Détails de votre demande <span class="text-red-500">*</span></label>
-                    <textarea name="message" id="message" rows="6" required placeholder="Décrivez votre besoin (dates, nombre exact de passagers, attentes particulières...)"
+<label for="message" class="block text-sm font-medium text-gray-700">{{ __('Détails de votre demande') }} <span class="text-red-500">*</span></label>
+<textarea name="message" id="message" rows="6" required placeholder="{{ __('Décrivez votre besoin (dates, nombre exact de passagers, attentes particulières...)') }}"
                         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm px-4 py-2 border">{{ old('message') }}</textarea>
                     @error('message') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                 </div>

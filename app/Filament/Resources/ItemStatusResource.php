@@ -50,7 +50,7 @@ class ItemStatusResource extends Resource
                     ->schema([
                         TextInput::make('name')
                             ->label(__('Nom du statut'))
-                            ->placeholder('Ex: En attente fournisseur, Confirmé, Voucher envoyé...')
+                            ->placeholder(__('Ex: En attente fournisseur, Confirmé, Voucher envoyé...'))
                             ->required()
                             ->unique(ignoreRecord: true),
 

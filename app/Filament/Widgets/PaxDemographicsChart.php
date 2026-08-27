@@ -9,7 +9,12 @@ class PaxDemographicsChart extends ChartWidget
 {
     protected static bool $isLazy = false; 
     protected static bool $isDiscovered = false;
-    protected ?string $heading = 'Répartition Adultes / Enfants';
+    protected ?string $heading = null;
+
+    public function getHeading(): ?string
+    {
+        return __('Répartition Adultes / Enfants');
+    }
     protected int | string | array $columnSpan = 1;
     
     // 💡 Exactement la même hauteur que le graphique CA

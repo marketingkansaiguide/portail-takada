@@ -13,22 +13,22 @@ class AgenciesTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Agence')
+                    ->label(__('Agence'))
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('clientGroup.name')
-                    ->label('Groupe')
+                    ->label(__('Groupe'))
                     ->badge() // Affiche le nom du groupe dans une jolie bulle colorée
                     ->sortable(),
 
                 TextColumn::make('email')
-                    ->label('Email')
+                    ->label(__('Email'))
                     ->searchable(),
 
                 // Un bouton direct dans le tableau pour approuver/bloquer l'agence en un clic !
                 ToggleColumn::make('is_approved')
-                    ->label('Approuvé')
+                    ->label(__('Approuvé'))
                     ->sortable(),
             ]);
     }

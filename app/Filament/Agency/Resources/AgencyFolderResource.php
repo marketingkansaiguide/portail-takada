@@ -5,6 +5,7 @@ namespace App\Filament\Agency\Resources;
 use App\Filament\Agency\Resources\AgencyFolderResource\Pages;
 use App\Models\Folder;
 use App\Models\Hotel;
+use App\Services\FolderDriveStorage;
 use BackedEnum;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -51,6 +52,31 @@ class AgencyFolderResource extends Resource
     public static function canEdit(Model $record): bool
     {
         return Filament::auth()->check() && $record->agency_id === Filament::auth()->user()->agency_id;
+    }
+
+    private static function storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload $upload): \Filament\Forms\Components\FileUpload
+    {
+        return $upload
+            ->getUploadedFileUsing(function (\Filament\Forms\Components\FileUpload $component, string $file, string|array|null $storedFileNames): ?array {
+                $folder = $component->getRecord();
+                $storage = app(FolderDriveStorage::class);
+
+                return $folder instanceof Folder
+                    ? $storage->uploadedFileInfo($folder, $file, $storedFileNames) ?? $component->getUploadedFile($file, $storedFileNames)
+                    : null;
+            })
+            ->saveUploadedFileUsing(function (\Filament\Forms\Components\FileUpload $component, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): ?string {
+                $folder = $component->getRecord();
+
+                return $folder instanceof Folder
+                    ? app(FolderDriveStorage::class)->upload($folder, $file, 'services')
+                    : null;
+            })
+            ->deleteUploadedFileUsing(function (string $file): void {
+                if (app(FolderDriveStorage::class)->isDrivePath($file)) {
+                    app(FolderDriveStorage::class)->delete($file);
+                }
+            });
     }
 
     public static function canView(Model $record): bool
@@ -104,8 +130,8 @@ class AgencyFolderResource extends Resource
                         ->content(new HtmlString("
                             <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; color: #92400e;'>
                                 <div>
-                                    <strong style='font-size: 1rem;'>✏️ Dossier en cours de rédaction (Brouillon)</strong>
-                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton <b>\"🚀 Valider et transmettre le dossier\"</b> en haut à droite.</p>
+                                    <strong style='font-size: 1rem;'>" . e(__('✏️ Dossier en cours de rédaction (Brouillon)')) . "</strong>
+                                    <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>" . e(__('Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton')) . " <b>\"🚀 " . e(__('Valider et transmettre le dossier')) . "\"</b> " . e(__('en haut à droite.')) . "</p>
                                 </div>
                             </div>
                         "))
@@ -113,24 +139,24 @@ class AgencyFolderResource extends Resource
                 ->columnSpanFull(),
 
             Group::make()->schema([
-                Section::make('Informations Principales')
+            Section::make(__('Informations Principales'))
                     ->columns(2)
                     ->schema([
                         TextInput::make('folder_name')
-                            ->label('Nom du dossier / Réf. Groupe')
+                            ->label(__('Nom du dossier / Réf. Groupe'))
                             ->required(),
 
                         TextInput::make('lead_traveler_name')
-                            ->label('Nom du pax principal')
+                            ->label(__('Nom complet du pax principal'))
                             ->required(),
 
                         TextInput::make('hotel_booking_name')
-                            ->label('Nom réservation hôtel')
-                            ->placeholder('Si différent du pax principal')
+                            ->label(__('Nom complet réservation hôtel'))
+                            ->placeholder(__('Si différent du pax principal'))
                             ->columnSpanFull(),
 
                         Select::make('main_seller_id')
-                            ->label('Vendeur principal')
+                            ->label(__('Vendeur principal'))
                             ->options(function () {
                                 $agencyId = Filament::auth()->user()->agency_id;
                                 if (!$agencyId) return [];
@@ -142,44 +168,44 @@ class AgencyFolderResource extends Resource
                             ->required(),
 
                         DatePicker::make('start_date')
-                            ->label('Date d\'arrivée au Japon')
+                            ->label(__('Date d\'arrivée au Japon'))
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
 
                         DatePicker::make('end_date')
-                            ->label('Date de départ')
+                            ->label(__('Date de départ'))
                             ->required()
                             ->live()
                             ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null),
 
                         Repeater::make('contact_phones')
-                            ->label('Contact du pax pendant le séjour')
+                            ->label(__('Contact du pax pendant le séjour'))
                             ->addable(false)
                             ->deletable(false)
                             ->reorderable(false)
                             ->defaultItems(1)
                             ->schema([
                                 TextInput::make('phone')
-                                    ->label('Téléphone')
+                                    ->label(__('Téléphone'))
                                     ->tel()
                                     ->required()
-                                    ->placeholder('+33 6...'),
+                                    ->placeholder(__('+33 6...')),
                                 TextInput::make('email')
-                                    ->label('Adresse E-mail')
+                                    ->label(__('Adresse E-mail'))
                                     ->email()
-                                    ->placeholder('pax@email.com'),
+                                    ->placeholder(__('pax@email.com')),
                             ])
                             ->columnSpanFull()
                             ->columns(2),
                     ]),
 
-                Section::make('Informations du Premier Hôtel')
+            Section::make(__('Informations du Premier Hébergement'))
                     ->columns(2)
                     ->schema([
                         Select::make('hotel_preset')
-                            ->label('🏢 Rechercher dans la base d\'hôtels')
-                            ->placeholder('Tapez le nom d\'un hôtel pour pré-remplir...')
+                            ->label(__('🏢 Rechercher dans la base d\'hôtels'))
+                            ->placeholder(__('Tapez le nom d\'un hôtel pour pré-remplir...'))
                             ->options(fn () => Hotel::pluck('name', 'id'))
                             ->searchable()
                             ->preload()
@@ -201,11 +227,11 @@ class AgencyFolderResource extends Resource
                             ->columnSpanFull(),
 
                         TextInput::make('first_hotel_name')
-                            ->label('1er Hôtel (Nom)')
-                            ->placeholder('Ex: Hotel Gracery Shinjuku'),
+                            ->label(__('1er Hébergement (Nom)'))
+                            ->placeholder(__('Ex: Hotel Gracery Shinjuku')),
 
                         DatePicker::make('first_hotel_check_in')
-                            ->label('Date Check-in 1er Hôtel')
+                            ->label(__('Date Check-in 1er Hébergement'))
                             ->live()
                             ->minDate(fn (Get $get) => $get('start_date') ? Carbon::parse($get('start_date'))->startOfDay() : null)
                             ->maxDate(fn (Get $get) => $get('end_date') ? Carbon::parse($get('end_date'))->endOfDay() : null)
@@ -217,15 +243,15 @@ class AgencyFolderResource extends Resource
                             ]),
 
                         Textarea::make('first_hotel_address')
-                            ->label('Adresse du premier hôtel')
-                            ->placeholder('Adresse complète pour l\'envoi éventuel de documents...')
+                            ->label(__('Adresse du premier hébergement'))
+                            ->placeholder(__('Adresse complète pour l\'envoi éventuel de documents...'))
                             ->rows(2)
                             ->columnSpanFull(),
 
                         TextInput::make('first_hotel_google_maps_url')
-                            ->label('Lien Google Maps')
+                            ->label(__('Lien Google Maps'))
                             ->url()
-                            ->placeholder('https://maps.google.com/...')
+                            ->placeholder(__('https://maps.google.com/...'))
                             ->live()
                             ->columnSpanFull(),
 
@@ -246,12 +272,12 @@ class AgencyFolderResource extends Resource
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Liste des Pax')
+            Section::make(__('Liste des Pax'))
                     ->schema([
                         Repeater::make('folderPassengers')
                             ->relationship()
                             ->hiddenLabel()
-                            ->addActionLabel('Ajouter un passager')
+                            ->addActionLabel(__('Ajouter un passager'))
                             ->addable(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('status') === 'draft')
                             ->deletable(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('status') === 'draft')
                             ->reorderable(false)
@@ -297,44 +323,48 @@ class AgencyFolderResource extends Resource
 
                                 Group::make()->schema([
                                     Group::make()->schema([
-                                        TextInput::make('last_name')->label('Nom')->required(),
-                                        TextInput::make('first_name')->label('Prénom')->required(),
+                                        TextInput::make('last_name')->label(__('Nom'))->required(),
+                                        TextInput::make('first_name')->label(__('Prénom'))->required(),
                                         DatePicker::make('birth_date')
-                                            ->label('Date de naissance')
+                                            ->label(__('Date de naissance'))
                                             ->required()
                                             ->live()
                                             ->afterStateUpdated(fn ($set, $get) => self::updatePassengerCount($set, $get)),
-                                        TextInput::make('nationality')->label('Nationalité')->required(),
+                                        TextInput::make('nationality')->label(__('Nationalité'))->required(),
                                     ])->columns(4),
-                                    Textarea::make('dietary_restrictions')->label('Allergies')->rows(1),
-                                    Textarea::make('mobility_concerns')->label('Besoins PMR')->rows(1),
+                                    Textarea::make('dietary_restrictions')->label(__('Allergies'))->rows(1),
+                                    Textarea::make('mobility_concerns')->label(__('Besoins PMR'))->rows(1),
                                 ])->visible(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('../../status') === 'draft'),
                             ])
                             ->deleteAction(fn ($action) => $action
-                                ->label('Annuler')
+                                ->label(__('Annuler'))
                                 ->icon('heroicon-m-x-mark')
                                 ->color('danger')
                                 ->visible(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('../../status') === 'draft')
                             )
                     ]),
 
-                Section::make('Prestations demandées')
-                    ->description('Vos prestations réservées et le suivi de leur statut.')
+            Section::make(__('Prestations demandées'))
+                    ->description(__('Vos prestations réservées et le suivi de leur statut.'))
                     ->visible(fn (?Model $record) => $record !== null)
                     ->headerActions([
                         Action::make('addPrestationModal')
-                            ->label('Ajouter une prestation')
+                            ->label(__('Ajouter une prestation'))
                             ->icon('heroicon-m-plus')
                             ->color('primary')
-                            ->modalHeading('Ajouter une nouvelle prestation')
+                            ->modalHeading(__('Ajouter une nouvelle prestation'))
                             ->modalWidth('4xl')
-                            ->modalSubmitActionLabel('Ajouter cette prestation au dossier')
+                            ->modalSubmitActionLabel(__('Ajouter cette prestation au dossier'))
                             ->visible(fn (?Model $record) => $record !== null)
                             ->form([
                                 Select::make('product_id')
-                                    ->label('Produit / Activité')
+                                    ->label(__('Produit / Activité'))
                                     ->options(function () {
+                                        $agencyId = \Filament\Facades\Filament::auth()->user()?->agency_id
+                                            ?? auth('agency')->user()?->agency_id;
+
                                         return \App\Models\Product::where('is_public', true)
+                                            ->availableForAgency($agencyId)
                                             ->pluck('name', 'id');
                                     })
                                     ->searchable()
@@ -369,8 +399,8 @@ class AgencyFolderResource extends Resource
                                     }),
 
                                 // 💡 SECTION DÉDIÉE SI C'EST UN PRODUIT DE TRANSPORT (BILLET DE TRAIN / BUS)
-                                Section::make('🚄 Itinéraire de Transport (Multi-Trajets)')
-                                    ->description('Indiquez pour chaque ticket la gare de départ, d\'arrivée, la date, l\'heure et le nombre de passagers.')
+            Section::make(__('🚄 Itinéraire de Transport (Multi-Trajets)'))
+                    ->description(__('Indiquez pour chaque ticket la gare de départ, d\'arrivée, la date, l\'heure et le nombre de passagers.'))
                                     ->visible(function (Get $get, $livewire) {
                                         $productId = $get('product_id')
                                                   ?? data_get($livewire, 'mountedTableActionData.product_id')
@@ -383,7 +413,7 @@ class AgencyFolderResource extends Resource
 
 Repeater::make('transport_routes')
     ->hiddenLabel()
-    ->addActionLabel('Ajouter un trajet')
+                        ->addActionLabel(__('Ajouter un trajet'))
     ->itemLabel(fn (array $state): ?string => 
         (!empty($state['departure_station']) && !empty($state['arrival_station']))
             ? "{$state['departure_station']} ➔ {$state['arrival_station']}" . (!empty($state['departure_date']) ? " ({$state['departure_date']})" : "")
@@ -399,11 +429,11 @@ Repeater::make('transport_routes')
         // -------------------------------------------------------------
         Group::make()->schema([
             Select::make('departure_station')
-                ->label('Gare / Station de départ')
+                                ->label(__('Gare / Station de départ'))
                 ->searchable()
                 ->required()
                 ->live()
-                ->placeholder('Rechercher gare ou station...')
+                                ->placeholder(__('Rechercher gare ou station...'))
                 ->getSearchResultsUsing(function (string $search): array {
                     $trains = \App\Models\TrainStation::where(function($q) use ($search) {
                             $q->where('name_en', 'like', "%{$search}%")
@@ -455,11 +485,11 @@ Repeater::make('transport_routes')
                 }),
 
             Select::make('arrival_station')
-                ->label('Gare / Station d\'arrivée')
+                                ->label(__('Gare / Station d\'arrivée'))
                 ->searchable()
                 ->required()
                 ->live()
-                ->placeholder('Rechercher gare ou station...')
+                                ->placeholder(__('Rechercher gare ou station...'))
                 ->getSearchResultsUsing(function (string $search): array {
                     $trains = \App\Models\TrainStation::where(function($q) use ($search) {
                             $q->where('name_en', 'like', "%{$search}%")
@@ -516,13 +546,13 @@ Repeater::make('transport_routes')
         // -------------------------------------------------------------
         Group::make()->schema([
             DatePicker::make('departure_date')
-                ->label('Date du trajet')
+                            ->label(__('Date du trajet'))
                 ->native(false)
                 ->required()
                 ->live(),
 
             Select::make('option_id')
-                ->label('Classe')
+                            ->label(__('Classe'))
                 ->options(function (\Filament\Schemas\Components\Utilities\Get $get, $livewire) {
                     $productId = $get('../../product_id') 
                               ?? data_get($livewire, 'mountedTableActionData.product_id') 
@@ -535,7 +565,7 @@ Repeater::make('transport_routes')
                 ->required(),
 
             TextInput::make('pax_count')
-                ->label('Passagers (Pax)')
+                            ->label(__('Passagers (Pax)'))
                 ->numeric()
                 ->default(1)
                 ->minValue(1)
@@ -548,16 +578,16 @@ Repeater::make('transport_routes')
         // -------------------------------------------------------------
         Group::make()->schema([
             TextInput::make('departure_time')
-                ->label('Heure de départ souhaitée')
-                ->placeholder('Ex: 09:30'),
+                            ->label(__('Heure de départ souhaitée'))
+                            ->placeholder(__('Ex: 09:30')),
 
             TextInput::make('arrival_time')
-                ->label('Heure d\'arrivée souhaitée')
-                ->placeholder('Ex: 12:15'),
+                            ->label(__('Heure d\'arrivée souhaitée'))
+                            ->placeholder(__('Ex: 12:15')),
 
             TextInput::make('train_number')
-                ->label('N° Train / Bus (Optionnel)')
-                ->placeholder('Ex: Hikari 502 / Voiture 3'),
+                            ->label(__('N° Train / Bus (Optionnel)'))
+                            ->placeholder(__('Ex: Hikari 502 / Voiture 3')),
         ])->columns(3),
     ]),
                                         // 💡 Affichage du Prix Estimé pour les Transports (Frais fixes + Devis)
@@ -600,7 +630,7 @@ Repeater::make('transport_routes')
 
                                                 return new \Illuminate\Support\HtmlString("
                                                     <div style='padding: 1rem; border-radius: 0.5rem; background-color: #fff7ed; border: 1px solid #ffedd5; margin-top: 1rem;'>
-                                                        <div style='font-weight:600; color:#c2410c; font-size:0.9rem; margin-bottom:0.35rem;'>Estimation de vos frais d'émission :</div>
+                                                        <div style='font-weight:600; color:#c2410c; font-size:0.9rem; margin-bottom:0.35rem;'>" . e(__('Estimation de vos frais d’émission :')) . "</div>
                                                         <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#9a3412;'>
                                                             <span>• Frais de service de l'agence (" . number_format($feePerPax, 0, '.', ' ') . " ¥ × {$totalPax} trajet(s) total)</span>
                                                             <span><b>" . number_format($totalFee, 0, '.', ' ') . " ¥</b></span>
@@ -616,7 +646,7 @@ Repeater::make('transport_routes')
                                 // CHAMPS GLOBAUX S'IL S'AGIT D'UN PRODUIT STANDARD
                                 Group::make()->schema([
                                     DatePicker::make('service_date')
-                                        ->label('Date souhaitée')
+                                        ->label(__('Date souhaitée'))
                                         ->required(function (Get $get, $livewire) {
                                             $productId = $get('product_id')
                                                       ?? data_get($livewire, 'mountedTableActionData.product_id')
@@ -628,8 +658,103 @@ Repeater::make('transport_routes')
                                         ->minDate(fn (?Model $record) => $record?->start_date ? Carbon::parse($record->start_date)->startOfDay() : null)
                                         ->maxDate(fn (?Model $record) => $record?->end_date ? Carbon::parse($record->end_date)->endOfDay() : null),
 
+                                    TextInput::make('age_selector_adults')
+                                        ->label(__('Adultes'))
+                                        ->numeric()
+                                        ->default(1)
+                                        ->minValue(0)
+                                        ->live()
+                                        ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                            $stored = data_get($get('custom_values'), '_age_selector.adults');
+                                            if ($stored !== null) {
+                                                $component->state((int) $stored);
+                                            }
+                                        })
+                                        ->visible(function (Get $get, $livewire): bool {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            return (bool) \App\Models\Product::find($productId)?->usesAgeSelector();
+                                        })
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->columnSpan(1),
+
+                                    TextInput::make('age_selector_children')
+                                        ->label(__('Enfants'))
+                                        ->numeric()
+                                        ->default(0)
+                                        ->minValue(0)
+                                        ->live()
+                                        ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                            $stored = data_get($get('custom_values'), '_age_selector.children');
+                                            if ($stored !== null) {
+                                                $component->state((int) $stored);
+                                            }
+                                        })
+                                        ->visible(function (Get $get, $livewire): bool {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            return (bool) \App\Models\Product::find($productId)?->hasChildSelector();
+                                        })
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->columnSpan(1),
+
+                                    TextInput::make('age_selector_teenagers')
+                                        ->label(__('Adolescents'))
+                                        ->numeric()
+                                        ->default(0)
+                                        ->minValue(0)
+                                        ->live()
+                                        ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                            $stored = data_get($get('custom_values'), '_age_selector.teenagers');
+                                            if ($stored !== null) {
+                                                $component->state((int) $stored);
+                                            }
+                                        })
+                                        ->visible(function (Get $get, $livewire): bool {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            $product = \App\Models\Product::find($productId);
+                                            return (bool) $product?->hasTeenSelector();
+                                        })
+                                        ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                                        ->columnSpan(1),
+
+                                    Placeholder::make('age_selector_hint')
+                                        ->hiddenLabel()
+                                        ->content(function (Get $get, $livewire) {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            $product = \App\Models\Product::find($productId);
+                                            if (!$product?->usesAgeSelector()) {
+                                                return null;
+                                            }
+
+                                            $childLimit = (int) ($product->child_age_limit ?? 11);
+                                            $childHint = $product->hasChildSelector()
+                                                ? 'Enfant = jusqu\'à : <strong>' . $childLimit . ' ans inclus</strong>'
+                                                : '';
+                                            $teenHint = $product->hasTeenSelector()
+                                                ? ($childHint !== '' ? ' · ' : '') . __('Adolescent = de :min à :max ans', ['min' => $childLimit + 1, 'max' => (int) $product->teen_age_limit])
+                                                : '';
+
+                                            return new \Illuminate\Support\HtmlString(
+                                                '<span style="font-size:0.8rem;color:#64748b;">' . $childHint . e($teenHint) . '</span>'
+                                            );
+                                        })
+                                        ->visible(function (Get $get, $livewire): bool {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            return (bool) \App\Models\Product::find($productId)?->usesAgeSelector();
+                                        })
+                                        ->columnSpan(2),
+
                                     TextInput::make('quantity')
-                                        ->label('Participants (Nombre de Pax)')
+                                        ->label(__('Participants (Nombre de Pax)'))
                                         ->numeric()
                                         ->default(1)
                                         ->minValue(1)
@@ -645,6 +770,12 @@ Repeater::make('transport_routes')
                                             return [];
                                         })
                                         ->live()
+                                        ->readOnly(function (Get $get, $livewire): bool {
+                                            $productId = $get('product_id')
+                                                      ?? data_get($livewire, 'mountedTableActionData.product_id')
+                                                      ?? data_get($livewire, 'mountedActionData.product_id');
+                                            return (bool) \App\Models\Product::find($productId)?->enable_age_selector;
+                                        })
                                         ->required(),
                                 ])->columns(2)->visible(function (Get $get, $livewire) {
                                     $productId = $get('product_id')
@@ -684,7 +815,10 @@ Repeater::make('transport_routes')
                                                 
                                                 $selectOptions = [];
                                                 foreach ($groupOptions as $opt) {
-                                                    $priceLabel = $opt->price_modifier > 0 ? " (+ " . number_format($opt->price_modifier, 0, '.', ' ') . " ¥)" : "";
+                                                    $product = $productId ? \App\Models\Product::find($productId) : null;
+                                                    $priceLabel = ($product?->usesAgeSelector() && $opt->billing_type === 'per_pax')
+                                                        ? " (+ " . number_format($opt->priceModifierForAge(false), 0, '.', ' ') . " ¥ adulte" . ($product->hasChildSelector() ? " / " . number_format($opt->priceModifierForAge(true), 0, '.', ' ') . " ¥ enfant" : '') . ($product->hasTeenSelector() ? " / " . number_format($opt->priceModifierForAgeGroup('teen'), 0, '.', ' ') . " ¥ adolescent" : '') . ")"
+                                                        : ($opt->price_modifier > 0 ? " (+ " . number_format($opt->price_modifier, 0, '.', ' ') . " ¥)" : "");
                                                     $selectOptions[$opt->id] = $opt->name . $priceLabel;
                                                 }
 
@@ -716,7 +850,10 @@ Repeater::make('transport_routes')
                                             $optionalSchema = [];
                                             foreach ($optionalOptions as $opt) {
                                                 $optId = $opt->id;
-                                                $formattedPrice = number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
+                                                $product = $productId ? \App\Models\Product::find($productId) : null;
+                                                $formattedPrice = ($product?->usesAgeSelector() && $opt->billing_type === 'per_pax')
+                                                    ? number_format($opt->priceModifierForAge(false), 0, '.', ' ') . ' ¥ adulte' . ($product->hasChildSelector() ? ' / ' . number_format($opt->priceModifierForAge(true), 0, '.', ' ') . ' ¥ enfant' : '') . ($product->hasTeenSelector() ? ' / ' . number_format($opt->priceModifierForAgeGroup('teen'), 0, '.', ' ') . ' ¥ adolescent' : '')
+                                                    : number_format($opt->price_modifier ?? 0, 0, '.', ' ') . ' ¥';
                                                 
                                                 $billingBadge = match ($opt->billing_type) {
                                                     'per_pax' => "{$formattedPrice} / pax",
@@ -732,7 +869,7 @@ Repeater::make('transport_routes')
 
                                                 if ($opt->billing_type === 'manual') {
                                                     $qtyInput = TextInput::make("opt_qty_{$optId}")
-                                                        ->label('Quantité')
+                        ->label(__('Quantité'))
                                                         ->numeric()
                                                         ->default(1)
                                                         ->minValue(1)
@@ -747,8 +884,8 @@ Repeater::make('transport_routes')
                                                 }
                                             }
 
-                                            $schema[] = Section::make('Options tarifaires complémentaires')
-                                                ->description('Cochez les options souhaitées selon leur mode de facturation.')
+            $schema[] = Section::make(__('Options tarifaires complémentaires'))
+                    ->description(__('Cochez les options souhaitées selon leur mode de facturation.'))
                                                 ->schema($optionalSchema);
                                         }
 
@@ -794,15 +931,13 @@ Repeater::make('transport_routes')
                                                         'date' => DatePicker::make($formKey)->label($label),
                                                         'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                         'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
-                                                        'file' => \Filament\Forms\Components\FileUpload::make($formKey)
+                                                        'file' => self::storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload::make($formKey)
                                                             ->label($label)
-                                                            ->disk('public')
-                                                            ->directory('folders/custom_fields')
                                                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                                             ->maxSize(10240)
                                                             ->preserveFilenames()
                                                             ->downloadable()
-                                                            ->openable(),
+                                                            ->openable()),
                                                         default => TextInput::make($formKey)->label($label),
                                                     };
                                                     if ($isRequired) $field->required();
@@ -818,15 +953,13 @@ Repeater::make('transport_routes')
                                                     'date' => DatePicker::make($formKey)->label($label),
                                                     'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                     'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
-                                                    'file' => \Filament\Forms\Components\FileUpload::make($formKey)
+                                                    'file' => self::storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload::make($formKey)
                                                         ->label($label)
-                                                        ->disk('public')
-                                                        ->directory('folders/custom_fields')
                                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                                                         ->maxSize(10240)
                                                         ->preserveFilenames()
                                                         ->downloadable()
-                                                        ->openable(),
+                                                        ->openable()),
                                                     default => TextInput::make($formKey)->label($label),
                                                 };
                                                 if ($isRequired) $field->required();
@@ -837,7 +970,7 @@ Repeater::make('transport_routes')
                                         if (empty($fields)) return [];
 
                                         return [
-                                            Section::make('Informations requises par le fournisseur')
+            Section::make(__('Informations requises par le fournisseur'))
                                                 ->schema($fields)->columns(2)
                                         ];
                                     }),
@@ -859,13 +992,20 @@ Repeater::make('transport_routes')
                                                 $date = $get('service_date');
                                                 $qty = (int) ($get('quantity') ?? 1);
                                                 
-                                                if (!$productId || !$date) return new HtmlString('<span class="text-gray-500">Sélectionnez une date pour estimer le prix.</span>');
+                                                if (!$productId || !$date) return new HtmlString('<span class="text-gray-500">' . e(__('Sélectionnez une date pour estimer le prix.')) . '</span>');
                                                 
                                                 $product = \App\Models\Product::with(['productPeriods.productPrices', 'productOptions'])->find($productId);
                                                 if (!$product) return 'Produit introuvable.';
                                                 
                                                 $mdStr = \Carbon\Carbon::parse($date)->format('m-d');
                                                 $matchedPrice = null;
+                                                $ageBaseTotal = null;
+                                                $ageAdults = max(0, (int) ($get('age_selector_adults') ?? 0));
+                                                $ageChildren = max(0, (int) ($get('age_selector_children') ?? 0));
+                                                $ageTeenagers = max(0, (int) ($get('age_selector_teenagers') ?? 0));
+                                                if (($ageAdults + $ageChildren + $ageTeenagers) === 0) {
+                                                    $ageAdults = $qty;
+                                                }
                                                 if ($product->productPeriods) {
                                                     foreach ($product->productPeriods as $period) {
                                                         $inPeriod = true; // Par défaut : Toute l'année
@@ -880,6 +1020,15 @@ Repeater::make('transport_routes')
                                                             $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
                                                             if ($validPrices->isNotEmpty()) {
                                                                 $matchedPrice = $validPrices->first()->price;
+                                                                if ($product->enable_age_selector) {
+                                                                    $ageBaseTotal = $product->calculateAgeBasedBaseTotal(
+                                                                        $period,
+                                                                        $qty,
+                                                                        $ageAdults,
+                                                                        $ageChildren,
+                                                                        $ageTeenagers,
+                                                                    );
+                                                                }
                                                             } else {
                                                                 $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
                                                             }
@@ -889,7 +1038,12 @@ Repeater::make('transport_routes')
                                                 }
                                                 
                                                 $baseUnitPrice = $matchedPrice ?? 0;
-                                                $baseTotal = $baseUnitPrice * $qty;
+                                                $baseTotal = $ageBaseTotal !== null
+                                                    ? $ageBaseTotal
+                                                    : ($baseUnitPrice * $qty);
+                                                if ($ageBaseTotal !== null) {
+                                                    $baseUnitPrice = $ageBaseTotal / max(1, $qty);
+                                                }
                                                 
                                                 $optionsTotal = 0;
                                                 $optRows = [];
@@ -898,8 +1052,16 @@ Repeater::make('transport_routes')
                                                         if ($get("opt_enabled_{$opt->id}")) {
                                                             $mod = $opt->price_modifier ?? 0;
                                                             if ($opt->billing_type === 'per_pax') {
-                                                                $optTotal = $mod * $qty;
-                                                                $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                                if ($product->enable_age_selector) {
+                                                                    $adultMod = $opt->priceModifierForAge(false);
+                                                                    $childMod = $opt->priceModifierForAge(true);
+                                                                    $teenMod = $opt->priceModifierForAgeGroup('teen');
+                                                                    $optTotal = ($adultMod * $ageAdults) + ($childMod * $ageChildren) + ($teenMod * $ageTeenagers);
+                                                                    $calcText = number_format($adultMod, 0, '.', ' ') . " ¥ × {$ageAdults} adulte(s) + " . number_format($childMod, 0, '.', ' ') . " ¥ × {$ageChildren} enfant(s)" . ($product->teen_age_limit !== null ? " + " . number_format($teenMod, 0, '.', ' ') . " ¥ × {$ageTeenagers} adolescent(s)" : '');
+                                                                } else {
+                                                                    $optTotal = $mod * $qty;
+                                                                    $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                                }
                                                             } elseif ($opt->billing_type === 'per_booking') {
                                                                 $optTotal = $mod;
                                                                 $calcText = "forfait fixe";
@@ -930,7 +1092,7 @@ Repeater::make('transport_routes')
                                                         </div>
                                                         " . implode('', $optRows) . "
                                                         <div style='border-top:1px solid #86efac; margin-top:0.5rem; padding-top:0.35rem; display:flex; justify-content:space-between; align-items:center;'>
-                                                            <span style='font-weight:bold; color:#166534;'>Prix total estimé :</span>
+                                                            <span style='font-weight:bold; color:#166534;'>" . e(__('Prix total estimé :')) . "</span>
                                                             <span style='font-size:1.35rem; font-weight:bold; color:#15803d;'>" . number_format($grandTotal, 0, '.', ' ') . " ¥</span>
                                                         </div>
                                                     </div>
@@ -952,7 +1114,20 @@ Repeater::make('transport_routes')
                                 );
 
                                 $product = \App\Models\Product::find($mergedData['product_id'] ?? null);
+
+                                if (! $product || ! $product->isAvailableForAgency($record->agency_id)) {
+                                    Notification::make()
+                                        ->title(__('Prestation non disponible'))
+                                        ->body(__('Cette prestation n’est pas accessible au groupe de votre agence.'))
+                                        ->danger()
+                                        ->send();
+
+                                    return;
+                                }
                                 $customValues = [];
+                                $paxAdults = null;
+                                $paxChildren = null;
+                                $paxTeenagers = null;
 
                                 if ($product && $product->product_type === 'transport') {
                                     $customValues['transport_routes'] = $mergedData['transport_routes'] ?? [];
@@ -963,6 +1138,36 @@ Repeater::make('transport_routes')
                                 } else {
                                     $serviceDate = $mergedData['service_date'] ?? $record->start_date ?? now()->format('Y-m-d');
                                     $quantity = $mergedData['quantity'] ?? 1;
+
+                                    if ($product?->usesAgeSelector()) {
+                                        $adults = max(0, (int) ($mergedData['age_selector_adults']
+                                            ?? data_get($mergedData, 'custom_values._age_selector.adults', 0)));
+                                        $children = $product->hasChildSelector()
+                                            ? max(0, (int) ($mergedData['age_selector_children']
+                                                ?? data_get($mergedData, 'custom_values._age_selector.children', 0)))
+                                            : 0;
+                                        $teenagers = $product->hasTeenSelector()
+                                            ? max(0, (int) ($mergedData['age_selector_teenagers']
+                                                ?? data_get($mergedData, 'custom_values._age_selector.teenagers', 0)))
+                                            : 0;
+
+                                        if (($adults + $children + $teenagers) === 0) {
+                                            $adults = max(1, (int) $quantity);
+                                        }
+
+                                        $quantity = $adults + $children + $teenagers;
+                                        $paxAdults = $adults;
+                                        $paxChildren = $children;
+                                        $paxTeenagers = $teenagers;
+                                        $customValues['_age_selector'] = [
+                                            'adults' => $adults,
+                                            'children' => $children,
+                                            'teenagers' => $teenagers,
+                                            'total' => $quantity,
+                                            'child_age_limit' => (int) ($product->child_age_limit ?? 11),
+                                            'teen_age_limit' => $product->teen_age_limit ? (int) $product->teen_age_limit : null,
+                                        ];
+                                    }
 
                                     $formattedOptions = [];
                                     
@@ -1036,11 +1241,49 @@ Repeater::make('transport_routes')
                                     }
                                 }
 
+                                $lateRequestDate = null;
+
+                                if ($product) {
+                                    $requestDates = $product->isTransport()
+                                        ? array_column($customValues['transport_routes'] ?? [], 'departure_date')
+                                        : [$serviceDate];
+
+                                    foreach ($requestDates as $requestDate) {
+                                        if ($requestDate && $product->isAgencyRequestDeadlineExceeded($requestDate)) {
+                                            $lateRequestDate = $requestDate;
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if ($lateRequestDate) {
+                                    $deadline = $product->getAgencyRequestDeadline($lateRequestDate);
+
+                                    \Filament\Notifications\Notification::make()
+                                        ->title(__('Délai de demande dépassé'))
+                                        ->body(__('Cette prestation devait être demandée au plus tard le :date. Contactez-nous via le formulaire pour connaître les alternatives encore possibles.', [
+                                            'date' => $deadline?->format('d/m/Y'),
+                                        ]))
+                                        ->danger()
+                                        ->persistent()
+                                        ->actions([
+                                            Action::make('contact')
+                                                ->label(__('Nous contacter'))
+                                                ->url(route('filament.agency.pages.assistance-sur-mesure')),
+                                        ])
+                                        ->send();
+
+                                    return;
+                                }
+
                                 $folderItem = \App\Models\FolderItem::create([
                                     'folder_id' => $record->id,
                                     'product_id' => $mergedData['product_id'],
                                     'service_date' => $serviceDate,
                                     'quantity' => $quantity,
+                                    'pax_adults' => $paxAdults,
+                                    'pax_children' => $paxChildren,
+                                    'pax_teenagers' => $paxTeenagers,
                                     'selected_options' => $formattedOptions,
                                     'custom_values' => $customValues,
                                     'item_status_id' => $status->id,
@@ -1058,8 +1301,8 @@ Repeater::make('transport_routes')
                                 $record->update(['total_price' => $totalSale]);
 
                                 \Filament\Notifications\Notification::make()
-                                    ->title('Prestation ajoutée au dossier !')
-                                    ->body('La prestation a été enregistrée.')
+                ->title(__('Prestation ajoutée au dossier !'))
+                                    ->body(__('La prestation a été enregistrée.'))
                                     ->success()
                                     ->send();
 
@@ -1076,11 +1319,11 @@ Repeater::make('transport_routes')
                             ->deletable(false)
                             ->extraItemActions([
                                 Action::make('deleteItem')
-                                    ->label('Supprimer')
+                    ->label(__('Supprimer'))
                                     ->icon('heroicon-m-trash')
                                     ->color('danger')
                                     ->requiresConfirmation()
-                                    ->modalHeading('Supprimer cette prestation ?')
+                    ->modalHeading(__('Supprimer cette prestation ?'))
                                     ->modalSubheading('Cette action retirera la prestation de votre dossier.')
                                     ->visible(fn ($record, Get $get) => ($record?->status === 'draft') || ($get('../../status') === 'draft'))
                                     ->action(function (array $arguments, Repeater $component) {
@@ -1101,7 +1344,7 @@ Repeater::make('transport_routes')
                                     }),
                             ])
                             ->itemLabel(function (array $state) {
-                                return new HtmlString("<span style='color:#096a61; font-weight:600;'>Prestation enregistrée</span>");
+                                return new HtmlString("<span style='color:#096a61; font-weight:600;'>" . e(__('Prestation enregistrée')) . "</span>");
                             })
                             ->schema([
                                 Placeholder::make('condensed_item')
@@ -1168,10 +1411,28 @@ Repeater::make('transport_routes')
                                                 ";
                                             }
 
-                                            // On définit le texte à afficher selon le statut de la prestation
-                                            $prixSidenote = ($statusName !== 'Confirmé') 
-                                                ? "<span style='font-size:0.85rem; color:#64748b; font-style:italic;'>Prix définitif communiqué après confirmation</span>" 
-                                                : "<div></div>";
+                                            // Le prix reste provisoire uniquement tant que la prestation
+                                            // n'a pas été prise en charge par l'équipe Takada.
+                                            $isAwaitingValidation = $statusName === 'En attente de validation';
+                                            $ticketCost = max(0, (float) ($item->purchase_total_price ?? 0));
+                                            $bookingFees = max(0, (float) $item->total_price - $ticketCost);
+
+                                            $priceDetailsHtml = $isAwaitingValidation
+                                                ? ''
+                                                : "<div style='display:flex; flex-direction:column; gap:0.35rem; margin-top:0.5rem; padding:0.75rem; background:#f8fafc; border-radius:0.5rem; font-size:0.85rem;'>
+                                                    <div style='display:flex; justify-content:space-between; gap:1rem; color:#475569;'>
+                                                        <span>" . e(__('Frais d’émission / réservation')) . "</span>
+                                                        <span style='font-weight:700; color:#0f172a; white-space:nowrap;'>" . number_format($bookingFees, 0, '.', ' ') . " ¥</span>
+                                                    </div>
+                                                    <div style='display:flex; justify-content:space-between; gap:1rem; color:#475569;'>
+                                                        <span>" . e(__('Coût des billets')) . "</span>
+                                                        <span style='font-weight:700; color:#0f172a; white-space:nowrap;'>" . number_format($ticketCost, 0, '.', ' ') . " ¥</span>
+                                                    </div>
+                                                </div>";
+
+                                            $prixSidenote = $isAwaitingValidation
+                                                ? "<span style='font-size:0.85rem; color:#64748b; font-style:italic;'>" . e(__('Prix définitif communiqué après confirmation')) . "</span>"
+                                                : "<span style='font-size:0.85rem; color:#64748b; font-weight:600;'>" . e(__('Prix total')) . "</span>";
 
                                             return new HtmlString("
                                                 <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
@@ -1183,6 +1444,7 @@ Repeater::make('transport_routes')
                                                         <div>{$statusBadge}</div>
                                                     </div>
                                                     {$routesHtml}
+                                                    {$priceDetailsHtml}
                                                     <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed #cbd5e1;'>
                                                         {$prixSidenote}
                                                         <span style='font-size:1.1rem; font-weight:800; color:#096a61;'>" . number_format($item->total_price, 0, '.', ' ') . " ¥</span>
@@ -1199,6 +1461,10 @@ Repeater::make('transport_routes')
                                         // On s'assure juste d'avoir un array.
                                         $rawOptions = $item->selected_options ?? [];
                                         $selectedOptions = is_string($rawOptions) ? json_decode($rawOptions, true) : (is_array($rawOptions) ? $rawOptions : []);
+                                        $ageMeta = is_array($item->custom_values['_age_selector'] ?? null) ? $item->custom_values['_age_selector'] : null;
+                                        $ageAdults = max(0, (int) ($ageMeta['adults'] ?? 0));
+                                        $ageChildren = max(0, (int) ($ageMeta['children'] ?? 0));
+                                        $ageTeenagers = max(0, (int) ($ageMeta['teenagers'] ?? 0));
 
                                         if (!empty($selectedOptions)) {
                                             foreach ($selectedOptions as $optData) {
@@ -1212,8 +1478,17 @@ Repeater::make('transport_routes')
                                                         $optQty = is_array($optData) ? (int) ($optData['quantity'] ?? 1) : 1;
 
                                                         if ($optModel->billing_type === 'per_pax') {
-                                                            $lineTotal = $mod * $qty;
-                                                            $optRows[] = "{$optModel->name} (+{$mod}¥ x {$qty} pax = {$lineTotal}¥)";
+                                                            if ($item->product?->enable_age_selector && ($ageAdults + $ageChildren + $ageTeenagers) > 0) {
+                                                                $adultMod = $optModel->priceModifierForAge(false);
+                                                                $childMod = $optModel->priceModifierForAge(true);
+                                                                $teenMod = $optModel->priceModifierForAgeGroup('teen');
+                                                                $lineTotal = ($adultMod * $ageAdults) + ($childMod * $ageChildren) + ($teenMod * $ageTeenagers);
+                                                                $teenText = $item->product?->teen_age_limit !== null ? " + {$teenMod}¥ x {$ageTeenagers} adolescents" : '';
+                                                                $optRows[] = "{$optModel->name} (+{$adultMod}¥ x {$ageAdults} adultes + {$childMod}¥ x {$ageChildren} enfants{$teenText} = {$lineTotal}¥)";
+                                                            } else {
+                                                                $lineTotal = $mod * $qty;
+                                                                $optRows[] = "{$optModel->name} (+{$mod}¥ x {$qty} pax = {$lineTotal}¥)";
+                                                            }
                                                             $optionsTotal += $lineTotal;
                                                         } elseif ($optModel->billing_type === 'manual') {
                                                             $lineTotal = $mod * $optQty;
@@ -1277,10 +1552,10 @@ Repeater::make('transport_routes')
             ])->columnSpan(['lg' => 2]),
 
             Group::make()->schema([
-                Section::make('Récapitulatif & Statut')
+            Section::make(__('Récapitulatif & Statut'))
                     ->schema([
                         Placeholder::make('status_display')
-                            ->label('Statut du dossier')
+                            ->label(__('Statut du dossier'))
                             ->content(function ($record) {
                                 if (!$record || !$record->status) return 'BROUILLON (NOUVEAU)';
                                 return match ($record->status) {
@@ -1295,7 +1570,7 @@ Repeater::make('transport_routes')
                             ->extraAttributes(['class' => 'text-primary-600 font-bold']),
 
                         Placeholder::make('total_price_display')
-                            ->label('Détail du montant estimé')
+                            ->label(__('Détail du montant estimé'))
                             ->content(function ($get) {
                                 $items = $get('folderItems') ?? [];
                                 $itemsTotal = array_sum(array_map(fn($i) => (float)($i['total_price'] ?? 0), $items));
@@ -1336,16 +1611,16 @@ Repeater::make('transport_routes')
                         Hidden::make('agency_id')->default(fn () => \Filament\Facades\Filament::auth()->user()->agency_id),
                     ]),
 
-                Section::make('Informations de Vol')
+            Section::make(__('Informations de Vol'))
                     ->schema([
                         Textarea::make('flight_info')
-                            ->label('Vols (Arrivée/Départ)')
-                            ->placeholder('Ex: Vol AF276 Arrivée Haneda 10:30...')
+                            ->label(__('Vols (Arrivée/Départ)'))
+                            ->placeholder(__('Ex: Vol AF276 Arrivée Haneda 10:30...'))
                             ->rows(3),
                     ]),
 
-                Section::make('📂 Documents partagés')
-                    ->description('Fichiers mis à disposition par l\'équipe Takada.')
+            Section::make(__('📂 Documents partagés'))
+                    ->description(__('Fichiers mis à disposition par l\'équipe Takada.'))
                     ->schema([
                         Placeholder::make('documents_display')
                             ->hiddenLabel()
@@ -1356,8 +1631,9 @@ Repeater::make('transport_routes')
 
                                 $html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
                                 foreach ($record->documents as $document) {
-                                    $url = \Illuminate\Support\Facades\Storage::url($document);
-                                    $name = basename($document);
+                                    $storage = app(FolderDriveStorage::class);
+                                    $url = $storage->url($record, $document);
+                                    $name = $storage->fileName($document);
                                     
                                     $html .= "
                                     <div style=\"display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem;\">
@@ -1384,8 +1660,8 @@ Repeater::make('transport_routes')
 
             ])->columnSpan(['lg' => 1]),
 
-            Section::make('Communication avec l\'équipe Takada')
-                ->description('Échangez directement avec nous ici pour toute question ou envoi de fichier sur ce dossier.')
+            Section::make(__('Communication avec l\'équipe Takada'))
+                ->description(__('Échangez directement avec nous ici pour toute question ou envoi de fichier sur ce dossier.'))
                 ->schema([
                     Placeholder::make('chat_placeholder')
                         ->hiddenLabel()
@@ -1404,27 +1680,27 @@ Repeater::make('transport_routes')
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('folder_name')
-                    ->label('Dossier / Réf.')
-                    ->description(fn (Folder $record): string => "Réf: {$record->reference}")
+                    ->label(__('Dossier / Réf.'))
+                    ->description(fn (Folder $record): string => __('Réf: :reference', ['reference' => $record->reference]))
                     ->searchable(['folder_name', 'reference'])
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('lead_traveler_name')
-                    ->label('Pax Leader')
+                    ->label(__('Pax Leader'))
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('mainSeller.name')
-                    ->label('Vendeur')
+                    ->label(__('Vendeur'))
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('start_date')
-                    ->label('Arrivée')
+                    ->label(__('Arrivée'))
                     ->date('d/m/Y')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Statut')
+                    ->label(__('Statut'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'draft' => 'Brouillon',
@@ -1444,7 +1720,7 @@ Repeater::make('transport_routes')
                     }),
 
                 Tables\Columns\TextColumn::make('total_price')
-                    ->label('Total Estimé')
+                    ->label(__('Total Estimé'))
                     ->money('JPY')
                     ->getStateUsing(function ($record) {
                         $itemsTotal = $record->folderItems->sum('total_price');
@@ -1462,25 +1738,25 @@ Repeater::make('transport_routes')
             ->filters([])
             ->recordActions([
                 EditAction::make()
-                    ->label('Modifier')
+                    ->label(__('Modifier'))
                     ->icon('heroicon-o-pencil-square'),
 
                 Action::make('cancelDraftTable')
-                    ->label('Annuler')
+                    ->label(__('Annuler'))
                     ->icon('heroicon-o-trash')
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalHeading('Annuler et supprimer ce dossier brouillon ?')
-                    ->modalDescription('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.')
-                    ->modalSubmitActionLabel('Oui, supprimer le brouillon')
-                    ->modalCancelActionLabel('Conserver le brouillon')
+                    ->modalHeading(__('Annuler et supprimer ce dossier brouillon ?'))
+                    ->modalDescription(__('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.'))
+                    ->modalSubmitActionLabel(__('Oui, supprimer le brouillon'))
+                    ->modalCancelActionLabel(__('Conserver le brouillon'))
                     ->visible(fn ($record) => $record && $record->status === 'draft')
                     ->action(function ($record) {
                         $record->delete();
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Brouillon supprimé')
-                            ->body('Le dossier brouillon a été annulé avec succès.')
+                            ->title(__('Brouillon supprimé'))
+                            ->body(__('Le dossier brouillon a été annulé avec succès.'))
                             ->success()
                             ->send();
                     }),

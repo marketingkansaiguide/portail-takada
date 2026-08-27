@@ -156,6 +156,30 @@ class ProductForm
                                         ->placeholder('0')
                                         ->columnSpan(['default' => 12, 'md' => 2]),
 
+                                    TextInput::make('adult_price_modifier')
+                                        ->label(__('Prix adulte (¥)'))
+                                        ->numeric()
+                                        ->placeholder(__('Hérité du supplément général'))
+                                        ->helperText(__('Utilisé lorsqu’un sélecteur d’âge est activé.'))
+                                        ->visible(fn (Get $get): bool => ((bool) $get('../../enable_child_selector') || (bool) $get('../../enable_teen_selector')) && $get('billing_type') === 'per_pax')
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
+
+                                    TextInput::make('child_price_modifier')
+                                        ->label(__('Prix enfant (¥)'))
+                                        ->numeric()
+                                        ->placeholder(__('Hérité du supplément général'))
+                                        ->helperText(__('Utilisé si le sélecteur enfant est activé.'))
+                                        ->visible(fn (Get $get): bool => (bool) $get('../../enable_child_selector') && $get('billing_type') === 'per_pax')
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
+
+                                    TextInput::make('teen_price_modifier')
+                                        ->label(__('Prix adolescent (¥)'))
+                                        ->numeric()
+                                        ->placeholder(__('Hérité du supplément général'))
+                                        ->helperText(__('Utilisé si le sélecteur adolescent est activé.'))
+                                        ->visible(fn (Get $get): bool => (bool) $get('../../enable_teen_selector') && $get('billing_type') === 'per_pax')
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
+
                                     Select::make('billing_type')
                                         ->label(__('Facturation'))
                                         ->options([
@@ -184,11 +208,31 @@ class ProductForm
                         ->description(__('Définissez vos saisons annuelles de validité, l\'âge limite des enfants et vos prix.'))
                         ->schema([
                             TextInput::make('child_age_limit')
-                                ->label(__('Âge maximum pour être considéré enfant (Inclus)'))
-                                ->helperText(__('Ex: Si 11, un enfant de 11 ans (au jour de l\'activité) comptera comme enfant. À 12 ans, il comptera comme adulte.'))
+                                ->label(__('Âge maximum enfant / borne basse adolescent (Inclus)'))
+                                ->helperText(__('Cette borne définit la tranche enfant, ou le début de la tranche adolescent si seul ce sélecteur est activé.'))
                                 ->numeric()
                                 ->default(11)
-                                ->required(),
+                                ->required(fn (Get $get): bool => (bool) $get('enable_child_selector') || (bool) $get('enable_teen_selector')),
+
+                            TextInput::make('teen_age_limit')
+                                ->label(__('Âge maximum pour être considéré adolescent (Inclus)'))
+                                ->helperText(__('L’adolescent est compris entre la limite enfant + 1 et cette limite. Laissez vide pour conserver seulement adultes et enfants.'))
+                                ->numeric()
+                                ->minValue(fn (Get $get): int => (int) ($get('child_age_limit') ?? 11) + 1)
+                                ->visible(fn (Get $get): bool => (bool) $get('enable_teen_selector'))
+                                ->live(),
+
+                            Toggle::make('enable_child_selector')
+                                ->label(__('Activer le sélecteur Enfants'))
+                                ->helperText(__('Permet à l’agence de saisir séparément le nombre d’adultes et d’enfants.'))
+                                ->default(false)
+                                ->live(),
+
+                            Toggle::make('enable_teen_selector')
+                                ->label(__('Activer le sélecteur Adolescents'))
+                                ->helperText(__('Permet à l’agence de saisir séparément le nombre d’adultes et d’adolescents.'))
+                                ->default(false)
+                                ->live(),
 
                             Repeater::make('productPeriods')
                                 ->relationship()
@@ -314,7 +358,7 @@ class ProductForm
                                     Group::make()
                                         ->statePath('fax_header')
                                         ->schema([
-                                            Section::make('En-tête visuelle du document FAX')
+                                    Section::make(__('En-tête visuelle du document FAX'))
                                                 ->collapsed() 
                                                 ->columns(2)
                                                 ->schema([
@@ -323,17 +367,17 @@ class ProductForm
                                                             ->hiddenLabel()
                                                             ->content(new \Illuminate\Support\HtmlString('<div style="font-weight:bold; font-size:1.1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 0.5rem; padding-bottom: 0.2rem;">送付先： (Destinataire)</div>')),
                                                         TextInput::make('to_company_name')
-                                                            ->label('Nom de l\'entreprise')
+                                                            ->label(__('Nom de l\'entreprise'))
                                                             ->placeholder('Ex: 旭川合同自動車㈱ タクシーコールセンター'),
                                                         TextInput::make('to_contact_name')
-                                                            ->label('Nom du contact')
+                                                            ->label(__('Nom du contact'))
                                                             ->default('ご担当者様')
                                                             ->placeholder('Ex: 田中様'),
                                                         TextInput::make('to_tel')
-                                                            ->label('TEL Destinataire')
+                                                            ->label(__('TEL Destinataire'))
                                                             ->placeholder('Ex: 0166-33-3131'),
                                                         TextInput::make('to_fax')
-                                                            ->label('FAX Destinataire')
+                                                            ->label(__('FAX Destinataire'))
                                                             ->placeholder('Ex: 0166-34-0930'),
                                                     ])->columnSpan(1),
 
@@ -342,30 +386,30 @@ class ProductForm
                                                             ->hiddenLabel()
                                                             ->content(new \Illuminate\Support\HtmlString('<div style="font-weight:bold; font-size:1.1rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 0.5rem; padding-bottom: 0.2rem;">発信元： (Expéditeur)</div>')),
                                                         TextInput::make('from_company')
-                                                            ->label('Société émettrice')
+                                                            ->label(__('Société émettrice'))
                                                             ->default('TAKADA TRAVEL合同会社')
                                                             ->placeholder('Ex: TAKADA TRAVEL...'),
                                                         Textarea::make('from_address')
-                                                            ->label('Adresse postale')
+                                                            ->label(__('Adresse postale'))
                                                             ->default("〒532-0012大阪市淀川区木川東\n3丁目1-23 KC新大阪ビル 2階")
                                                             ->rows(2)
                                                             ->placeholder("〒532-0012..."),
                                                         TextInput::make('from_contact')
-                                                            ->label('Contact expéditeur')
+                                                            ->label(__('Contact expéditeur'))
                                                             ->default('担当者： [NOM_AGENT]')
-                                                            ->helperText('Laissez [NOM_AGENT] pour utiliser le nom du compte connecté.')
+                                                            ->helperText(__('Laissez [NOM_AGENT] pour utiliser le nom du compte connecté.'))
                                                             ->placeholder('担当者： [NOM_AGENT]'),
                                                         TextInput::make('from_mail')
-                                                            ->label('Email de réponse')
+                                                            ->label(__('Email de réponse'))
                                                             ->default('MAIL : [EMAIL_AGENT]')
-                                                            ->helperText('Laissez [EMAIL_AGENT] pour utiliser l\'email du compte connecté.')
+                                                            ->helperText(__('Laissez [EMAIL_AGENT] pour utiliser l\'email du compte connecté.'))
                                                             ->placeholder('MAIL : [EMAIL_AGENT]'),
                                                         TextInput::make('from_tel')
-                                                            ->label('TEL émetteur')
+                                                            ->label(__('TEL émetteur'))
                                                             ->default('TEL：06-6195-9799')
                                                             ->placeholder('TEL：06-6195-9799'),
                                                         TextInput::make('from_fax')
-                                                            ->label('FAX émetteur')
+                                                            ->label(__('FAX émetteur'))
                                                             ->default('FAX：06-6195-9921')
                                                             ->placeholder('FAX：06-6195-9921'),
                                                     ])->columnSpan(1),
@@ -399,6 +443,7 @@ class ProductForm
                                                             <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[QUANTITE]</code> : Quantité totale de pax</li>
                                                             <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[PAX_ADULTS]</code> : Nombre d\'adultes calculé</li>
                                                             <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[PAX_CHILDREN]</code> : Nombre d\'enfants calculé</li>
+                                                            <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[PAX_TEENAGERS]</code> : Nombre d\'adolescents calculé</li>
                                                             <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[OPTION_NAME]</code> : Options choisies</li>
                                                             <li><code class="font-mono bg-gray-100 px-1 py-0.5 rounded border border-gray-200">[LISTE_PASSAGERS]</code> : Tableau (Nom, Age)</li>
                                                         </ul>
@@ -484,6 +529,16 @@ class ProductForm
                                 }),
                         ]),
 
+                    Section::make(__('Accès des agences'))
+                        ->description(__('Laissez vide pour rendre la prestation accessible à toutes les agences.'))
+                        ->schema([
+                            CheckboxList::make('clientGroups')
+                                ->label(__('Groupes d’agences autorisés'))
+                                ->relationship('clientGroups', 'name')
+                                ->columns(1)
+                                ->helperText(__('Seules les agences appartenant à l’un de ces groupes pourront voir et demander cette prestation.')),
+                        ]),
+
                     Section::make(__('Planning & Fermetures'))
                         ->description(__('Gérez les jours d\'exploitation hebdomadaires et les dates d\'exclusion.'))
                         ->schema([
@@ -532,14 +587,22 @@ class ProductForm
                                 ->helperText(__('L\'agence devra faire une demande manuelle.')),
 
                             Toggle::make('is_lottery')
-                                ->label(__('Soumis à loterie'))
-                                ->helperText(__('Pour les produits à places très limitées.')),
+                                ->label(__('Disponibilité limitée'))
+                                ->helperText(__('La disponibilité de ce produit est limitée.')),
 
                             TextInput::make('days_before_opening')
                                 ->label(__('Ouverture des ventes (J-)'))
                                 ->placeholder(__('Ex: 30'))
                                 ->numeric()
                                 ->suffix(__('jours')),
+
+                            TextInput::make('days_before_request_deadline')
+                                ->label(__('Date limite de demande (J-)'))
+                                ->placeholder(__('Ex: 7'))
+                                ->numeric()
+                                ->minValue(0)
+                                ->suffix(__('jours'))
+                                ->helperText(__('L’agence ne pourra plus demander cette prestation après ce délai.')),
                         ]),
 
                     Section::make(__('Politique d\'annulation'))
@@ -558,6 +621,15 @@ class ProductForm
                                 ->placeholder(__('Ex: Non remboursable à partir de J-7...'))
                                 ->visible(fn (Get $get) => $get('cancellation_type') === 'specific')
                                 ->columnSpanFull(),
+                        ]),
+
+                    Section::make(__('Note interne'))
+                        ->description(__('Visible uniquement par l’équipe Takada.'))
+                        ->schema([
+                            Textarea::make('internal_note')
+                                ->label(__('Note interne'))
+                                ->rows(6)
+                                ->placeholder(__('Informations internes, consignes ou points de vigilance…')),
                         ]),
                 ])->columnSpan(['lg' => 1]),
             ]);

@@ -21,6 +21,8 @@ class Folder extends Model
         'pax_adults',
         'pax_children',
         'ticket_dispatch_method',
+        'ticket_dispatch_guide_id',
+        'ticket_dispatch_guide_name',
         'ticket_dispatch_other',
         'contact_phones',
         'first_hotel_name',
@@ -34,6 +36,7 @@ class Folder extends Model
         'folder_fee',
         'total_price',
         'documents',
+        'google_drive_folder_id',
         'label_exported_at',
     ];
 
@@ -44,6 +47,7 @@ class Folder extends Model
         'end_date' => 'date',
         'first_hotel_check_in' => 'date',
         'label_exported_at' => 'datetime',
+        'ticket_dispatch_guide_id' => 'integer',
     ];
 
     public function agency(): BelongsTo
@@ -88,6 +92,11 @@ class Folder extends Model
     public function histories(): HasMany
     {
         return $this->hasMany(FolderHistory::class);
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(FolderMessage::class);
     }
 
     /**

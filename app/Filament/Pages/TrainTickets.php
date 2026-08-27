@@ -27,7 +27,12 @@ class TrainTickets extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';
     protected static ?string $navigationLabel = 'Billets de Train';
-    protected static ?string $title = 'Gestion & Suivi des Billets de Train à venir';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Gestion & Suivi des Billets de Train à venir');
+    }
     protected static ?int $navigationSort = 5;
 
     protected string $view = 'filament.pages.train-tickets';
@@ -90,7 +95,7 @@ class TrainTickets extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('effective_date')
-                    ->label('Date Globale')
+                    ->label(__('Date Globale'))
                     ->getStateUsing(fn (FolderItem $record) => $record->service_date ?? $record->folder?->start_date)
                     ->date('d/m/Y')
                     ->badge()
@@ -107,7 +112,7 @@ class TrainTickets extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('folder.reference')
-                    ->label('Réf. Dossier')
+                    ->label(__('Réf. Dossier'))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('folder', fn ($q) => $q->where('reference', 'LIKE', "%{$search}%")->orWhere('folder_name', 'LIKE', "%{$search}%"));
                     })
@@ -115,12 +120,12 @@ class TrainTickets extends Page implements HasTable
                     ->description(fn (FolderItem $record) => $record->folder?->folder_name ?? '---'),
 
                 Tables\Columns\TextColumn::make('transport_details')
-                    ->label('Détails des Trajets')
+                    ->label(__('Détails des Trajets'))
                     ->html()
                     ->getStateUsing(function (FolderItem $record) {
                         $customVals = $record->custom_values ?? [];
                         if (!is_array($customVals) || empty($customVals['transport_routes'])) {
-                            return '<span class="text-gray-500 italic">Aucun trajet défini</span>';
+            return '<span class="text-gray-500 italic">' . e(__('Aucun trajet défini')) . '</span>';
                         }
                         
                         $routesHtml = [];
@@ -128,7 +133,7 @@ class TrainTickets extends Page implements HasTable
                             $dep = e($r['departure_station'] ?? '?');
                             $arr = e($r['arrival_station'] ?? '?');
                             $date = !empty($r['departure_date']) ? Carbon::parse($r['departure_date'])->format('d/m/Y') : '---';
-                            $time = !empty($r['departure_time']) ? ' à ' . e($r['departure_time']) : '';
+            $time = !empty($r['departure_time']) ? ' ' . __('à') . ' ' . e($r['departure_time']) : '';
                             $pax = !empty($r['pax_count']) ? e($r['pax_count']) . ' pax' : '';
                             
                             $routesHtml[] = "
@@ -142,25 +147,25 @@ class TrainTickets extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('itemStatus.name')
-                    ->label('Statut Presta.')
+                    ->label(__('Statut Presta.'))
                     ->badge()
                     ->color(fn (FolderItem $record) => $record->itemStatus?->color ?? 'success')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('label_exported_at')
-                    ->label('Statut Étiquette')
+                    ->label(__('Statut Étiquette'))
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? '🏷️ Exportée' : '⏳ Non exportée')
+                    ->formatStateUsing(fn ($state) => $state ? __('🏷️ Exportée') : __('⏳ Non exportée'))
                     ->color(fn ($state) => $state ? 'success' : 'gray')
-                    ->description(fn (FolderItem $record) => $record->label_exported_at ? 'Le ' . Carbon::parse($record->label_exported_at)->format('d/m/Y à H:i') : null)
+                    ->description(fn (FolderItem $record) => $record->label_exported_at ? __('Le') . ' ' . Carbon::parse($record->label_exported_at)->format('d/m/Y') . ' ' . __('à') . ' ' . Carbon::parse($record->label_exported_at)->format('H:i') : null)
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('label_exported')
-                    ->label('Statut Étiquette')
+                    ->label(__('Statut Étiquette'))
                     ->options([
-                        'pending' => '⏳ Non exportée',
-                        'exported' => '🏷️ Exportée',
+                    'pending' => __('⏳ Non exportée'),
+                    'exported' => __('🏷️ Exportée'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
@@ -172,8 +177,8 @@ class TrainTickets extends Page implements HasTable
 
                 Filter::make('service_period')
                     ->form([
-                        DatePicker::make('from')->label('Trajet après le'),
-                        DatePicker::make('until')->label('Trajet avant le'),
+                        DatePicker::make('from')->label(__('Trajet après le')),
+                        DatePicker::make('until')->label(__('Trajet avant le')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -189,12 +194,12 @@ class TrainTickets extends Page implements HasTable
             ])
             ->recordActions([
                 Action::make('updateStatus')
-                    ->label('Statut')
+                    ->label(__('Statut'))
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
                     ->form([
                         Select::make('item_status_id')
-                            ->label('Nouveau statut')
+                            ->label(__('Nouveau statut'))
                             ->options(fn () => ItemStatus::pluck('name', 'id'))
                             ->required()
                             ->default(fn (FolderItem $record) => $record->item_status_id),
@@ -203,11 +208,11 @@ class TrainTickets extends Page implements HasTable
                         $record->item_status_id = $data['item_status_id'];
                         $record->save();
                         
-                        Notification::make()->title('Statut mis à jour')->success()->send();
+                        Notification::make()->title(__('Statut mis à jour'))->success()->send();
                     }),
 
                 Action::make('toggleLabelExport')
-                    ->label(fn (FolderItem $record) => $record->label_exported_at ? 'Marquer non exportée' : 'Marquer exportée')
+                    ->label(fn (FolderItem $record) => $record->label_exported_at ? __('Marquer non exportée') : __('Marquer exportée'))
                     ->icon(fn (FolderItem $record) => $record->label_exported_at ? 'heroicon-o-arrow-path' : 'heroicon-o-check-circle')
                     ->color(fn (FolderItem $record) => $record->label_exported_at ? 'gray' : 'success')
                     ->action(function (FolderItem $record) {
@@ -216,14 +221,14 @@ class TrainTickets extends Page implements HasTable
                     }),
 
                 Action::make('openFolder')
-                    ->label('Dossier')
+                    ->label(__('Dossier'))
                     ->icon('heroicon-o-folder-open')
                     ->color('primary')
                     ->url(fn (FolderItem $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record->folder_id])),
             ])
             ->bulkActions([
                 BulkAction::make('export_train_labels')
-                    ->label('Imprimer les étiquettes')
+                    ->label(__('Imprimer les étiquettes'))
                     ->icon('heroicon-o-printer')
                     ->color('success')
                     ->action(function (Collection $records, $livewire) {

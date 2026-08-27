@@ -17,7 +17,12 @@ class FolderPerformance extends BaseWidget
     protected int | string | array $columnSpan = 'full';
     
     // 💡 FIX : REMISE du mot-clé "static" exigé par TableWidget
-    protected static ?string $heading = 'Rentabilité détaillée par Dossier';
+    protected static ?string $heading = null;
+
+    protected function getTableHeading(): ?string
+    {
+        return __('Rentabilité détaillée par Dossier');
+    }
 
     public function table(Table $table): Table
     {
@@ -32,45 +37,45 @@ class FolderPerformance extends BaseWidget
             )
             ->columns([
                 Tables\Columns\TextColumn::make('reference')
-                    ->label('Réf.')
+                ->label(__('Réf.'))
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('folder_name')
-                    ->label('Nom du voyage')
+                ->label(__('Nom du voyage'))
                     ->searchable()
                     ->limit(25),
                     
                 Tables\Columns\TextColumn::make('agency.name')
-                    ->label('Agence')
+                    ->label(__('Agence'))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('pax')
-                    ->label('Pax')
+                ->label(__('Pax'))
                     ->getStateUsing(fn ($record) => $record->pax_adults + $record->pax_children)
                     ->numeric()
                     ->color('info'),
 
                 Tables\Columns\TextColumn::make('total_price')
-                    ->label('Vente (¥)')
+                ->label(__('Vente (¥)'))
                     ->money('JPY')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('total_purchase')
-                    ->label('Achat (¥)')
+                ->label(__('Achat (¥)'))
                     ->money('JPY')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('marge_brute')
-                    ->label('Marge Nette (¥)')
+                ->label(__('Marge Nette (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_price - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
 
                 Tables\Columns\TextColumn::make('taux_marge')
-                    ->label('Marge (%)')
+                ->label(__('Marge (%)'))
                     ->getStateUsing(function ($record) {
                         $marge = $record->total_price - $record->total_purchase;
                         return $record->total_price > 0 ? ($marge / $record->total_price) * 100 : 0;

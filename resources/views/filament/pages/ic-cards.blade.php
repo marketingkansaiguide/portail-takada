@@ -10,16 +10,16 @@
                     <span style="font-size: 22px; line-height: 1;">💳</span>
                     <div>
                         <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: #111827;">
-                            Cartes IC en attente de validation
+                            {{ __('Cartes IC en attente de validation') }}
                         </h3>
                         <p style="margin: 2px 0 0 0; font-size: 12px; color: #6b7280;">
-                            Synthèse complète de toutes les déclinaisons pour les dossiers confirmés
+                            {{ __('Synthèse complète de toutes les déclinaisons pour les dossiers confirmés') }}
                         </p>
                     </div>
                 </div>
 
                 <div style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 13px;">
-                    Total général : {{ $this->totalPendingCards }} carte(s)
+                    {{ __('Total général :') }} {{ $this->totalPendingCards }} {{ __('carte(s)') }}
                 </div>
             </div>
 

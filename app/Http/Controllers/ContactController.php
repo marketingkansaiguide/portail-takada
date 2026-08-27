@@ -46,6 +46,6 @@ class ContactController extends Controller
             Log::error('Erreur lors de l\'envoi du mail de contact : ' . $e->getMessage());
         }
 
-        return back()->with('success', 'Votre demande a bien été envoyée ! Notre équipe reviendra vers vous dans les plus brefs délais.');
+        return back()->with('success', __('Votre demande a bien été envoyée ! Notre équipe reviendra vers vous dans les plus brefs délais.'));
     }
 }

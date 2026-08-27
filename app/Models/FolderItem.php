@@ -12,14 +12,14 @@ class FolderItem extends Model
 {
     protected $fillable = [
         'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
-        'service_date', 'quantity', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values', 
+        'service_date', 'quantity', 'pax_adults', 'pax_children', 'pax_teenagers', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values',
         'selected_options', 'invoice_received_at', 'google_calendar_event_id',
         'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
         'label_exported_at',
     ];
 
     protected $casts = [
-        'service_date' => 'date', 'quantity' => 'integer',
+        'service_date' => 'date', 'quantity' => 'integer', 'pax_adults' => 'integer', 'pax_children' => 'integer', 'pax_teenagers' => 'integer',
         'purchase_unit_price' => 'integer', 'purchase_total_price' => 'integer',
         'unit_price' => 'integer', 'total_price' => 'integer', 
         'custom_values' => 'array', 'selected_options' => 'array',
@@ -27,6 +27,71 @@ class FolderItem extends Model
         'is_internal' => 'boolean',
         'label_exported_at' => 'datetime',
     ];
+
+    /**
+     * Retourne la composition des passagers pour cette prestation.
+     *
+     * Les prestations avec sélecteur d'âge enregistrent leurs propres
+     * compteurs dans custom_values._age_selector. Pour une ancienne
+     * prestation dont ces compteurs ne sont pas encore enregistrés, le
+     * produit permet tout de même d'identifier le mode adulte/enfant et
+     * quantity sert de fallback pour le nombre total.
+     */
+    public function getPaxBreakdown(): array
+    {
+        $directAdults = $this->pax_adults;
+        $directChildren = $this->pax_children;
+        $directTeenagers = $this->pax_teenagers;
+
+        if ($directAdults !== null || $directChildren !== null || $directTeenagers !== null) {
+            $adults = max(0, (int) ($directAdults ?? 0));
+            $children = max(0, (int) ($directChildren ?? 0));
+            $teenagers = max(0, (int) ($directTeenagers ?? 0));
+
+            if (($adults + $children + $teenagers) > 0) {
+                return [
+                    'adults' => $adults,
+                    'children' => $children,
+                    'teenagers' => $teenagers,
+                    'total' => $adults + $children + $teenagers,
+                    'has_age_breakdown' => true,
+                ];
+            }
+        }
+
+        $customValues = is_array($this->custom_values) ? $this->custom_values : [];
+        $ageSelector = $customValues['_age_selector'] ?? $customValues['age_selector'] ?? null;
+        $ageSelector = is_array($ageSelector) ? $ageSelector : [];
+        $productUsesAgeSelector = (bool) $this->product?->enable_age_selector;
+
+        if ($productUsesAgeSelector || $ageSelector !== []) {
+        $adults = max(0, (int) ($ageSelector['adults'] ?? 0));
+        $children = max(0, (int) ($ageSelector['children'] ?? 0));
+        $teenagers = max(0, (int) ($ageSelector['teenagers'] ?? 0));
+
+            if (($adults + $children + $teenagers) === 0) {
+                $adults = max(1, (int) ($this->quantity ?? 1));
+            }
+
+            return [
+                'adults' => $adults,
+                'children' => $children,
+                'teenagers' => $teenagers,
+                'total' => $adults + $children + $teenagers,
+                'has_age_breakdown' => true,
+            ];
+        }
+
+        $total = max(1, (int) ($this->quantity ?? 1));
+
+        return [
+            'adults' => $total,
+            'children' => 0,
+            'teenagers' => 0,
+            'total' => $total,
+            'has_age_breakdown' => false,
+        ];
+    }
 
     public function getProductSupplierData()
     {
@@ -59,11 +124,11 @@ class FolderItem extends Model
         $folder = $this->folder;
         $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
-        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
-        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
+        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : __('Non définie');
+        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : __('Non définie');
         $quantite = $this->quantity ?? 1;
 
-        $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
+        $writerName = auth()->check() ? auth()->user()->name : __('L\'équipe Takada');
         $targetSupplier = $this->getTargetSupplier();
         $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
@@ -92,11 +157,11 @@ class FolderItem extends Model
         $folder = $this->folder;
         $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
-        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
-        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
+        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : __('Non définie');
+        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : __('Non définie');
         $quantite = $this->quantity ?? 1;
 
-        $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
+        $writerName = auth()->check() ? auth()->user()->name : __('L\'équipe Takada');
         $targetSupplier = $this->getTargetSupplier();
         $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
@@ -119,7 +184,7 @@ class FolderItem extends Model
         $product = $this->product;
         $productSupplier = $this->getProductSupplierData();
 
-        $emailRendered = "Aucun modèle d'e-mail n'a été configuré pour ce fournisseur.";
+        $emailRendered = __('Aucun modèle d\'e-mail n\'a été configuré pour ce fournisseur.');
 
         if ($productSupplier && !empty($productSupplier->email_template)) {
             $emailRendered = $productSupplier->email_template;
@@ -131,11 +196,11 @@ class FolderItem extends Model
 
         $dossierRef = $folder ? $folder->folder_name : 'N/A';
         $leadName = $folder ? $folder->lead_traveler_name : 'N/A';
-        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : 'Non définie';
-        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : 'Non définie';
+        $datePresta = $this->service_date ? $this->service_date->format('d/m/Y') : __('Non définie');
+        $datePrestaJp = $this->service_date ? $this->service_date->format('Y年m月d日') : __('Non définie');
         $quantite = $this->quantity ?? 1;
         
-        $writerName = auth()->check() ? auth()->user()->name : 'L\'équipe Takada';
+        $writerName = auth()->check() ? auth()->user()->name : __('L\'équipe Takada');
         $targetSupplier = $this->getTargetSupplier();
         $supplierContact = ($targetSupplier && $targetSupplier->contact_name) ? $targetSupplier->contact_name : 'Partenaire';
 
@@ -143,34 +208,51 @@ class FolderItem extends Model
 
         $paxAdults = 0;
         $paxChildren = 0;
+        $paxTeenagers = 0;
         $childLimit = $product ? ($product->child_age_limit ?? 11) : 11;
+        $teenLimit = $product?->teen_age_limit;
         $ageCalcDate = $this->service_date ? Carbon::parse($this->service_date) : Carbon::now();
 
         $passagersText = "";
         if ($folder && $folder->folderPassengers && $folder->folderPassengers->isNotEmpty()) {
             foreach ($folder->folderPassengers as $index => $passenger) {
                 $num = $index + 1;
-                $birthStr = $passenger->birth_date ? Carbon::parse($passenger->birth_date)->format('d/m/Y') : 'Inconnue';
+                $birthStr = $passenger->birth_date ? Carbon::parse($passenger->birth_date)->format('d/m/Y') : __('Inconnue');
                 
                 if ($passenger->birth_date) {
                     $ageNum = Carbon::parse($passenger->birth_date)->diffInYears($ageCalcDate);
-                    $ageStr = $ageNum . ' ans';
+                    $ageStr = $ageNum . ' ' . __('ans');
                     
                     if ($ageNum <= $childLimit) {
                         $paxChildren++;
+                    } elseif ($teenLimit !== null && $ageNum <= $teenLimit) {
+                        $paxTeenagers++;
                     } else {
                         $paxAdults++;
                     }
                 } else {
-                    $ageStr = 'Âge inconnu';
+                    $ageStr = __('Âge inconnu');
                     $paxAdults++;
                 }
 
                 $passagersText .= "{$num}. {$passenger->last_name} {$passenger->first_name} ({$passenger->nationality}) - Né(e) le {$birthStr} [{$ageStr}]\n";
             }
         } else {
-            $passagersText = "Aucun passager enregistré.";
+            $passagersText = __('Aucun passager enregistré.');
             $paxAdults = $quantite;
+        }
+
+        // Pour les produits qui utilisent le sélecteur adulte/enfant, les valeurs
+        // saisies lors de l'ajout de la prestation sont prioritaires sur le calcul
+        // global du dossier. Les anciens enregistrements restent inchangés.
+        $ageSelector = is_array($this->custom_values['_age_selector'] ?? null)
+            ? $this->custom_values['_age_selector']
+            : null;
+
+        if ($product?->enable_age_selector && $ageSelector) {
+            $paxAdults = max(0, (int) ($ageSelector['adults'] ?? $paxAdults));
+            $paxChildren = max(0, (int) ($ageSelector['children'] ?? $paxChildren));
+            $paxTeenagers = max(0, (int) ($ageSelector['teenagers'] ?? $paxTeenagers));
         }
 
         if ($product && preg_match_all('/\[IF_OPTION:([^\]]+)\](.*?)\[\/IF_OPTION\]/is', $emailRendered, $matches)) {
@@ -310,6 +392,7 @@ class FolderItem extends Model
             '[QUANTITE]' => $quantite,
             '[PAX_ADULTS]' => $paxAdults,
             '[PAX_CHILDREN]' => $paxChildren,
+            '[PAX_TEENAGERS]' => $paxTeenagers,
             '[OPTION_NAME]' => $optionName,
             '[LISTE_PASSAGERS]' => trim($passagersText),
             '[NOM_AGENT]' => $writerName,
@@ -320,6 +403,10 @@ class FolderItem extends Model
 
         if (is_array($this->custom_values)) {
             foreach ($this->custom_values as $key => $val) {
+                if (str_starts_with((string) $key, '_')) {
+                    continue;
+                }
+
                 if (is_bool($val)) {
                     $userValue = $val ? __('Oui') : __('Non');
                 } elseif (is_array($val)) {
@@ -575,19 +662,27 @@ class FolderItem extends Model
                     }
 
                     $changesText = [];
+                    $structuredChanges = [];
                     
                     $labels = [
-                        'item_status_id' => 'Statut de la prestation',
-                        'supplier_id' => 'Fournisseur',
-                        'service_date' => 'Date de service',
-                        'quantity' => 'Quantité',
-                        'purchase_unit_price' => 'Prix d\'achat unitaire',
-                        'purchase_total_price' => 'Prix d\'achat total',
-                        'unit_price' => 'Prix de vente unitaire',
-                        'total_price' => 'Prix de vente total',
-                        'selected_options' => 'Options sélectionnées',
-                        'invoice_received_at' => 'Date de réception facture',
-                        'title' => 'Titre',
+                        'product_id' => __('Produit'),
+                        'product_option_id' => __('Option principale'),
+                        'item_status_id' => __('Statut de la prestation'),
+                        'supplier_id' => __('Fournisseur'),
+                        'service_date' => __('Date de service'),
+                        'quantity' => __('Quantité'),
+                        'pax_adults' => __("Nombre d'adultes"),
+                        'pax_children' => __("Nombre d'enfants"),
+                        'pax_teenagers' => __("Nombre d'adolescents"),
+                        'purchase_unit_price' => __('Prix d\'achat unitaire'),
+                        'purchase_total_price' => __('Prix d\'achat total'),
+                        'unit_price' => __('Prix de vente unitaire'),
+                        'total_price' => __('Prix de vente total'),
+                        'selected_options' => __('Options sélectionnées'),
+                        'invoice_received_at' => __('Date de réception facture'),
+                        'title' => __('Titre'),
+                        'is_internal' => __('Prestation interne'),
+                        'label_exported_at' => __("Date d'export de l'étiquette"),
                     ];
 
                     foreach ($changes as $key => $newValue) {
@@ -603,24 +698,13 @@ class FolderItem extends Model
                             $allKeys = array_unique(array_merge(array_keys($oldCustom), array_keys($newCustom)));
 
                             foreach ($allKeys as $k) {
-                                $oVal = isset($oldCustom[$k]) ? $oldCustom[$k] : 'Vide';
-                                $nVal = isset($newCustom[$k]) ? $newCustom[$k] : 'Vide';
-
-                                if (is_array($oVal)) {
-                                    $oVal = json_encode($oVal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                                }
-                                if (is_array($nVal)) {
-                                    $nVal = json_encode($nVal, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                                }
-
-                                $oldV = is_bool($oVal) ? ($oVal ? 'Oui' : 'Non') : (string)$oVal;
-                                $newV = is_bool($nVal) ? ($nVal ? 'Oui' : 'Non') : (string)$nVal;
-
-                                if ($oldV === '') $oldV = 'Vide';
-                                if ($newV === '') $newV = 'Vide';
-
-                                if ($oldV !== $newV) {
-                                    $changesText[] = "• Information '{$k}' : '{$oldV}' ➔ '{$newV}'";
+                                foreach (self::historyCustomValueChanges(
+                                    (string) $k,
+                                    $oldCustom[$k] ?? null,
+                                    $newCustom[$k] ?? null,
+                                ) as $change) {
+                                    $changesText[] = "• {$change['label']} : '{$change['old']}' ➔ '{$change['new']}'";
+                                    $structuredChanges[] = $change;
                                 }
                             }
                             continue;
@@ -632,6 +716,7 @@ class FolderItem extends Model
                             $oldStatus = $oldValue ? (\App\Models\ItemStatus::find($oldValue)?->name ?? 'Inconnu') : 'Aucun';
                             $newStatus = $newValue ? (\App\Models\ItemStatus::find($newValue)?->name ?? 'Inconnu') : 'Aucun';
                             $changesText[] = "• {$labels[$key]} : '{$oldStatus}' ➔ '{$newStatus}'";
+                            $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldStatus, 'new' => $newStatus];
                             continue;
                         }
                         
@@ -639,6 +724,7 @@ class FolderItem extends Model
                             $oldSupp = $oldValue ? (\App\Models\Supplier::find($oldValue)?->name ?? 'Par défaut') : 'Par défaut';
                             $newSupp = $newValue ? (\App\Models\Supplier::find($newValue)?->name ?? 'Par défaut') : 'Par défaut';
                             $changesText[] = "• {$labels[$key]} : '{$oldSupp}' ➔ '{$newSupp}'";
+                            $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldSupp, 'new' => $newSupp];
                             continue;
                         }
 
@@ -646,22 +732,51 @@ class FolderItem extends Model
                             $oldDate = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : 'Non renseignée';
                             $newDate = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : 'Vide';
                             $changesText[] = "• {$labels[$key]} : '{$oldDate}' ➔ '{$newDate}'";
+                            $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldDate, 'new' => $newDate];
                             continue;
                         }
 
                         if ($key === 'selected_options') {
-                            $changesText[] = "• Les 'Options sélectionnées' ont été modifiées.";
+                            $oldOptions = self::historySelectedOptions($oldValue);
+                            $newOptions = self::historySelectedOptions($newValue);
+
+                            if ($oldOptions !== $newOptions) {
+                                $changesText[] = "• {$labels[$key]} : '{$oldOptions}' ➔ '{$newOptions}'";
+                                $structuredChanges[] = [
+                                    'field' => $key,
+                                    'label' => $labels[$key],
+                                    'old' => $oldOptions,
+                                    'new' => $newOptions,
+                                ];
+                            }
+                            continue;
+                        }
+
+                        if ($key === 'product_id' || $key === 'product_option_id') {
+                            $model = $key === 'product_id' ? Product::class : ProductOption::class;
+                            $oldString = $oldValue ? ($model::find($oldValue)?->name ?? __('Élément supprimé')) : __('Non renseigné');
+                            $newString = $newValue ? ($model::find($newValue)?->name ?? __('Élément supprimé')) : __('Vide');
+                            $changesText[] = "• {$labels[$key]} : '{$oldString}' ➔ '{$newString}'";
+                            $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldString, 'new' => $newString];
                             continue;
                         }
 
                         $oldString = is_array($oldValue) ? json_encode($oldValue) : ($oldValue !== null && $oldValue !== '' ? (string)$oldValue : 'Non renseigné');
                         $newString = is_array($newValue) ? json_encode($newValue) : ($newValue !== null && $newValue !== '' ? (string)$newValue : 'Vide');
                         $changesText[] = "• {$labels[$key]} : '{$oldString}' ➔ '{$newString}'";
+                        $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldString, 'new' => $newString];
                     }
 
                     if (!empty($changesText)) {
-                        $summary = "La prestation '{$productName}' a été modifiée :\n" . implode("\n", $changesText);
-                        \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Mise à jour Prestation', $summary);
+                        $summary = __("La prestation ':name' a été modifiée :", ['name' => $productName]) . "\n" . implode("\n", $changesText);
+                        FolderHistory::logConsolidated(
+                            $item->folder_id,
+                            __('Mise à jour Prestation'),
+                            $summary,
+                            'service',
+                            $structuredChanges,
+                            ['item_id' => $item->id, 'service_label' => $productName, 'event' => 'updated'],
+                        );
                     }
                 }
             }
@@ -683,7 +798,14 @@ class FolderItem extends Model
                 $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
             }
 
-            \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Ajout Prestation', "La prestation '{$productName}' a été ajoutée au dossier.");
+            FolderHistory::logConsolidated(
+                $item->folder_id,
+                __('Ajout Prestation'),
+                __("La prestation ':name' a été ajoutée au dossier.", ['name' => $productName]),
+                'service',
+                [],
+                ['item_id' => $item->id, 'event' => 'created'],
+            );
         });
 
         static::deleted(function ($item) {
@@ -709,8 +831,195 @@ class FolderItem extends Model
                 $productName .= ' (du ' . Carbon::parse($item->service_date)->format('d/m/Y') . ')';
             }
 
-            \App\Models\FolderHistory::logConsolidated($item->folder_id, 'Suppression Prestation', "La prestation '{$productName}' a été retirée du dossier.");
+            FolderHistory::logConsolidated(
+                $item->folder_id,
+                __('Suppression Prestation'),
+                __("La prestation ':name' a été retirée du dossier.", ['name' => $productName]),
+                'service',
+                [],
+                ['item_id' => $item->id, 'event' => 'deleted'],
+            );
         });
+    }
+
+    /**
+     * Convert stored dynamic values into concise, human-readable history lines.
+     * Internal fields and JSON serialisation differences are deliberately ignored.
+     */
+    private static function historyCustomValueChanges(string $key, mixed $oldValue, mixed $newValue): array
+    {
+        if ($key === '_age_selector') {
+            return [];
+        }
+
+        if ($key === 'transport_routes') {
+            return self::formatTransportRouteHistoryChanges($oldValue, $newValue);
+        }
+
+        $old = self::historyValue($oldValue);
+        $new = self::historyValue($newValue);
+
+        if ($old === $new) {
+            return [];
+        }
+
+        $label = __('Information :name', ['name' => str($key)->replace('_', ' ')->headline()]);
+
+        return [[
+            'field' => "custom_values.{$key}",
+            'label' => $label,
+            'old' => $old,
+            'new' => $new,
+        ]];
+    }
+
+    public static function formatTransportRouteHistoryChanges(mixed $oldValue, mixed $newValue): array
+    {
+        if (is_string($oldValue)) {
+            $oldValue = json_decode($oldValue, true);
+        }
+
+        if (is_string($newValue)) {
+            $newValue = json_decode($newValue, true);
+        }
+
+        $oldRoutes = is_array($oldValue) ? array_values($oldValue) : [];
+        $newRoutes = is_array($newValue) ? array_values($newValue) : [];
+        $changes = [];
+        $maxRoutes = max(count($oldRoutes), count($newRoutes));
+
+        $labels = [
+            'departure_station' => __('Gare de départ'),
+            'arrival_station' => __('Gare d’arrivée'),
+            'departure_date' => __('Date du trajet'),
+            'departure_time' => __('Heure de départ'),
+            'arrival_time' => __('Heure d’arrivée'),
+            'train_number' => __('N° de train / bus'),
+            'option_id' => __('Classe'),
+            'pax_count' => __('Nombre de passagers'),
+            'supplier_id' => __('Fournisseur'),
+            'purchase_price' => __('Prix d’achat'),
+        ];
+
+        for ($index = 0; $index < $maxRoutes; $index++) {
+            $oldRoute = is_array($oldRoutes[$index] ?? null) ? $oldRoutes[$index] : null;
+            $newRoute = is_array($newRoutes[$index] ?? null) ? $newRoutes[$index] : null;
+
+            if ($oldRoute === null || $newRoute === null) {
+                $route = $newRoute ?? $oldRoute ?? [];
+                $label = __('Trajet :route', ['route' => self::historyRouteLabel($route, $index)]);
+                $changes[] = [
+                    'field' => "custom_values.transport_routes.{$index}",
+                    'label' => $label,
+                    'old' => $oldRoute === null ? __('Non défini') : __('Trajet supprimé'),
+                    'new' => $newRoute === null ? __('Trajet supprimé') : __('Trajet ajouté'),
+                ];
+
+                continue;
+            }
+
+            foreach ($labels as $field => $label) {
+                $old = self::historyRouteValue($field, $oldRoute[$field] ?? null);
+                $new = self::historyRouteValue($field, $newRoute[$field] ?? null);
+
+                if ($old === $new) {
+                    continue;
+                }
+
+                $changes[] = [
+                    'field' => "custom_values.transport_routes.{$index}.{$field}",
+                    'label' => __('Trajet :route — :field', [
+                        'route' => self::historyRouteLabel($newRoute, $index),
+                        'field' => $label,
+                    ]),
+                    'old' => $old,
+                    'new' => $new,
+                ];
+            }
+        }
+
+        return $changes;
+    }
+
+    private static function historyRouteLabel(array $route, int $index): string
+    {
+        $from = self::historyValue($route['departure_station'] ?? null);
+        $to = self::historyValue($route['arrival_station'] ?? null);
+        $date = self::historyRouteValue('departure_date', $route['departure_date'] ?? null);
+
+        return "{$from} → {$to}" . ($date !== __('Non défini') ? " ({$date})" : ' #' . ($index + 1));
+    }
+
+    private static function historySelectedOptions(mixed $value): string
+    {
+        if (is_string($value)) {
+            $value = json_decode($value, true);
+        }
+
+        if (!is_array($value) || $value === []) {
+            return __('Aucune option');
+        }
+
+        $options = collect($value)
+            ->filter(fn ($option): bool => is_array($option) && filled($option['product_option_id'] ?? null))
+            ->map(function (array $option): string {
+                $name = ProductOption::find($option['product_option_id'])?->name ?? __('Option supprimée');
+                $quantity = max(1, (int) ($option['quantity'] ?? 1));
+
+                return $quantity > 1 ? "{$name} × {$quantity}" : $name;
+            })
+            ->values();
+
+        return $options->isNotEmpty() ? $options->implode(', ') : __('Aucune option');
+    }
+
+    private static function historyRouteValue(string $field, mixed $value): string
+    {
+        if ($field === 'option_id') {
+            return $value ? (ProductOption::find($value)?->name ?? __('Option supprimée')) : __('Non défini');
+        }
+
+        if ($field === 'supplier_id') {
+            return $value ? (Supplier::find($value)?->name ?? __('Fournisseur supprimé')) : __('Non défini');
+        }
+
+        if ($field === 'departure_date' && filled($value)) {
+            try {
+                return Carbon::parse($value)->format('d/m/Y');
+            } catch (\Throwable) {
+                // Keep the original value if an older record contains an invalid date.
+            }
+        }
+
+        if ($field === 'purchase_price' && filled($value)) {
+            return number_format((float) $value, 0, ',', ' ') . ' ¥';
+        }
+
+        return self::historyValue($value);
+    }
+
+    private static function historyValue(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return __('Non défini');
+        }
+
+        if (is_bool($value)) {
+            return $value ? __('Oui') : __('Non');
+        }
+
+        if (is_array($value)) {
+            $values = collect($value)
+                ->filter(fn ($item) => !is_array($item) && $item !== null && $item !== '')
+                ->map(fn ($item) => self::historyValue($item))
+                ->values();
+
+            return $values->isNotEmpty()
+                ? $values->implode(', ')
+                : __('Données mises à jour');
+        }
+
+        return (string) $value;
     }
 
     public function folder(): BelongsTo { return $this->belongsTo(Folder::class); }

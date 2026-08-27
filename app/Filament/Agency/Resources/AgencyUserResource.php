@@ -57,24 +57,24 @@ class AgencyUserResource extends Resource
     {
         return $schema->components([
             Group::make()->schema([
-                Section::make('Informations du compte')
-                    ->description('Créez un accès pour un vendeur de votre agence. Il pourra se connecter au portail avec son email et gérer ses propres dossiers.')
+                    Section::make(__('Informations du compte'))
+                    ->description(__('Créez un accès pour un vendeur de votre agence. Il pourra se connecter au portail avec son email et gérer ses propres dossiers.'))
                     ->columns(2)
                     ->schema([
                         TextInput::make('name')
-                            ->label('Nom complet')
+                            ->label(__('Nom complet'))
                             ->required()
                             ->maxLength(255),
                         
                         TextInput::make('email')
-                            ->label('Adresse E-mail')
+                            ->label(__('Adresse E-mail'))
                             ->email()
                             ->unique(ignoreRecord: true)
                             ->required()
                             ->maxLength(255),
                         
                         TextInput::make('password')
-                            ->label('Mot de passe')
+                            ->label(__('Mot de passe'))
                             ->password()
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
@@ -94,17 +94,17 @@ class AgencyUserResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nom complet')
+                    ->label(__('Nom complet'))
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
                     
                 TextColumn::make('email')
-                    ->label('Adresse E-mail')
+                    ->label(__('Adresse E-mail'))
                     ->searchable(),
                     
                 TextColumn::make('created_at')
-                    ->label('Date de création')
+                    ->label(__('Date de création'))
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
             ])
@@ -118,8 +118,8 @@ class AgencyUserResource extends Resource
                         // SÉCURITÉ : Empêcher l'utilisateur de se supprimer lui-même
                         if (Filament::auth()->id() === $record->id) {
                             Notification::make()
-                                ->title('Action impossible')
-                                ->body('Vous ne pouvez pas supprimer le compte avec lequel vous êtes actuellement connecté.')
+                    ->title(__('Action impossible'))
+                    ->body(__('Vous ne pouvez pas supprimer le compte avec lequel vous êtes actuellement connecté.'))
                                 ->danger()
                                 ->send();
                             

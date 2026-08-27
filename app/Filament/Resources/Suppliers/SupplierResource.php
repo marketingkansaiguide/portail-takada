@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 class SupplierResource extends Resource
 {
     protected static ?string $model = Supplier::class;
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
@@ -30,6 +31,20 @@ class SupplierResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Fournisseurs');
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'contact_name', 'phone', 'fax', 'address', 'notes'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Contact') => $record->contact_name,
+            __('Téléphone') => $record->phone,
+            __('Adresse') => $record->address,
+        ]);
     }
 
     public static function form(Schema $schema): Schema

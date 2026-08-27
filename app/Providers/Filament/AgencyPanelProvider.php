@@ -32,6 +32,8 @@ class AgencyPanelProvider extends PanelProvider
             ->path('') // Racine du site
             ->login()
             ->authGuard('agency') // Guard de session isolé pour les agences
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->darkMode(false) // DÉSACTIVATION DU MODE SOMBRE : Retire le bouton de sélection d'affichage du front-office
             ->colors([
                 'primary' => Color::hex('#096a61'),

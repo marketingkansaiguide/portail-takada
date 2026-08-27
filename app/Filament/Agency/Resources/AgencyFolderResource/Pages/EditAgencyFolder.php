@@ -18,15 +18,15 @@ class EditAgencyFolder extends EditRecord
     {
         return [
             Actions\Action::make('validateFolder')
-                ->label('🚀 Valider et transmettre le dossier')
+                ->label(__('🚀 Valider et transmettre le dossier'))
                 ->color('success')
                 ->size('lg')
                 ->icon('heroicon-o-check-circle')
                 ->visible(fn ($record) => $record && $record->status === 'draft')
-                ->modalHeading('Validation définitive du dossier client')
+                    ->modalHeading(__('Validation définitive du dossier client'))
                 ->modalWidth('3xl')
-                ->modalSubmitActionLabel('Oui, valider et transmettre le dossier')
-                ->modalCancelActionLabel('Annuler')
+                    ->modalSubmitActionLabel(__('Oui, valider et transmettre le dossier'))
+                ->modalCancelActionLabel(__('Annuler'))
                 ->form(function ($record) {
                     $items = $record->folderItems;
                     $itemsHtml = '';
@@ -124,11 +124,17 @@ class EditAgencyFolder extends EditRecord
 
                     try {
                         if (class_exists('\App\Models\FolderTask')) {
-                            \App\Models\FolderTask::create([
-                                'folder_id' => $record->id,
-                                'title' => "Nouveau dossier validé par l'agence : {$record->folder_name} ({$record->reference})",
-                                'status' => 'pending',
+                            \App\Models\FolderTask::updateOrCreate([
                                 'action_code' => "new_folder_confirmed_{$record->id}",
+                            ], [
+                                'folder_id' => $record->id,
+                                'description' => __('Dossier validé par l’agence à prendre en charge : :reference — :name', [
+                                    'reference' => $record->reference,
+                                    'name' => $record->folder_name ?: $record->lead_traveler_name,
+                                ]),
+                                'icon' => 'heroicon-m-folder-open',
+                                'color' => 'text-warning-500',
+                                'is_completed' => false,
                             ]);
                         }
                     } catch (\Exception $e) {
@@ -170,8 +176,8 @@ class EditAgencyFolder extends EditRecord
                     } catch (\Exception $e) {}
 
                     \Filament\Notifications\Notification::make()
-                        ->title('Dossier validé et transmis avec succès !')
-                        ->body('Votre dossier est désormais pris en charge par l\'équipe Takada.')
+                        ->title(__('Dossier validé et transmis avec succès !'))
+                        ->body(__('Votre dossier est désormais pris en charge par l\'équipe Takada.'))
                         ->success()
                         ->send();
                         
@@ -179,21 +185,21 @@ class EditAgencyFolder extends EditRecord
                 }),
 
             Actions\Action::make('cancelFolderDraft')
-                ->label('🗑️ Annuler / Supprimer le brouillon')
+                ->label(__('🗑️ Annuler / Supprimer le brouillon'))
                 ->color('danger')
                 ->icon('heroicon-o-trash')
                 ->requiresConfirmation()
-                ->modalHeading('Annuler et supprimer ce dossier brouillon ?')
-                ->modalDescription('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.')
-                ->modalSubmitActionLabel('Oui, supprimer le brouillon')
-                ->modalCancelActionLabel('Conserver le brouillon')
+                    ->modalHeading(__('Annuler et supprimer ce dossier brouillon ?'))
+                ->modalDescription(__('Ce dossier n\'a pas encore été transmis. Sa suppression entraînera le retrait définitif du brouillon.'))
+                ->modalSubmitActionLabel(__('Oui, supprimer le brouillon'))
+                ->modalCancelActionLabel(__('Conserver le brouillon'))
                 ->visible(fn ($record) => $record && $record->status === 'draft')
                 ->action(function ($record) {
                     $record->delete();
 
                     \Filament\Notifications\Notification::make()
-                        ->title('Brouillon supprimé')
-                        ->body('Le dossier brouillon a été annulé avec succès.')
+                    ->title(__('Brouillon supprimé'))
+                        ->body(__('Le dossier brouillon a été annulé avec succès.'))
                         ->success()
                         ->send();
 

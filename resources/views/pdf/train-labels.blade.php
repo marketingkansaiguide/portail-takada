@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="utf-8">
-    <title>Étiquettes Billets de Train</title>
+    <title>{{ __('Étiquettes Billets de Train') }}</title>
     <style>
         /* Format A4 Portrait selon tes dimensions exactes */
         @page {
@@ -203,12 +203,12 @@
     <div class="controls-header no-print">
         <div style="display: flex; align-items: center; gap: 16px;">
             <div class="edit-notice">
-                <strong>Texte modifiable :</strong> Vous pouvez cliquer directement sur les textes ci-dessous pour ajuster vos étiquettes (ex: raccourcir un nom de gare long) avant impression.
+                <strong>{{ __('Texte modifiable :') }}</strong> {{ __('Vous pouvez cliquer directement sur les textes ci-dessous pour ajuster vos étiquettes avant impression.') }}
             </div>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
             <button onclick="window.print()" class="btn-print">
-                Imprimer la plaquette
+                {{ __('Imprimer la plaquette') }}
             </button>
         </div>
     </div>
@@ -224,7 +224,7 @@
                     foreach($routes as $route) {
                         $allRoutes->push([
                             'folder_name' => $item->folder->folder_name ?? 'Inconnu',
-                            'date' => !empty($route['departure_date']) ? \Carbon\Carbon::parse($route['departure_date'])->format('d/m/Y') : 'À définir',
+                            'date' => !empty($route['departure_date']) ? \Carbon\Carbon::parse($route['departure_date'])->format('d/m/Y') : __('À définir'),
                             'departure' => $route['departure_station'] ?? 'N/A',
                             'arrival' => $route['arrival_station'] ?? 'N/A'
                         ]);
@@ -232,8 +232,8 @@
                 } else {
                     $allRoutes->push([
                         'folder_name' => $item->folder->folder_name ?? 'Inconnu',
-                        'date' => $item->service_date ? \Carbon\Carbon::parse($item->service_date)->format('d/m/Y') : 'À définir',
-                        'departure' => 'Aucune gare trouvée',
+                        'date' => $item->service_date ? \Carbon\Carbon::parse($item->service_date)->format('d/m/Y') : __('À définir'),
+                        'departure' => __('Aucune gare trouvée'),
                         'arrival' => ''
                     ]);
                 }
@@ -256,20 +256,20 @@
                         
                         <!-- 2. Date -->
                         <div class="label-info">
-                            <span class="label-subtitle">Date du trajet</span>
+                            <span class="label-subtitle">{{ __('Date du trajet') }}</span>
                             <span contenteditable="true">{{ $routeData['date'] }}</span>
                         </div>
                         
                         <!-- 3. Départ -->
                         <div class="label-info">
-                            <span class="label-subtitle">Gare de départ</span>
+                            <span class="label-subtitle">{{ __('Gare de départ') }}</span>
                             <span contenteditable="true">{{ $routeData['departure'] }}</span>
                         </div>
                         
                         <!-- 4. Arrivée (Si renseignée) -->
                         @if(!empty($routeData['arrival']))
                             <div class="label-info">
-                                <span class="label-subtitle">Gare d'arrivée</span>
+                                <span class="label-subtitle">{{ __('Gare d’arrivée') }}</span>
                                 <span contenteditable="true">{{ $routeData['arrival'] }}</span>
                             </div>
                         @endif

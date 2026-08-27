@@ -12,12 +12,12 @@ class ClientGroupsTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label('Nom du Groupe')
+                    ->label(__('Nom du Groupe'))
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('folder_fee')
-                    ->label('Frais de dossier')
+                    ->label(__('Frais de dossier'))
                     ->money('jpy')
                     ->sortable(),
             ]);

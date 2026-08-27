@@ -32,7 +32,12 @@ class IcCards extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
     protected static ?string $navigationLabel = 'Cartes IC';
-    protected static ?string $title = 'Gestion & Suivi des Cartes IC à venir';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Gestion & Suivi des Cartes IC à venir');
+    }
     protected static ?int $navigationSort = 4;
 
     protected string $view = 'filament.pages.ic-cards';
@@ -103,7 +108,7 @@ class IcCards extends Page implements HasTable
         if ($noOptionCount > 0) {
             $summary['no_option'] = [
                 'id' => 'no_option',
-                'name' => 'Sans déclinaison',
+            'name' => __('Sans déclinaison'),
                 'count' => $noOptionCount,
             ];
         }
@@ -163,7 +168,7 @@ class IcCards extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('effective_date')
-                    ->label('Date Prestation')
+                    ->label(__('Date Prestation'))
                     ->getStateUsing(fn (FolderItem $record) => $record->service_date ?? $record->folder?->start_date)
                     ->date('d/m/Y')
                     ->badge()
@@ -180,7 +185,7 @@ class IcCards extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('folder.reference')
-                    ->label('Réf. Dossier')
+                    ->label(__('Réf. Dossier'))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('folder', fn ($q) => $q->where('reference', 'LIKE', "%{$search}%")->orWhere('folder_name', 'LIKE', "%{$search}%"));
                     })
@@ -188,7 +193,7 @@ class IcCards extends Page implements HasTable
                     ->description(fn (FolderItem $record) => $record->folder?->folder_name ?? '---'),
 
                 Tables\Columns\TextColumn::make('folder.lead_traveler_name')
-                    ->label('Pax Leader')
+                    ->label(__('Pax Leader'))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('folder', fn ($q) => $q->where('lead_traveler_name', 'LIKE', "%{$search}%"));
                     })
@@ -199,7 +204,7 @@ class IcCards extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('product_name_display')
-                    ->label('Prestation / Carte IC')
+                    ->label(__('Prestation / Carte IC'))
                     ->getStateUsing(fn (FolderItem $record) => $record->product?->name ?? $record->title ?? 'Carte IC')
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('product', fn ($q) => $q->where('name', 'LIKE', "%{$search}%"))
@@ -225,20 +230,20 @@ class IcCards extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('quantity')
-                    ->label('Qté Cartes')
+                    ->label(__('Qté Cartes'))
                     ->badge()
                     ->color('primary')
                     ->formatStateUsing(fn ($state) => "{$state} carte" . ($state > 1 ? 's' : ''))
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('folder.ticket_dispatch_method')
-                    ->label('Livraison / Envoi')
+                    ->label(__('Livraison / Envoi'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'hotel' => '🏨 Hôtel',
+                                    'hotel' => __('🏨 Hôtel'),
                         'guide' => '👤 Guide',
                         'autre' => '📍 Autre',
-                        default => '🏨 Hôtel',
+                                    default => __('🏨 Hôtel'),
                     })
                     ->color(fn (?string $state): string => match ($state) {
                         'hotel' => 'info',
@@ -249,14 +254,14 @@ class IcCards extends Page implements HasTable
                     ->description(fn (FolderItem $record) => Str::limit($record->folder?->dispatch_address ?? '---', 30)),
 
                 Tables\Columns\TextColumn::make('itemStatus.name')
-                    ->label('Statut Prestation')
+                    ->label(__('Statut Prestation'))
                     ->badge()
                     ->color(fn (FolderItem $record) => $record->itemStatus?->color ?? 'warning')
                     ->formatStateUsing(fn (FolderItem $record) => $record->itemStatus?->name ?? 'En attente')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('folder.agency.name')
-                    ->label('Agence')
+                    ->label(__('Agence'))
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('folder.agency', fn ($q) => $q->where('name', 'LIKE', "%{$search}%"));
                     })
@@ -265,11 +270,11 @@ class IcCards extends Page implements HasTable
             ])
             ->filters([
                 SelectFilter::make('time_frame')
-                    ->label('Échéance')
+                    ->label(__('Échéance'))
                     ->options([
-                        'upcoming' => '⏳ À venir (Défaut)',
+                'upcoming' => __('⏳ À venir (Défaut)'),
                         'all' => '📋 Toutes les dates',
-                        'past' => '📜 Historique / Passées',
+                'past' => __('📜 Historique / Passées'),
                     ])
                     ->default('upcoming')
                     ->query(function (Builder $query, array $data): Builder {
@@ -294,13 +299,13 @@ class IcCards extends Page implements HasTable
                     }),
 
                 SelectFilter::make('item_status_id')
-                    ->label('Statut Prestation')
+                    ->label(__('Statut Prestation'))
                     ->relationship('itemStatus', 'name'),
 
                 SelectFilter::make('ticket_dispatch_method')
-                    ->label('Mode de livraison')
+                    ->label(__('Mode de livraison'))
                     ->options([
-                        'hotel' => '🏨 Hôtel',
+                    'hotel' => __('🏨 Hôtel'),
                         'guide' => '👤 Guide',
                         'autre' => '📍 Autre',
                     ])
@@ -313,8 +318,8 @@ class IcCards extends Page implements HasTable
 
                 Filter::make('service_period')
                     ->form([
-                        DatePicker::make('from')->label('Prestation après le'),
-                        DatePicker::make('until')->label('Prestation avant le'),
+                        DatePicker::make('from')->label(__('Prestation après le')),
+                        DatePicker::make('until')->label(__('Prestation avant le')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -330,14 +335,14 @@ class IcCards extends Page implements HasTable
             ])
             ->recordActions([
                 Action::make('updateStatus')
-                    ->label('Statut')
+                    ->label(__('Statut'))
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
-                    ->modalHeading('Changer le statut de la Carte IC')
-                    ->modalSubmitActionLabel('Mettre à jour')
+                    ->modalHeading(__('Changer le statut de la Carte IC'))
+                    ->modalSubmitActionLabel(__('Mettre à jour'))
                     ->form([
                         Select::make('item_status_id')
-                            ->label('Nouveau statut')
+                            ->label(__('Nouveau statut'))
                             ->options(fn () => ItemStatus::pluck('name', 'id'))
                             ->required()
                             ->default(fn (FolderItem $record) => $record->item_status_id),
@@ -346,25 +351,25 @@ class IcCards extends Page implements HasTable
                         $record->update(['item_status_id' => $data['item_status_id']]);
 
                         Notification::make()
-                            ->title('Statut mis à jour avec succès')
+                            ->title(__('Statut mis à jour avec succès'))
                             ->success()
                             ->send();
                     }),
 
                 Action::make('openFolder')
-                    ->label('Ouvrir Dossier')
+                    ->label(__('Ouvrir Dossier'))
                     ->icon('heroicon-o-pencil-square')
                     ->color('primary')
                     ->url(fn (FolderItem $record) => \App\Filament\Resources\Folders\FolderResource::getUrl('edit', ['record' => $record->folder_id])),
             ])
             ->bulkActions([
                 BulkAction::make('bulkUpdateStatus')
-                    ->label('Changer le statut des cartes sélectionnées')
+                    ->label(__('Changer le statut des cartes sélectionnées'))
                     ->icon('heroicon-o-adjustments-horizontal')
                     ->color('warning')
                     ->form([
                         Select::make('item_status_id')
-                            ->label('Nouveau statut pour la sélection')
+                            ->label(__('Nouveau statut pour la sélection'))
                             ->options(fn () => ItemStatus::pluck('name', 'id'))
                             ->required(),
                     ])
@@ -372,7 +377,7 @@ class IcCards extends Page implements HasTable
                         $records->each(fn (FolderItem $item) => $item->update(['item_status_id' => $data['item_status_id']]));
 
                         Notification::make()
-                            ->title('Statuts mis à jour pour ' . $records->count() . ' cartes IC')
+            ->title(__('Statuts mis à jour pour :count cartes IC', ['count' => $records->count()]))
                             ->success()
                             ->send();
                     }),

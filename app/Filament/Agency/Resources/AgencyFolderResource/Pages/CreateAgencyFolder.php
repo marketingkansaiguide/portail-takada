@@ -19,8 +19,8 @@ class CreateAgencyFolder extends CreateRecord
 
         if (!$agencyId) {
             Notification::make()
-                ->title('Agence non attribuée')
-                ->body('Votre compte utilisateur n\'est rattaché à aucune agence. Veuillez contacter un administrateur.')
+                ->title(__('Agence non attribuée'))
+                    ->body(__('Votre compte utilisateur n\'est rattaché à aucune agence. Veuillez contacter un administrateur.'))
                 ->danger()
                 ->persistent()
                 ->send();

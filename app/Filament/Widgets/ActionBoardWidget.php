@@ -36,7 +36,7 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
         // Géré dynamiquement par #[Computed]
     }
 
-    private function generateMissingTasks()
+    private function generateMissingTasks(): void
     {
         $activeTasks = FolderTask::where('is_completed', false)->get();
         foreach ($activeTasks as $task) {
@@ -46,9 +46,16 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                     $task->delete();
                 }
             }
+
+            if (preg_match('/^(unread_msg|message_action_required)_(\d+)$/', $task->action_code, $matches)) {
+                $message = FolderMessage::find($matches[2]);
+                if (!$message || ($matches[1] === 'message_action_required' && !$message->is_action_required)) {
+                    $task->delete();
+                }
+            }
         }
 
-        $folders = Folder::with(['folderItems.product', 'folderItems.itemStatus', 'agency'])
+        $folders = Folder::with(['allFolderItems.product', 'allFolderItems.itemStatus', 'agency'])
             ->whereNotIn('status', ['cancelled'])
             ->get();
 
@@ -56,16 +63,62 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
 
         foreach ($folders as $folder) {
             
-            if (in_array($folder->status, ['pending', 'new', 'draft'])) {
-                $this->createTaskIfMissing($folder->id, "new_folder_{$folder->id}", "Nouveau dossier à analyser et deviser.", 'heroicon-m-document-plus', 'text-primary-500');
+            $newFolderTaskCode = "new_folder_{$folder->id}";
+            if (in_array($folder->status, ['pending', 'new', 'draft'], true)) {
+                $this->createTaskIfMissing($folder->id, $newFolderTaskCode, __('Nouveau dossier à analyser et deviser.'), 'heroicon-m-document-plus', 'text-primary-500');
+            } else {
+                $this->completeTaskByCode($newFolderTaskCode);
             }
 
-            $lastMsg = FolderMessage::with('user')->where('folder_id', $folder->id)->latest()->first();
-            if ($lastMsg && $lastMsg->user && $lastMsg->user->role === 'agency') {
-                $this->createTaskIfMissing($folder->id, "unread_msg_{$lastMsg->id}", "Nouveau message de l'agence en attente.", 'heroicon-m-chat-bubble-left-ellipsis', 'text-warning-500');
+            $latestAgencyMessage = FolderMessage::query()
+                ->with('user')
+                ->where('folder_id', $folder->id)
+                ->whereHas('user', fn ($query) => $query->where('role', 'agency'))
+                ->latest()
+                ->first();
+            $unreadMessageTaskCode = $latestAgencyMessage ? "unread_msg_{$latestAgencyMessage->id}" : null;
+
+            FolderTask::where('folder_id', $folder->id)
+                ->where('action_code', 'like', 'unread_msg_%')
+                ->when($unreadMessageTaskCode, fn ($query) => $query->where('action_code', '!=', $unreadMessageTaskCode))
+                ->where('is_completed', false)
+                ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id()]);
+
+            if ($latestAgencyMessage) {
+                $this->createTaskIfMissing(
+                    $folder->id,
+                    $unreadMessageTaskCode,
+                    __('Nouveau message de l’agence en attente.'),
+                    'heroicon-m-chat-bubble-left-ellipsis',
+                    'text-warning-500',
+                );
             }
 
-            foreach ($folder->folderItems as $item) {
+            $actionRequiredMessages = FolderMessage::where('folder_id', $folder->id)
+                ->where('is_action_required', true)
+                ->get();
+            $actionRequiredCodes = $actionRequiredMessages
+                ->map(fn (FolderMessage $message): string => "message_action_required_{$message->id}")
+                ->all();
+
+            FolderTask::where('folder_id', $folder->id)
+                ->where('action_code', 'like', 'message_action_required_%')
+                ->when($actionRequiredCodes !== [], fn ($query) => $query->whereNotIn('action_code', $actionRequiredCodes))
+                ->where('is_completed', false)
+                ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id()]);
+
+            foreach ($actionRequiredMessages as $message) {
+                $excerpt = filled($message->message) ? str($message->message)->squish()->limit(110) : __('Pièce jointe ou demande sans texte');
+                $this->createTaskIfMissing(
+                    $folder->id,
+                    "message_action_required_{$message->id}",
+                    __('Répondre au message nécessitant une action : :message', ['message' => $excerpt]),
+                    'heroicon-m-chat-bubble-left-right',
+                    'text-danger-500',
+                );
+            }
+
+            foreach ($folder->allFolderItems as $item) {
                 $productName = $item->product ? $item->product->name : 'Prestation sur-mesure';
                 
                 $dateStr = $item->service_date ? ' du ' . Carbon::parse($item->service_date)->format('d/m/Y') : '';
@@ -75,13 +128,13 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                 $stopItemStatuses = ['confirmé', 'confirme', 'annulé', 'annule', 'pas de disponibilité', 'pas de disponibilite', 'indisponible', 'en cours de traitement'];
 
                 // 🚨 ALERTE SPÉCIFIQUE : OUVERTURE VENTES CARTES IC (product_id = 3)
-                if ($item->product_id == 3 && $itemStatusName === 'en attente de validation' && !in_array($folder->status, ['draft', 'completed', 'cancelled'])) {
+                $icTaskCode = "ic_cards_opening_{$item->id}";
+                if ($item->product_id == 3 && $itemStatusName === 'en attente de validation' && !in_array($folder->status, ['draft', 'completed', 'cancelled'], true)) {
                     $effectiveDate = $item->service_date ?? $folder->start_date;
                     $delay = $item->product?->days_before_opening ?? 0;
 
                     if ($effectiveDate) {
                         $openingDate = Carbon::parse($effectiveDate)->subDays($delay)->startOfDay();
-                        $icTaskCode = "ic_cards_opening_{$item->id}";
 
                         if (now()->startOfDay()->greaterThanOrEqualTo($openingDate)) {
                             $qty = $item->quantity ?? 1;
@@ -90,7 +143,7 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                             $isNew = $this->createTaskIfMissing(
                                 $folder->id,
                                 $icTaskCode,
-                                "🚨 Cartes IC à commander : Ouverture des ventes atteinte pour le dossier {$folder->reference} ({$paxName} - {$qty} carte(s)).",
+            __('🚨 Cartes IC à commander : Ouverture des ventes atteinte pour le dossier :reference (:name - :qty carte(s)).', ['reference' => $folder->reference, 'name' => $paxName, 'qty' => $qty]),
                                 'heroicon-m-credit-card',
                                 'text-danger-500'
                             );
@@ -99,11 +152,13 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                                 $newIcAlertItems[] = $item;
                             }
                         } else {
-                            FolderTask::where('action_code', $icTaskCode)
-                                ->where('is_completed', false)
-                                ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
+                            $this->completeTaskByCode($icTaskCode);
                         }
+                    } else {
+                        $this->completeTaskByCode($icTaskCode);
                     }
+                } else {
+                    $this->completeTaskByCode($icTaskCode);
                 }
 
                 $manageTaskCode = "manage_item_{$item->id}";
@@ -123,7 +178,7 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
 
                 $alertTaskCode = "item_alert_{$item->id}";
                 if ($item->item_status_id == 5) {
-                    $this->createTaskIfMissing($folder->id, $alertTaskCode, "Problème/Action requise sur : {$prestaLabel}.", 'heroicon-m-exclamation-triangle', 'text-danger-500');
+            $this->createTaskIfMissing($folder->id, $alertTaskCode, __('Problème/Action requise sur : :service.', ['service' => $prestaLabel]), 'heroicon-m-exclamation-triangle', 'text-danger-500');
                     FolderTask::where('action_code', $alertTaskCode)->where('is_completed', true)->update(['is_completed' => false, 'completed_at' => null, 'completed_by' => null]);
                 } else {
                     FolderTask::where('action_code', $alertTaskCode)
@@ -194,13 +249,15 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                     if ($delay !== null && $item->service_date && !in_array($itemStatusName, $stopItemStatuses) && $folder->status !== 'completed') {
                         $openDate = Carbon::parse($item->service_date)->subDays($delay);
                         if (now()->greaterThanOrEqualTo($openDate)) {
-                            $this->createTaskIfMissing($folder->id, $bookingTaskCode, "Ouverture des réservations pour : {$prestaLabel}.", 'heroicon-m-calendar-days', 'text-success-500');
+                            $this->createTaskIfMissing($folder->id, $bookingTaskCode, __('Ouverture des réservations pour : :service.', ['service' => $prestaLabel]), 'heroicon-m-calendar-days', 'text-success-500');
+                        } else {
+                            $this->completeTaskByCode($bookingTaskCode);
                         }
                     } else {
-                        FolderTask::where('action_code', $bookingTaskCode)
-                            ->where('is_completed', false)
-                            ->update(['is_completed' => true, 'completed_at' => now(), 'completed_by' => Auth::id() ?? 1]);
+                        $this->completeTaskByCode($bookingTaskCode);
                     }
+                } else {
+                    $this->completeTaskByCode($bookingTaskCode);
                 }
             }
         }
@@ -230,7 +287,7 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
         }
     }
 
-    private function createTaskIfMissing($folderId, $code, $desc, $icon, $color): bool
+    private function createTaskIfMissing(int $folderId, string $code, string $desc, string $icon, string $color): bool
     {
         $task = FolderTask::where('action_code', $code)->first();
 
@@ -246,11 +303,26 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
             return true; // Nouvelle tâche
         }
 
-        if ($task->description !== $desc) {
-            $task->update(['description' => $desc]);
+        if ($task->description !== $desc || $task->icon !== $icon || $task->color !== $color) {
+            $task->update([
+                'description' => $desc,
+                'icon' => $icon,
+                'color' => $color,
+            ]);
         }
 
         return false;
+    }
+
+    private function completeTaskByCode(string $code): void
+    {
+        FolderTask::where('action_code', $code)
+            ->where('is_completed', false)
+            ->update([
+                'is_completed' => true,
+                'completed_at' => now(),
+                'completed_by' => Auth::id(),
+            ]);
     }
 
     #[Computed]
@@ -258,23 +330,63 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
     {
         $this->generateMissingTasks();
 
-        return FolderTask::where('is_completed', false)
+        $tasks = FolderTask::where('is_completed', false)
             ->with(['folder.agency'])
             ->get()
+            ->filter(fn (FolderTask $task): bool => $task->folder !== null);
+
+        // The generic "manage service" reminder adds no value while a more precise
+        // task for the same service is pending. It returns automatically once the
+        // specific blocker is resolved, so no work item is lost.
+        $itemsWithSpecificTasks = $tasks
+            ->filter(fn (FolderTask $task): bool => preg_match('/^(item_alert|invoice_missing|booking_open|missing_purchase_price|ic_cards_opening)_\d+$/', $task->action_code) === 1)
+            ->map(function (FolderTask $task): ?int {
+                return preg_match('/_(\d+)$/', $task->action_code, $matches) ? (int) $matches[1] : null;
+            })
+            ->filter()
+            ->unique()
+            ->all();
+
+        return $tasks
+            ->reject(function (FolderTask $task) use ($itemsWithSpecificTasks): bool {
+                return preg_match('/^manage_item_(\d+)$/', $task->action_code, $matches)
+                    && in_array((int) $matches[1], $itemsWithSpecificTasks, true);
+            })
+            ->sortBy([
+                ['priority_rank', 'asc'],
+                ['created_at', 'asc'],
+            ])
             ->groupBy('folder_id')
-            ->sortBy(function ($tasks) {
-                return $tasks->first()->folder->updated_at;
+            ->sortBy(function ($tasks): array {
+                return [
+                    $tasks->min('priority_rank'),
+                    $tasks->first()->folder->start_date?->timestamp ?? PHP_INT_MAX,
+                    $tasks->first()->folder->updated_at?->timestamp ?? PHP_INT_MAX,
+                ];
             });
+    }
+
+    #[Computed]
+    public function taskSummary(): array
+    {
+        $tasks = $this->pendingTasks->flatten();
+
+        return [
+            'total' => $tasks->count(),
+            'critical' => $tasks->where('priority', 'critical')->count(),
+            'attention' => $tasks->where('priority', 'attention')->count(),
+            'normal' => $tasks->where('priority', 'normal')->count(),
+        ];
     }
 
     public function validateTaskAction(): Action
     {
         return Action::make('validateTask')
             ->requiresConfirmation()
-            ->modalHeading('Tâche effectuée ?')
-            ->modalDescription('Confirmez-vous avoir bien effectué cette action ? Elle sera archivée dans l\'historique du dossier.')
+             ->modalHeading(__('Tâche effectuée ?'))
+             ->modalDescription(__('Confirmez-vous avoir bien effectué cette action ? Elle sera archivée dans l\'historique du dossier.'))
             ->modalSubmitActionLabel('Oui, valider')
-            ->modalCancelActionLabel('Annuler')
+            ->modalCancelActionLabel(__('Annuler'))
             ->color('success')
             ->icon('heroicon-o-check-circle')
             ->action(function (array $arguments) {
@@ -305,12 +417,14 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
                 }
             }
 
-            FolderHistory::create([
-                'folder_id' => $task->folder_id,
-                'user_id' => Auth::id(),
-                'action' => "Tâche traitée : " . $task->description,
-                'changes_payload' => json_encode(['task' => $task->description], JSON_UNESCAPED_UNICODE),
-            ]);
+            FolderHistory::logConsolidated(
+                $task->folder_id,
+                __('Tâche traitée'),
+                __('Tâche traitée :') . ' ' . $task->description,
+                'task',
+                [],
+                ['task_id' => $task->id, 'event' => 'completed'],
+            );
         }
     }
 }

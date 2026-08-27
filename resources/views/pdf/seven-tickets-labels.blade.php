@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Étiquettes Seven Tickets</title>
+    <title>{{ __('Étiquettes Seven Tickets') }}</title>
     <style>
         /* Configuration stricte de la page A4 et des marges d'impression */
         @page {
@@ -33,42 +33,103 @@
             width: 91mm;
             height: 55mm;
             box-sizing: border-box;
-            padding: 6mm; /* Espace intérieur pour que le texte ne touche pas les bords */
+            padding: 5mm 6mm; /* Espace intérieur pour que le texte ne touche pas les bords */
             overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            /* border: 1px dashed #ccc; Décommente cette ligne pour tester le cadrage sur papier blanc */
+            align-items: center;
+            gap: 1.5mm;
+            text-align: center;
+            border: 0.25mm solid #cbd5e1;
+            border-radius: 1mm;
+        }
+
+        .controls-header {
+            background: #ffffff;
+            border-bottom: 1px solid #cccccc;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .edit-notice {
+            background-color: #f0f0f0;
+            border: 1px solid #cccccc;
+            color: #000000;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
         }
 
         /* Typographie des informations brutes */
         .info-line {
             font-size: 13px;
-            line-height: 1.4;
-            margin-bottom: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.25;
+            max-width: 100%;
+            overflow-wrap: anywhere;
         }
 
-        .folder-name { font-size: 15px; font-weight: bold; margin-bottom: 5px; }
-        .product-name { font-size: 14px; font-weight: bold; }
-        .date-pax { font-size: 12px; font-weight: bold; margin-top: 4px; }
+        .folder-name { font-size: 10px; font-weight: 600; }
+        .product-name { font-size: 16px; font-weight: bold; }
+        .option-name { font-size: 13px; font-weight: 600; }
+        .additional-info { font-size: 12px; font-style: italic; }
+        .date-pax { font-size: 12px; font-weight: bold; }
         
+        [contenteditable="true"] {
+            border-radius: 2px;
+            padding: 1px 2px;
+            transition: background-color 0.2s ease;
+        }
+
+        [contenteditable="true"]:hover {
+            outline: 1px dashed #000000;
+            background-color: #f5f5f5;
+            cursor: text;
+        }
+
+        [contenteditable="true"]:focus {
+            outline: 1.5px solid #000000;
+            background-color: #ffffff;
+        }
+
         /* Masquer les boutons d'interface à l'impression */
         @media print {
             .no-print { display: none !important; }
+
+            [contenteditable="true"]:hover,
+            [contenteditable="true"]:focus {
+                outline: none !important;
+                background-color: transparent !important;
+            }
         }
         
         .print-btn {
-            position: fixed; top: 10px; right: 10px;
-            padding: 10px 20px; background-color: #0ea5e9; color: white;
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <button class="no-print print-btn" onclick="window.print()">🖨️ Imprimer les étiquettes</button>
+    <div class="controls-header no-print">
+        <div class="edit-notice">
+            <strong>{{ __('Texte modifiable :') }}</strong> {{ __('Vous pouvez cliquer directement sur les textes ci-dessous pour modifier vos étiquettes avant impression.') }}
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <span style="font-size: 13px; color: #333333; font-weight: 500;">
+                {{ $records->count() }} {{ __('étiquette(s) sélectionnée(s)') }} ({{ ceil($records->count() / 10) }} {{ __('page(s)') }})
+            </span>
+            <button onclick="window.print()" class="print-btn">🖨️ {{ __('Imprimer les étiquettes') }}</button>
+        </div>
+    </div>
 
     @php
         $labelsPerPage = 10;
@@ -81,51 +142,92 @@
                 @php
                     // Extraction des options et informations complémentaires
                     $customVals = is_string($item->custom_values) ? json_decode($item->custom_values, true) : ($item->custom_values ?? []);
+                    $customVals = is_array($customVals) ? $customVals : [];
                     
-                    // Déclinaison (Option)
-                    $optionName = '';
-                    $optionId = $customVals['option_id'] ?? $item->product_option_id ?? null;
-                    if ($optionId) {
-                        $opt = \App\Models\ProductOption::find($optionId);
-                        if ($opt) $optionName = $opt->name;
+                    // Toutes les déclinaisons/options sélectionnées
+                    $selectedOptions = is_string($item->selected_options)
+                        ? json_decode($item->selected_options, true)
+                        : ($item->selected_options ?? []);
+                    $selectedOptions = is_array($selectedOptions) ? $selectedOptions : [];
+                    $optionNames = [];
+
+                    foreach ($selectedOptions as $selectedOption) {
+                        $optionId = is_array($selectedOption)
+                            ? ($selectedOption['product_option_id'] ?? null)
+                            : $selectedOption;
+
+                        if (!$optionId) {
+                            continue;
+                        }
+
+                        $option = \App\Models\ProductOption::find($optionId);
+                        if (!$option) {
+                            continue;
+                        }
+
+                        $optionName = $option->name;
+                        if ($option->billing_type === 'manual' && is_array($selectedOption)) {
+                            $optionQuantity = (int) ($selectedOption['quantity'] ?? 1);
+                            if ($optionQuantity > 1) {
+                                $optionName .= ' × ' . $optionQuantity;
+                            }
+                        }
+
+                        $optionNames[] = $optionName;
+                    }
+
+                    // Compatibilité avec les anciennes prestations qui ne
+                    // stockaient qu'une seule option dans custom_values.
+                    if (empty($optionNames)) {
+                        $legacyOptionId = $customVals['option_id'] ?? $item->product_option_id ?? null;
+                        if ($legacyOptionId) {
+                            $legacyOption = \App\Models\ProductOption::find($legacyOptionId);
+                            if ($legacyOption) {
+                                $optionNames[] = $legacyOption->name;
+                            }
+                        }
                     }
 
                     // Information complémentaire (ex: remarques, infos spécifiques de la résa)
                     $additionalInfo = $customVals['additional_info'] ?? $customVals['remarks'] ?? '';
+                    if (is_array($additionalInfo)) {
+                        $additionalInfo = implode(' - ', array_filter($additionalInfo, fn ($value) => is_scalar($value)));
+                    }
                     
-                    // Nombres de passagers
-                    $adults = $item->folder->pax_adults ?? 1;
-                    $children = $item->folder->pax_children ?? 0;
+                    // Nombre de passagers propre à cette prestation
+                    $pax = $item->getPaxBreakdown();
+                    $adults = $pax['adults'];
+                    $children = $pax['children'];
+                    $teenagers = $pax['teenagers'];
                 @endphp
 
                 <div class="label">
-                    <div class="info-line folder-name">{{ $item->folder->folder_name ?? 'Dossier Inconnu' }}</div>
-                    <div class="info-line product-name">{{ $item->product->name ?? 'Prestation Inconnue' }}</div>
+                    <div class="info-line folder-name" contenteditable="true">{{ $item->folder->folder_name ?? 'Dossier Inconnu' }}</div>
+                    <div class="info-line product-name" contenteditable="true">{{ $item->product->name ?? 'Prestation Inconnue' }}</div>
                     
-                    @if($optionName)
-                        <div class="info-line">{{ $optionName }}</div>
-                    @endif
+                    @foreach($optionNames as $optionName)
+                        <div class="info-line option-name" contenteditable="true">{{ $optionName }}</div>
+                    @endforeach
                     
                     @if($additionalInfo)
-                        <div class="info-line"><i>{{ Str::limit($additionalInfo, 40) }}</i></div>
+                        <div class="info-line additional-info" contenteditable="true">{{ $additionalInfo }}</div>
                     @endif
                     
-                    <div class="info-line date-pax">
-                        {{ $item->service_date ? $item->service_date->format('d/m/Y') : 'Date non définie' }} 
-                        | Adulte(s): {{ $adults }} 
-                        @if($children > 0) | Enfant(s): {{ $children }} @endif
+                    <div class="info-line date-pax" contenteditable="true">
+                    {{ __('À partir de') }} {{ $item->service_date ? $item->service_date->format('d/m/Y') : __('date non définie') }}
+                    </div>
+
+                    <div class="info-line date-pax" contenteditable="true">
+                        @if($pax['has_age_breakdown'])
+                            Adultes : {{ $adults }}@if($teenagers > 0) | Adolescents : {{ $teenagers }}@endif | Enfants : {{ $children }}
+                        @else
+                            {{ $pax['total'] }} PAX
+                        @endif
                     </div>
                 </div>
-            @endphp
             @endforeach
         </div>
     @endforeach
     
-    <script>
-        // Lance automatiquement la fenêtre d'impression à l'ouverture du fichier
-        window.onload = function() {
-            setTimeout(() => { window.print(); }, 500);
-        };
-    </script>
 </body>
 </html>

@@ -10,7 +10,12 @@ class MonthlyRevenueChart extends ChartWidget
 {
     protected static bool $isLazy = false; 
     protected static bool $isDiscovered = false;
-    protected ?string $heading = 'Évolution du CA (12 derniers mois)';
+    protected ?string $heading = null;
+
+    public function getHeading(): ?string
+    {
+        return __('Évolution du CA (12 derniers mois)');
+    }
     protected int | string | array $columnSpan = 1;
 
     // 💡 On impose la même hauteur réduite que le camembert

@@ -31,7 +31,12 @@ class IwaOrders extends Page implements HasTable
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-arrow-down';
     protected static ?string $navigationLabel = 'Commandes IWA';
-    protected static ?string $title = 'Commandes de billets de train (IWA)';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Commandes de billets de train (IWA)');
+    }
     protected static ?int $navigationSort = 6;
 
     protected string $view = 'filament.pages.train-tickets'; 
@@ -162,7 +167,7 @@ class IwaOrders extends Page implements HasTable
             )
             ->columns([
                 Tables\Columns\TextColumn::make('effective_date')
-                    ->label('Date Globale')
+                    ->label(__('Date Globale'))
                     ->getStateUsing(fn (FolderItem $record) => $record->service_date ?? $record->folder?->start_date)
                     ->date('d/m/Y')
                     ->sortable(query: function (Builder $query, string $direction): Builder {
@@ -170,13 +175,13 @@ class IwaOrders extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('folder.folder_name')
-                    ->label('Dossier')
+                    ->label(__('Dossier'))
                     ->searchable()
                     ->weight('bold')
                     ->description(fn (FolderItem $record) => $record->folder?->lead_traveler_name . ' (' . ($record->folder?->pax_adults + $record->folder?->pax_children) . ' pax)'),
 
                 Tables\Columns\TextColumn::make('transport_details')
-                    ->label('Détails des Trajets (IWA)')
+                    ->label(__('Détails des Trajets (IWA)'))
                     ->html()
                     ->getStateUsing(function (FolderItem $record) {
                         $customVals = is_string($record->custom_values) ? json_decode($record->custom_values, true) : ($record->custom_values ?? []);
@@ -195,7 +200,7 @@ class IwaOrders extends Page implements HasTable
                             $dep = e($r['departure_station'] ?? '?');
                             $arr = e($r['arrival_station'] ?? '?');
                             $date = !empty($r['departure_date']) ? Carbon::parse($r['departure_date'])->format('d/m/Y') : '---';
-                            $time = !empty($r['departure_time']) ? ' à ' . e($r['departure_time']) : '';
+            $time = !empty($r['departure_time']) ? ' ' . __('à') . ' ' . e($r['departure_time']) : '';
                             $trainNum = !empty($r['train_number']) ? ' (' . e($r['train_number']) . ')' : '';
                             
                             $routesHtml[] = "
@@ -214,25 +219,25 @@ class IwaOrders extends Page implements HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('itemStatus.name')
-                    ->label('Statut')
+                    ->label(__('Statut'))
                     ->badge()
                     ->color('warning')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('label_exported_at')
-                    ->label('Statut Export Excel')
+                    ->label(__('Statut Export Excel'))
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? '✅ Envoyé à IWA' : '⏳ En attente')
+                    ->formatStateUsing(fn ($state) => $state ? __('✅ Envoyé à IWA') : __('⏳ En attente'))
                     ->color(fn ($state) => $state ? 'success' : 'danger')
-                    ->description(fn (FolderItem $record) => $record->label_exported_at ? Carbon::parse($record->label_exported_at)->format('d/m/Y à H:i') : null)
+                    ->description(fn (FolderItem $record) => $record->label_exported_at ? Carbon::parse($record->label_exported_at)->format('d/m/Y') . ' ' . __('à') . ' ' . Carbon::parse($record->label_exported_at)->format('H:i') : null)
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('label_exported')
-                    ->label('Statut Export')
+                    ->label(__('Statut Export'))
                     ->options([
-                        'pending' => '⏳ En attente (Non exporté)',
-                        'exported' => '✅ Envoyé (Exporté)',
+                    'pending' => __('⏳ En attente (Non exporté)'),
+                    'exported' => __('✅ Envoyé (Exporté)'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
@@ -246,8 +251,8 @@ class IwaOrders extends Page implements HasTable
 
                 Filter::make('service_period')
                     ->form([
-                        DatePicker::make('from')->label('Trajet après le'),
-                        DatePicker::make('until')->label('Trajet avant le'),
+                        DatePicker::make('from')->label(__('Trajet après le')),
+                        DatePicker::make('until')->label(__('Trajet avant le')),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -263,12 +268,12 @@ class IwaOrders extends Page implements HasTable
             ])
             ->bulkActions([
                 BulkAction::make('export_iwa_excel')
-                    ->label('Prévisualiser & Générer Excel IWA')
+                    ->label(__('Prévisualiser & Générer Excel IWA'))
                     ->icon('heroicon-o-table-cells')
                     ->color('success')
-                    ->modalHeading('Prévisualisation des données IWA')
-                    ->modalDescription('Vérifiez et modifiez les données ci-dessous si nécessaire avant de générer le fichier Excel final.')
-                    ->modalSubmitActionLabel('Générer le fichier Excel')
+                    ->modalHeading(__('Prévisualisation des données IWA'))
+                    ->modalDescription(__('Vérifiez et modifiez les données ci-dessous si nécessaire avant de générer le fichier Excel final.'))
+                    ->modalSubmitActionLabel(__('Générer le fichier Excel'))
                     ->modalWidth('7xl')
                     ->form(function (Collection $records) {
                         
@@ -331,17 +336,17 @@ class IwaOrders extends Page implements HasTable
                             Repeater::make('excel_rows')
                                 ->hiddenLabel()
                                 ->schema([
-                                    TextInput::make('pax_name')->label('Client')->required()->columnSpan(2),
-                                    TextInput::make('date')->label('Date')->columnSpan(2),
-                                    TextInput::make('departure')->label('Départ')->columnSpan(2),
-                                    TextInput::make('arrival')->label('Arrivée')->columnSpan(2),
-                                    TextInput::make('train_name')->label('Train')->columnSpan(2),
+                                    TextInput::make('pax_name')->label(__('Client'))->required()->columnSpan(2),
+                                    TextInput::make('date')->label(__('Date'))->columnSpan(2),
+                                    TextInput::make('departure')->label(__('Départ'))->columnSpan(2),
+                                    TextInput::make('arrival')->label(__('Arrivée'))->columnSpan(2),
+                                    TextInput::make('train_name')->label(__('Train'))->columnSpan(2),
                                     
-                                    TextInput::make('dep_time')->label('H. Départ')->columnSpan(2),
-                                    TextInput::make('arr_time')->label('H. Arrivée')->columnSpan(2),
-                                    TextInput::make('class')->label('Classe')->columnSpan(2),
-                                    TextInput::make('pax_adults')->label('Adultes')->numeric()->columnSpan(2),
-                                    TextInput::make('pax_children')->label('Enfants')->numeric()->columnSpan(2),
+                                    TextInput::make('dep_time')->label(__('H. Départ'))->columnSpan(2),
+                                    TextInput::make('arr_time')->label(__('H. Arrivée'))->columnSpan(2),
+                                    TextInput::make('class')->label(__('Classe'))->columnSpan(2),
+                                    TextInput::make('pax_adults')->label(__('Adultes'))->numeric()->columnSpan(2),
+                                    TextInput::make('pax_children')->label(__('Enfants'))->numeric()->columnSpan(2),
                                     
                                     Hidden::make('item_id'),
                                 ])
@@ -363,7 +368,7 @@ class IwaOrders extends Page implements HasTable
                         $fileName = 'Commande_IWA_' . now()->format('Y_m_d_His') . '.xlsx';
 
                         Notification::make()
-                            ->title('Fichier Excel généré avec succès !')
+                            ->title(__('Fichier Excel généré avec succès !'))
                             ->success()
                             ->send();
 

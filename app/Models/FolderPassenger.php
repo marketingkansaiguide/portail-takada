@@ -39,14 +39,15 @@ class FolderPassenger extends Model
                     $processedUpdates[$fingerprint] = true;
 
                     $changesText = [];
+                    $structuredChanges = [];
                     
                     $labels = [
-                        'first_name' => 'Prénom',
-                        'last_name' => 'Nom',
-                        'birth_date' => 'Date de naissance',
-                        'nationality' => 'Nationalité',
-                        'dietary_restrictions' => 'Restrictions alimentaires',
-                        'mobility_concerns' => 'Problèmes de mobilité',
+                        'first_name' => __('Prénom'),
+                        'last_name' => __('Nom'),
+                        'birth_date' => __('Date de naissance'),
+                        'nationality' => __('Nationalité'),
+                        'dietary_restrictions' => __('Restrictions alimentaires'),
+                        'mobility_concerns' => __('Problèmes de mobilité'),
                     ];
 
                     foreach ($changes as $key => $newValue) {
@@ -55,28 +56,30 @@ class FolderPassenger extends Model
                         $oldValue = $passenger->getOriginal($key);
 
                         if ($key === 'birth_date') {
-                            $oldDate = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : 'Non renseignée';
-                            $newDate = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : 'Vide';
+                            $oldDate = $oldValue ? Carbon::parse($oldValue)->format('d/m/Y') : __('Non renseignée');
+                            $newDate = $newValue ? Carbon::parse($newValue)->format('d/m/Y') : __('Vide');
                             $changesText[] = "• {$labels[$key]} : '{$oldDate}' ➔ '{$newDate}'";
+                            $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldDate, 'new' => $newDate];
                             continue;
                         }
 
-                        $oldString = $oldValue !== null && $oldValue !== '' ? (string)$oldValue : 'Non renseigné';
-                        $newString = $newValue !== null && $newValue !== '' ? (string)$newValue : 'Vide';
+                        $oldString = $oldValue !== null && $oldValue !== '' ? (string)$oldValue : __('Non renseigné');
+                        $newString = $newValue !== null && $newValue !== '' ? (string)$newValue : __('Vide');
                         $changesText[] = "• {$labels[$key]} : '{$oldString}' ➔ '{$newString}'";
+                        $structuredChanges[] = ['field' => $key, 'label' => $labels[$key], 'old' => $oldString, 'new' => $newString];
                     }
 
                     if (!empty($changesText)) {
-                        $summary = "Les informations du passager '{$getPassengerName($passenger)}' ont été modifiées :\n" . implode("\n", $changesText);
+                        $summary = __('Les informations du passager :name ont été modifiées :', ['name' => $getPassengerName($passenger)]) . "\n" . implode("\n", $changesText);
 
-                        \App\Models\FolderHistory::create([
-                            'folder_id' => $passenger->folder_id,
-                            'user_id' => auth()->id(),
-                            'action' => 'Mise à jour Passager',
-                            'changes_payload' => [
-                                'summary' => $summary
-                            ]
-                        ]);
+                        FolderHistory::logConsolidated(
+                            $passenger->folder_id,
+                            __('Mise à jour Passager'),
+                            $summary,
+                            'passenger',
+                            $structuredChanges,
+                            ['passenger_id' => $passenger->id, 'event' => 'updated'],
+                        );
                     }
                 }
             }
@@ -87,25 +90,25 @@ class FolderPassenger extends Model
             if (isset($processedCreations[$passenger->id])) return;
             $processedCreations[$passenger->id] = true;
 
-            \App\Models\FolderHistory::create([
-                'folder_id' => $passenger->folder_id,
-                'user_id' => auth()->id(),
-                'action' => 'Ajout Passager',
-                'changes_payload' => [
-                    'summary' => "Le passager '{$getPassengerName($passenger)}' a été ajouté au dossier."
-                ]
-            ]);
+            FolderHistory::logConsolidated(
+                $passenger->folder_id,
+                __('Ajout Passager'),
+                __('Le passager :name a été ajouté au dossier.', ['name' => $getPassengerName($passenger)]),
+                'passenger',
+                [],
+                ['passenger_id' => $passenger->id, 'event' => 'created'],
+            );
         });
 
         static::deleted(function ($passenger) use ($getPassengerName) {
-            \App\Models\FolderHistory::create([
-                'folder_id' => $passenger->folder_id,
-                'user_id' => auth()->id(),
-                'action' => 'Suppression Passager',
-                'changes_payload' => [
-                    'summary' => "Le passager '{$getPassengerName($passenger)}' a été retiré du dossier."
-                ]
-            ]);
+            FolderHistory::logConsolidated(
+                $passenger->folder_id,
+                __('Suppression Passager'),
+                __('Le passager :name a été retiré du dossier.', ['name' => $getPassengerName($passenger)]),
+                'passenger',
+                [],
+                ['passenger_id' => $passenger->id, 'event' => 'deleted'],
+            );
         });
     }
 

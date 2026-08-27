@@ -15,23 +15,28 @@ class Statistics extends Dashboard
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-presentation-chart-line';
     protected static string | \UnitEnum | null $navigationGroup = 'Rapports & Analyses';
     protected static ?string $navigationLabel = 'Business Intelligence';
-    protected static ?string $title = 'Analyse Financière & Statistiques';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Analyse Financière & Statistiques');
+    }
 
     protected static string $routePath = 'statistiques-bi';
 
     public function filtersForm(Schema $form): Schema
     {
         return $form->schema([
-            Section::make('Période d\'analyse')
-                ->description('Filtrez toutes les statistiques (basé sur la date de création des dossiers). Les indicateurs globaux compareront automatiquement avec la période précédente.')
+            Section::make(__('Période d\'analyse'))
+            ->description(__('Filtrez toutes les statistiques (basé sur la date de création des dossiers). Les indicateurs globaux compareront automatiquement avec la période précédente.'))
                 ->schema([
                     DatePicker::make('startDate')
-                        ->label('Du (inclus)')
+                ->label(__('Du (inclus)'))
                         ->native(false)
                         ->maxDate(now()),
                         
                     DatePicker::make('endDate')
-                        ->label('Au (inclus)')
+                ->label(__('Au (inclus)'))
                         ->native(false)
                         ->maxDate(now()),
                 ])

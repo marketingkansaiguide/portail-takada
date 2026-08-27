@@ -52,11 +52,11 @@ class RoleResource extends Resource
                     CheckboxList::make('permissions') // Le même nom de champ permet au JSON de tout rassembler !
                         ->hiddenLabel() // On cache le label redondant puisque la section donne déjà le titre
                         ->options([
-                            'folder.viewAny' => 'Voir la liste des dossiers',
-                            'folder.view' => 'Voir le détail d\'un dossier',
-                            'folder.create' => 'Créer un dossier',
-                            'folder.update' => 'Modifier un dossier',
-                            'folder.delete' => 'Supprimer un dossier',
+                            'folder.viewAny' => __('Voir la liste des dossiers'),
+                            'folder.view' => __('Voir le détail d\'un dossier'),
+                            'folder.create' => __('Créer un dossier'),
+                            'folder.update' => __('Modifier un dossier'),
+                            'folder.delete' => __('Supprimer un dossier'),
                         ])
                         ->columns(2)
                         ->gridDirection('vertical')
@@ -69,11 +69,11 @@ class RoleResource extends Resource
                     CheckboxList::make('permissions')
                         ->hiddenLabel()
                         ->options([
-                            'product.viewAny' => 'Voir le catalogue de produits',
-                            'product.view' => 'Voir la fiche d\'un produit',
-                            'product.create' => 'Créer/Ajouter un produit',
-                            'product.update' => 'Modifier un produit',
-                            'product.delete' => 'Supprimer un produit',
+                            'product.viewAny' => __('Voir le catalogue de produits'),
+                            'product.view' => __('Voir la fiche d\'un produit'),
+                            'product.create' => __('Créer/Ajouter un produit'),
+                            'product.update' => __('Modifier un produit'),
+                            'product.delete' => __('Supprimer un produit'),
                         ])
                         ->columns(2)
                         ->gridDirection('vertical')
@@ -86,11 +86,11 @@ class RoleResource extends Resource
                     CheckboxList::make('permissions')
                         ->hiddenLabel()
                         ->options([
-                            'agency.viewAny' => 'Voir la liste des agences',
-                            'agency.view' => 'Voir la fiche d\'une agence',
-                            'agency.create' => 'Inscrire une agence',
-                            'agency.update' => 'Modifier une agence',
-                            'agency.delete' => 'Supprimer une agence',
+                            'agency.viewAny' => __('Voir la liste des agences'),
+                            'agency.view' => __('Voir la fiche d\'une agence'),
+                            'agency.create' => __('Inscrire une agence'),
+                            'agency.update' => __('Modifier une agence'),
+                            'agency.delete' => __('Supprimer une agence'),
                         ])
                         ->columns(2)
                         ->gridDirection('vertical')
@@ -103,9 +103,9 @@ class RoleResource extends Resource
                     CheckboxList::make('permissions')
                         ->hiddenLabel()
                         ->options([
-                            'user.viewAny' => 'Gérer les comptes utilisateurs (Backoffice)',
-                            'setting.viewAny' => 'Accéder aux paramètres globaux',
-                            'client_group.viewAny' => 'Gérer les groupes clients & prix',
+                            'user.viewAny' => __('Gérer les comptes utilisateurs (Backoffice)'),
+                            'setting.viewAny' => __('Accéder aux paramètres globaux'),
+                            'client_group.viewAny' => __('Gérer les groupes clients & prix'),
                         ])
                         ->columns(2)
                         ->gridDirection('vertical')

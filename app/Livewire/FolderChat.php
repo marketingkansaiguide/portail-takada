@@ -7,6 +7,7 @@ use App\Models\FolderMessage;
 use App\Models\User;
 use App\Mail\NewChatMessageForAgencyMail;
 use App\Mail\NewChatMessageForAdminMail;
+use App\Services\FolderDriveStorage;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -62,7 +63,7 @@ class FolderChat extends Component
 
         $attachmentPath = null;
         if ($this->attachment) {
-            $attachmentPath = $this->attachment->store('chat-attachments', 'public');
+            $attachmentPath = app(FolderDriveStorage::class)->upload($this->folder, $this->attachment, 'chat');
         }
 
         $userId = $this->getActiveUserId();

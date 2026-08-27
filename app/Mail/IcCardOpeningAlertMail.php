@@ -24,7 +24,7 @@ class IcCardOpeningAlertMail extends Mailable
         $count = count($this->items);
 
         return new Envelope(
-            subject: "🚨 [ALERTE CARTES IC] Ouverture des ventes atteinte - {$count} prestation(s) à commander",
+            subject: __('🚨 [ALERTE CARTES IC] Ouverture des ventes atteinte - :count prestation(s) à commander', ['count' => $count]),
         );
     }
 

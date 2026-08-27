@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <title>Plaquette d'étiquettes Check-ins</title>
+    <title>{{ __('Plaquette d’étiquettes Check-ins') }}</title>
     <style>
         /* Format A4 Paysage avec marges exactes */
         @page {
@@ -147,6 +147,15 @@
             word-break: break-word;
         }
 
+        .guide-mission {
+            font-size: 12px;
+            font-weight: 500;
+            color: #374151;
+            line-height: 1.3;
+            margin-top: 4px;
+            word-break: break-word;
+        }
+
         /* 5. Date de Check-in */
         .checkin-date {
             font-size: 17px;
@@ -214,15 +223,15 @@
     <div class="controls-header no-print">
         <div style="display: flex; align-items: center; gap: 16px;">
             <div class="edit-notice">
-                <strong>Texte modifiable :</strong> Vous pouvez cliquer directement sur les textes ci-dessous pour modifier vos étiquettes avant impression.
+                <strong>{{ __('Texte modifiable :') }}</strong> {{ __('Vous pouvez cliquer directement sur les textes ci-dessous pour modifier vos étiquettes avant impression.') }}
             </div>
         </div>
         <div style="display: flex; gap: 12px; align-items: center;">
             <span style="font-size: 13px; color: #333333; font-weight: 500;">
-                {{ $folders->count() }} étiquette(s) sélectionnée(s) ({{ ceil($folders->count() / 6) }} page(s))
+                {{ $folders->count() }} {{ __('étiquette(s) sélectionnée(s)') }} ({{ ceil($folders->count() / 6) }} {{ __('page(s)') }})
             </span>
             <button onclick="window.print()" class="btn-print">
-                Imprimer la plaquette
+                {{ __('Imprimer la plaquette') }}
             </button>
         </div>
     </div>
@@ -232,33 +241,53 @@
         @foreach($folders->chunk(6) as $chunk)
             <div class="page-sheet">
                 @foreach($chunk as $folder)
+                    @php
+                        $guide = $folder->ticket_dispatch_method === 'guide' && $folder->ticket_dispatch_guide_id
+                            ? app(\App\Services\GuidePlanningApi::class)->find($folder->ticket_dispatch_guide_id)
+                            : null;
+                        $deliveryTitle = $folder->ticket_dispatch_method === 'guide'
+                            ? ($folder->ticket_dispatch_guide_name ?: ($guide['name'] ?? __('Guide')))
+                            : $folder->first_hotel_name;
+                        $guideMissionLabel = __('Dossier :folder pour la mission du :date', [
+                            'folder' => $folder->folder_name ?: __('Dossier inconnu'),
+                            'date' => ($folder->start_date ?? $folder->first_hotel_check_in)?->format('d/m/Y') ?? __('date non définie'),
+                        ]);
+                    @endphp
                     <div class="label-card">
                         <div>
-                            <!-- 1. Nom de l'hôtel -->
+                            <!-- 1. Destinataire principal : guide ou hôtel -->
                             <div class="hotel-name" contenteditable="true">
-                                {{ $folder->first_hotel_name }}
+                                {{ $deliveryTitle }}
                             </div>
 
                             <!-- 2. Adresse -->
                             <div class="address-text" contenteditable="true">{{ $folder->dispatch_address }}</div>
 
-                            <!-- 3. Nom Réservation Hôtel (masqué si vide) -->
-                            @if(!empty($folder->hotel_booking_name))
+                            <!-- 3. Nom de réservation hôtel (hors envoi au guide) -->
+                            @if($folder->ticket_dispatch_method !== 'guide' && !empty($folder->hotel_booking_name))
                                 <div class="pax-name" contenteditable="true">
                                     {{ $folder->hotel_booking_name }} 様
                                 </div>
                             @endif
 
-                            <!-- 4. Nom Pax Leader -->
-                            <div class="pax-name" contenteditable="true">
-                                {{ $folder->lead_traveler_name }} 様
-                            </div>
+                            <!-- 4. Nom Pax Leader (uniquement pour les envois non guide) -->
+                            @if($folder->ticket_dispatch_method !== 'guide')
+                                <div class="pax-name" contenteditable="true">
+                                    {{ $folder->lead_traveler_name }} 様
+                                </div>
+                            @endif
                         </div>
 
-                        <!-- 5. Date check-in -->
-                        <div class="checkin-date" contenteditable="true">
-                            {{ $folder->formatted_jp_checkin_date }}
-                        </div>
+                        <!-- 5. Bas de l'étiquette : mission guide ou date de check-in -->
+                        @if($folder->ticket_dispatch_method === 'guide')
+                            <div class="guide-mission" contenteditable="true">
+                                ({{ $guideMissionLabel }})
+                            </div>
+                        @else
+                            <div class="checkin-date" contenteditable="true">
+                                {{ $folder->formatted_jp_checkin_date }}
+                            </div>
+                        @endif
                     </div>
                 @endforeach
             </div>

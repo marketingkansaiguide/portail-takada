@@ -14,7 +14,12 @@ class Catalogue extends Page
     protected string $view = 'filament.agency.pages.catalogue';
 
     // 💡 Conserve "Catalogue des Activités" uniquement pour l'onglet du navigateur
-    protected static ?string $title = 'Catalogue des Activités';
+    protected static ?string $title = null;
+
+    public function getTitle(): string
+    {
+        return __('Catalogue des Activités');
+    }
 
     // 💡 SUPPRESSION DU TITRE H1 NATIF DE FILAMENT
     protected ?string $heading = '';
@@ -30,10 +35,15 @@ class Catalogue extends Page
             $query->where('name', 'like', '%' . $this->search . '%');
         }
 
+        $agencyId = auth('agency')->user()?->agency_id
+            ?? \Filament\Facades\Filament::auth()->user()?->agency_id;
+
         // Si l'agence n'est pas connectée, on n'affiche que les produits publics
-        if (!auth('agency')->check()) {
+        if (! $agencyId) {
             $query->where('is_public', true);
         }
+
+        $query->availableForAgency($agencyId);
 
         return $query->orderBy('name')->get();
     }

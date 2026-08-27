@@ -13,6 +13,7 @@ use Filament\Tables\Table;
 class ProductResource extends Resource
 {
     protected static ?string $model = Product::class;
+    protected static ?string $recordTitleAttribute = 'name';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shopping-bag';
 
@@ -29,6 +30,19 @@ class ProductResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return __('Catalogue Produits');
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'description', 'category.name', 'supplier.name'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Catégorie') => $record->category?->name,
+            __('Fournisseur') => $record->supplier?->name,
+        ]);
     }
 
     public static function getEloquentQuery(): Builder

@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Récapitulatif - {{ $folder->reference }}</title>
+    <title>{{ __('Récapitulatif') }} - {{ $folder->reference }}</title>
     <style>
         body { font-family: Arial, sans-serif; color: #1e293b; font-size: 10pt; line-height: 1.4; }
         .header { width: 100%; margin-bottom: 20px; }
@@ -29,12 +29,12 @@
         <tr>
             <td>
                 <div class="company">TAKADA PORTAL</div>
-                <div style="color: #64748b; font-size: 9pt;">Réservation B2B Japon</div>
+                <div style="color: #64748b; font-size: 9pt;">{{ __('Réservation B2B Japon') }}</div>
             </td>
             <td class="text-right">
-                <div class="title">Pré-Facture</div>
-                <div style="font-weight: bold; margin-top: 5px;">Réf : {{ $folder->reference }}</div>
-                <div style="color: #64748b; font-size: 9pt;">Émis le : {{ $dateEmit }}</div>
+                <div class="title">{{ __('Pré-Facture') }}</div>
+                <div style="font-weight: bold; margin-top: 5px;">{{ __('Réf :') }} {{ $folder->reference }}</div>
+                <div style="color: #64748b; font-size: 9pt;">{{ __('Émis le :') }} {{ $dateEmit }}</div>
             </td>
         </tr>
     </table>
@@ -45,11 +45,11 @@
         <tr>
             <td>
                 <div class="info-box" style="padding-right: 15px;">
-                    <h2>Agence Cliente</h2>
-                    <div><strong>Nom :</strong> {{ $agency->name }}</div>
-                    <div><strong>Contact :</strong> {{ $agency->email ?? '---' }}</div>
-                    <div><strong>Téléphone :</strong> {{ $agency->phone ?? '---' }}</div>
-                    <div style="margin-top: 5px;"><strong>Adresse Facturation :</strong></div>
+                    <h2>{{ __('Agence Cliente') }}</h2>
+                    <div><strong>{{ __('Nom :') }}</strong> {{ $agency->name }}</div>
+                    <div><strong>{{ __('Contact :') }}</strong> {{ $agency->email ?? '---' }}</div>
+                    <div><strong>{{ __('Téléphone :') }}</strong> {{ $agency->phone ?? '---' }}</div>
+                    <div style="margin-top: 5px;"><strong>{{ __('Adresse Facturation :') }}</strong></div>
                     <div style="color: #475569; font-style: italic; padding-left: 5px;">
                         {!! nl2br(e($agency->address)) !!}
                     </div>
@@ -57,12 +57,12 @@
             </td>
             <td>
                 <div class="info-box" style="padding-left: 15px;">
-                    <h2>Détails du Dossier</h2>
-                    <div><strong>Nom du dossier :</strong> {{ $folder->folder_name }}</div>
-                    <div><strong>Pax Leader :</strong> {{ $folder->lead_traveler_name }}</div>
-                    <div><strong>Nombre de Pax :</strong> {{ $totalPax }} Pax - {{ $folder->pax_adults }} Adulte(s), {{ $folder->pax_children }} Enfant(s)</div>
-                    <div><strong>Dates du Séjour :</strong> Du {{ $folder->start_date?->format('d/m/Y') }} au {{ $folder->end_date?->format('d/m/Y') }}</div>
-                    <div><strong>Mode d'envoi billetterie :</strong> {{ ucfirst($folder->ticket_dispatch_method) }} @if($folder->ticket_dispatch_other) ({{ $folder->ticket_dispatch_other }}) @endif</div>
+                    <h2>{{ __('Détails du Dossier') }}</h2>
+                    <div><strong>{{ __('Nom du dossier :') }}</strong> {{ $folder->folder_name }}</div>
+                    <div><strong>{{ __('Pax Leader :') }}</strong> {{ $folder->lead_traveler_name }}</div>
+                    <div><strong>{{ __('Nombre de Pax :') }}</strong> {{ $totalPax }} Pax - {{ $folder->pax_adults }} {{ __('Adulte(s)') }}, {{ $folder->pax_children }} {{ __('Enfant(s)') }}</div>
+                    <div><strong>{{ __('Dates du Séjour :') }}</strong> {{ __('Du') }} {{ $folder->start_date?->format('d/m/Y') }} {{ __('au') }} {{ $folder->end_date?->format('d/m/Y') }}</div>
+                    <div><strong>{{ __('Mode d’envoi billetterie :') }}</strong> {{ ucfirst($folder->ticket_dispatch_method) }} @if($folder->ticket_dispatch_other) ({{ $folder->ticket_dispatch_other }}) @endif</div>
                 </div>
             </td>
         </tr>
@@ -71,11 +71,11 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th>Détail de la prestation</th>
+                <th>{{ __('Détail de la prestation') }}</th>
                 <th class="text-center" style="width: 15%;">Date</th>
-                <th class="text-center" style="width: 10%;">Qté</th>
-                <th class="text-right" style="width: 15%;">Prix Unitaire</th>
-                <th class="text-right" style="width: 15%;">Prix Total</th>
+                <th class="text-center" style="width: 10%;">{{ __('Qté') }}</th>
+                <th class="text-right" style="width: 15%;">{{ __('Prix Unitaire') }}</th>
+                <th class="text-right" style="width: 15%;">{{ __('Prix Total') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -126,7 +126,7 @@
                             'name' => $optModel->name,
                             'display_qty' => 1,
                             'unit_price' => $modifier,
-                            'calc_label' => 'Option par défaut',
+                            'calc_label' => __('Option par défaut'),
                             'total' => $optTotal,
                         ];
                     }
@@ -150,7 +150,7 @@
                     <tr style="background-color: #ffffff;">
                         <td>
                             <strong>{{ $item->product?->name }}</strong>
-                            <br><span style="font-size: 8pt; color: #64748b;">(Tarif de base)</span>
+                            <br><span style="font-size: 8pt; color: #64748b;">({{ __('Tarif de base') }})</span>
                         </td>
                         <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
                         <td class="text-center">{{ $item->quantity }}</td>
@@ -161,7 +161,7 @@
                     @foreach($optionsList as $opt)
                         <tr style="background-color: #f8fafc; color: #475569; font-size: 8.5pt;">
                             <td style="padding-left: 20px;">
-                                <span style="color: #94a3b8;">-</span> <em>Option :</em> <strong>{{ $opt['name'] }}</strong>
+                                <span style="color: #94a3b8;">-</span> <em>{{ __('Option :') }}</em> <strong>{{ $opt['name'] }}</strong>
                                 <span style="color: #64748b; font-size: 8pt;">({{ $opt['calc_label'] }})</span>
                             </td>
                             <td class="text-center" style="color: #94a3b8;">---</td>
@@ -174,7 +174,7 @@
                     <!-- Sous-total explicite de l'activité -->
                     <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 9pt;">
                         <td colspan="4" class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
-                            Sous-total {{ $item->product?->name }} :
+                            {{ __('Sous-total') }} {{ $item->product?->name }} :
                         </td>
                         <td class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
                             ¥{{ number_format($item->total_price) }}
@@ -187,15 +187,15 @@
 
     <table class="totals-table">
         <tr>
-            <td>Sous-total Prestations :</td>
+            <td>{{ __('Sous-total Prestations :') }}</td>
             <td class="text-right">¥{{ number_format($itemsTotal) }}</td>
         </tr>
         <tr>
-            <td>Frais de dossier appliqués :</td>
+            <td>{{ __('Frais de dossier appliqués :') }}</td>
             <td class="text-right">¥{{ number_format($folder->folder_fee) }}</td>
         </tr>
         <tr class="total-row">
-            <td>Montant Total :</td>
+            <td>{{ __('Montant Total :') }}</td>
             <td class="text-right">¥{{ number_format($grandTotal) }}</td>
         </tr>
     </table>
@@ -203,8 +203,8 @@
     <div class="divider" style="margin-top: 30px; margin-bottom: 15px;"></div>
 
     <div class="footer">
-        <p>Ce document est un récapitulatif estimatif de prestations (pré-facture) et ne fait pas office de facture légale acquittée.</p>
-        <p><strong>TAKADA PORTAL</strong> — Service de réservation B2B Japon</p>
+        <p>{{ __('Ce document est un récapitulatif estimatif de prestations (pré-facture) et ne fait pas office de facture légale acquittée.') }}</p>
+        <p><strong>TAKADA PORTAL</strong> — {{ __('Service de réservation B2B Japon') }}</p>
     </div>
 
 </body>

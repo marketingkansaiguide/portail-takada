@@ -61,26 +61,11 @@
                         <div style="display: flex; align-items: center; gap: 0.5rem; color: #d97706; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">
                             <span>{{ $product->category->name ?? 'Prestation Japonaise' }}</span>
                             @if(isset($product->is_public) && !$product->is_public)
-                                <span style="background: #fee2e2; color: #991b1b; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">Tarif Négocié / Privé</span>
+                                <span style="background: #fee2e2; color: #991b1b; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">{{ __('Tarif Négocié / Privé') }}</span>
                             @endif
                         </div>
                         <h1 style="font-size: 2.5rem; font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
                         
-                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
-                            @if($product->days_before_opening)
-                                <div style="background: #f0fdfa; border-left: 4px solid #0d9488; padding: 1rem; border-radius: 0 0.75rem 0.75rem 0; display: flex; align-items: center; gap: 0.75rem; color: #115e59; font-size: 0.9rem;">
-                                    <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    <span><strong>Ouverture des ventes :</strong> Les réservations pour ce produit ne peuvent être confirmées que <strong>{{ $product->days_before_opening }} jours</strong> avant la date d'activité.</span>
-                                </div>
-                            @endif
-
-                            @if($product->is_lottery)
-                                <div style="background: #fef2f2; border-left: 4px solid #e11d48; padding: 1rem; border-radius: 0 0.75rem 0.75rem 0; display: flex; align-items: center; gap: 0.75rem; color: #9f1239; font-size: 0.9rem;">
-                                    <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                    <span><strong>Disponibilité très limitée :</strong> En raison d'un nombre de places restreint auprès de nos partenaires locaux, il est possible que la prestation ne puisse pas être obtenue.</span>
-                                </div>
-                            @endif
-                        </div>
                     </div>
 
                     {{-- GESTION ULTRA-ROBUSTE DES IMAGES --}}
@@ -128,7 +113,7 @@
                         </div>
                     @else
                         <div style="border-radius: 1.25rem; overflow: hidden; height: 540px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 500;">
-                            Aucun visuel disponible
+                            {{ __('Aucun visuel disponible') }}
                         </div>
                     @endif
 
@@ -136,7 +121,7 @@
                     <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <h2 style="font-size: 1.4rem; font-weight: 700; color: #096a61; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
-                            Présentation de la prestation
+                            {{ __('Présentation de la prestation') }}
                         </h2>
                         <div style="color: #475569; line-height: 1.8; font-size: 1.05rem; white-space: pre-line;">{!! nl2br(e($product->description)) !!}</div>
                     </div>
@@ -159,10 +144,10 @@
                                 
                                 <div style="margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
                                     <h3 style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
-                                        <span style="font-size: 1.1rem;">🚄</span> Itinéraire de Transport (Multi-Trajets)
+                                        <span style="font-size: 1.1rem;">🚄</span> {{ __('Itinéraire de Transport (Multi-Trajets)') }}
                                     </h3>
                                     <p style="font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4;">
-                                        Indiquez pour chaque ticket la gare de départ, d'arrivée, la date, l'heure et le nombre de passagers.
+                                        {{ __('Indiquez pour chaque ticket la gare de départ, d’arrivée, la date, l’heure et le nombre de passagers.') }}
                                     </p>
                                 </div>
 
@@ -175,7 +160,7 @@
                                                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                                                         <span style="color: #64748b; font-size: 0.9rem;">⇅</span>
                                                         <span style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">
-                                                            {{ (!empty($route['departure_station']) || !empty($route['arrival_station'])) ? (($route['departure_station'] ?: 'Départ') . ' ➔ ' . ($route['arrival_station'] ?: 'Arrivée') . (!empty($route['departure_date']) ? ' ('.$route['departure_date'].')' : '')) : 'Nouveau trajet' }}
+                                                            {{ (!empty($route['departure_station']) || !empty($route['arrival_station'])) ? (($route['departure_station'] ?: __('Départ')) . ' ➔ ' . ($route['arrival_station'] ?: __('Arrivée')) . (!empty($route['departure_date']) ? ' ('.$route['departure_date'].')' : '')) : __('Nouveau trajet') }}
                                                         </span>
                                                     </div>
                                                     
@@ -209,7 +194,7 @@
                                                         }
                                                     }" style="position: relative; grid-column: span 1 / span 1;">
                                                         <label style="font-size: 0.8rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.25rem;">
-                                                            Gare / Station de départ<span style="color: #dc2626;">*</span>
+                                                            {{ __('Gare / Station de départ') }}<span style="color: #dc2626;">*</span>
                                                         </label>
                                                         
                                                         <div style="position: relative;">
@@ -217,7 +202,7 @@
                                                                    x-model="search"
                                                                    @focus="open = true"
                                                                    @click.away="open = false"
-                                                                   placeholder="Sélectionner..." 
+                                                                   placeholder="{{ __('Sélectionner...') }}"
                                                                    style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
                                                         </div>
 
@@ -265,7 +250,7 @@
                                                         }
                                                     }" style="position: relative; grid-column: span 1 / span 1;">
                                                         <label style="font-size: 0.8rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.25rem;">
-                                                            Gare / Station d'arrivée<span style="color: #dc2626;">*</span>
+                                                            {{ __('Gare / Station d’arrivée') }}<span style="color: #dc2626;">*</span>
                                                         </label>
 
                                                         <div style="position: relative;">
@@ -273,7 +258,7 @@
                                                                    x-model="search"
                                                                    @focus="open = true"
                                                                    @click.away="open = false"
-                                                                   placeholder="Sélectionner..." 
+                                                                   placeholder="{{ __('Sélectionner...') }}"
                                                                    style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
                                                         </div>
 
@@ -319,7 +304,7 @@
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Classe<span style="color: #ef4444;">*</span></label>
                                                         <select required="required" wire:model.live="customValues.transport_routes.{{ $index }}.option_id" style="width: 100%; padding: 0.45rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; color: #1e293b; font-weight: 600;">
-                                                            <option value="">-- Sélectionnez --</option>
+                                                            <option value="">-- {{ __('Sélectionnez') }} --</option>
                                                             @foreach($product->productOptions as $opt)
                                                                 <option value="{{ $opt->id }}">
                                                                     {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}
@@ -347,7 +332,7 @@
                                 @php $estimate = $this->getEstimatedPrice(); @endphp
                                 <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.75rem; padding: 1.25rem; margin-top: 1.25rem;">
                                     <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
-                                        Estimation de vos frais d'émission :
+                                        {{ __('Estimation de vos frais d’émission :') }}
                                     </h4>
 
                                     <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
@@ -363,7 +348,7 @@
                                         @if(($estimate['total_options'] ?? 0) > 0)
                                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                                 <span style="color: #096a61; font-weight: 600;">
-                                                    • Suppléments classes / options
+                                                    • {{ __('Suppléments classes / options') }}
                                                 </span>
                                                 <span style="font-weight: 600; color: #096a61;">
                                                     + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
@@ -441,9 +426,9 @@
                                         }
                                      }">
                                     
-                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Date d'activité</label>
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ __('Date d’activité') }}</label>
                                     <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                                        <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : 'Sélectionner...'" :style="!selectedDate && 'color: #9ca3af'"></span>
+                                        <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : @js(__('Sélectionner...'))" :style="!selectedDate && 'color: #9ca3af'"></span>
                                         <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     </button>
                                     @error('serviceDate') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
@@ -452,7 +437,7 @@
                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);">
                                             <div @click.away="open = false" style="background: white; border-radius: 1.25rem; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">Sélectionnez une date</h3>
+                                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">{{ __('Sélectionnez une date') }}</h3>
                                                     <button type="button" @click="open = false" style="background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">
                                                         <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                                     </button>
@@ -502,11 +487,44 @@
                                     </div>
                                 </div>
                                 
-                                <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Pax</label>
-                                    <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
-                                    @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
-                                </div>
+                                @if($product->usesAgeSelector())
+                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 0.65rem; padding: 0.75rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
+                                            <label style="font-size: 0.85rem; font-weight: 700; color: #115e59;">{{ __('Répartition des participants') }}</label>
+                                            <span style="font-size: 0.75rem; color: #0f766e;">@if($product->hasChildSelector()){{ __('Enfant jusqu’à') }} {{ $product->child_age_limit ?? 11 }} {{ __('ans inclus') }}@endif@if($product->hasChildSelector() && $product->hasTeenSelector()) · @endif@if($product->hasTeenSelector()){{ __('Adolescent de :min à :max ans', ['min' => ($product->child_age_limit ?? 11) + 1, 'max' => $product->teen_age_limit]) }}@endif</span>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem;">
+                                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                                <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adultes') }}</label>
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                            </div>
+                                            @if($product->hasChildSelector())<div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                                <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Enfants') }}</label>
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                            </div>@endif
+                                            @if($product->hasTeenSelector())
+                                                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                                    <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adolescents') }}</label>
+                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                </div>
+                                            @endif
+                                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                                <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Total Pax') }}</label>
+                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: #0f766e;">
+                                            </div>
+                                        </div>
+                                        @error('ageSelectorAdults') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
+                                        @error('ageSelectorChildren') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
+                                        @error('ageSelectorTeenagers') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
+                                        @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
+                                    </div>
+                                @else
+                                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                        <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Pax</label>
+                                        <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                        @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
+                                    </div>
+                                @endif
                             </div>
 
                             @php
@@ -522,7 +540,7 @@
                                 <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
                                     @foreach($requiredGrouped as $groupName => $groupOptions)
                                         @php 
-                                            $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
+                                            $displayGroupName = ($groupName === 'default_required') ? __('Déclinaison') : $groupName;
                                             $selectedInGroup = $groupOptions->first(fn($o) => !empty($selectedOptions[$o->id]['enabled'])) ?? $groupOptions->first();
                                         @endphp
                                         <div style="margin-bottom: 1rem;">
@@ -544,7 +562,12 @@
                                                 @foreach($groupOptions as $option)
                                                     @php $isSelected = !empty($selectedOptions[$option->id]['enabled']); @endphp
                                                     <option value="{{ $option->id }}" {{ $isSelected ? 'selected' : '' }}>
-                                                        {{ $option->name }}{{ (($option->price_modifier ?? 0) > 0) ? ' (+ '.number_format($option->price_modifier, 0, '.', ' ').' ¥)' : '' }}
+                                                        {{ $option->name }}
+                                                        @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
+                                                            (+ {{ number_format($option->priceModifierForAge(false), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForAge(true), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ') }} ¥ adolescent@endif)
+                                                        @elseif(($option->price_modifier ?? 0) > 0)
+                                                            (+ {{ number_format($option->price_modifier, 0, '.', ' ') }} ¥)
+                                                        @endif
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -555,7 +578,7 @@
 
                             @if($optionalOptions->count() > 0)
                                 <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;">Options complémentaires (facultatives) :</h4>
+                                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;">{{ __('Options complémentaires (facultatives) :') }}</h4>
                                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                                         @foreach($optionalOptions as $option)
                                             <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
@@ -563,13 +586,19 @@
                                                     <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: #096a61;">
                                                     <label for="opt_{{ $option->id }}" style="font-size: 0.85rem; font-weight: 600; color: #374151; cursor: pointer; flex-grow: 1;">
                                                         {{ $option->name }}
-                                                        <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">+ {{ number_format($option->price_modifier ?? 0, 0, '.', ' ') }} ¥</span>
+                                                        <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">
+                                                            @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
+                                                                + {{ number_format($option->priceModifierForAge(false), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForAge(true), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ') }} ¥ adolescent@endif
+                                                            @else
+                                                                + {{ number_format($option->price_modifier ?? 0, 0, '.', ' ') }} ¥
+                                                            @endif
+                                                        </span>
                                                     </label>
                                                 </div>
 
                                                 @if(($selectedOptions[$option->id]['enabled'] ?? false) && $option->billing_type === 'manual')
                                                     <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.35rem 0.5rem; border-radius: 0.375rem; border: 1px solid #e2e8f0; margin-left: 1.25rem;">
-                                                        <span style="font-size: 0.75rem; color: #64748b;">Quantité :</span>
+                                            <span style="font-size: 0.75rem; color: #64748b;">{{ __('Quantité :') }}</span>
                                                         <input type="number" wire:model.live.debounce.300ms="selectedOptions.{{ $option->id }}.quantity" min="1" style="width: 50px; border: none; padding: 0; outline: none; text-align: center; font-size: 0.85rem; font-weight: 600;">
                                                     </div>
                                                 @endif
@@ -615,7 +644,7 @@
                                                             <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
                                                         @elseif($def['type'] === 'select')
                                                             <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
-                                                                <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
+                                                            <option value="">{{ $def['placeholder'] ?? __('Sélectionnez...') }}</option>
                                                                 @foreach($def['choices'] ?? [] as $choice)
                                                                     <option value="{{ $choice }}">{{ $choice }}</option>
                                                                 @endforeach
@@ -660,7 +689,7 @@
                                                                         <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                                         </svg>
-                                                                        <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                <span x-text="fileName ? @js(__('Fichier prêt :')) + ' ' + fileName : @js(__('Document transmis avec succès !'))"></span>
                                                                     </div>
 
                                                                     <input type="file"
@@ -719,7 +748,7 @@
                                                                         <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
                                                                     @elseif($def['type'] === 'select')
                                                                         <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
-                                                                            <option value="">{{ $def['placeholder'] ?? 'Sélectionnez...' }}</option>
+                                                                                    <option value="">{{ $def['placeholder'] ?? __('Sélectionnez...') }}</option>
                                                                             @foreach($def['choices'] ?? [] as $choice)
                                                                                 <option value="{{ $choice }}">{{ $choice }}</option>
                                                                             @endforeach
@@ -764,7 +793,7 @@
                                                                                     <svg style="width: 22px; height: 22px; color: #16a34a;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                                                                                     </svg>
-                                                                                    <span x-text="fileName ? 'Fichier prêt : ' + fileName : 'Document transmis avec succès !'"></span>
+                                                                                    <span x-text="fileName ? @js(__('Fichier prêt :')) + ' ' + fileName : @js(__('Document transmis avec succès !'))"></span>
                                                                                 </div>
 
                                                                                 <input type="file"
@@ -793,30 +822,66 @@
 
                         {{-- RECAPITULATIF DU TARIF POUR PRODUIT STANDARD (NON TRANSPORT) --}}
                         <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">Récapitulatif du tarif :</h4>
+                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">{{ __('Récapitulatif du tarif :') }}</h4>
                             @php
                                 $estimate = $this->getEstimatedPrice();
                             @endphp
 
                             @if($estimate['is_on_demand'])
                                 <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
-                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ Tarif sur Devis</h4>
-                                    <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">Cette prestation nécessite une cotation personnalisée.</p>
+                                    <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ {{ __('Tarif sur Devis') }}</h4>
+                                    <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">{{ __('Cette prestation nécessite une cotation personnalisée.') }}</p>
                                 </div>
                             @else
                                 <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
                                     
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                        <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                            Prestation {{ $estimate['has_date'] ? '('.$estimate['qty'].' pax)' : '(À partir de)' }}
-                                        </span>
-                                        <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
-                                    </div>
+                                    @if($product->usesAgeSelector() && $estimate['base_adult_total'] !== null)
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                {{ __('Tarif adulte') }} ({{ $ageSelectorAdults }} × {{ number_format($estimate['base_adult_unit'], 0, '.', ' ') }} ¥)
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['base_adult_total'], 0, '.', ' ') }} ¥</span>
+                                        </div>
+                                        @if($product->hasChildSelector())<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                {{ __('Tarif enfant') }} ({{ $ageSelectorChildren }} × {{ number_format($estimate['base_child_unit'], 0, '.', ' ') }} ¥)
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['base_child_total'], 0, '.', ' ') }} ¥</span>
+                                        </div>@endif
+                                        @if($product->hasTeenSelector())
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                    {{ __('Tarif adolescent') }} ({{ $ageSelectorTeenagers }} × {{ number_format($estimate['base_teen_unit'], 0, '.', ' ') }} ¥)
+                                                </span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['base_teen_total'], 0, '.', ' ') }} ¥</span>
+                                            </div>
+                                        @endif
+                                    @else
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                {{ __('Prestation') }} {{ $estimate['has_date'] ? '('.$estimate['qty'].' '.__('pax').')' : '('.__('À partir de').')' }}
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
+                                        </div>
+                                    @endif
 
                                     <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
                                         @if($estimate['total_options'] > 0)
-                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">Déclinaisons / Options</span>
-                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
+                                            @if($product->usesAgeSelector())
+                                                <div style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; font-weight:600; color:#64748b;">
+                                                    <span>{{ __('Options adultes') }}</span>
+                                                    @if($product->hasChildSelector())<span>{{ __('Options enfants') }}</span>@endif
+                                                    @if($product->hasTeenSelector())<span>{{ __('Options adolescents') }}</span>@endif
+                                                </div>
+                                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.2rem; font-size:0.9rem; font-weight:700; color:#334155;">
+                                                    <span>+ {{ number_format($estimate['options_adult_total'], 0, '.', ' ') }} ¥</span>
+                                                    @if($product->hasChildSelector())<span>+ {{ number_format($estimate['options_child_total'], 0, '.', ' ') }} ¥</span>@endif
+                                                    @if($product->hasTeenSelector())<span>+ {{ number_format($estimate['options_teen_total'], 0, '.', ' ') }} ¥</span>@endif
+                                                </div>
+                                            @else
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Déclinaisons / Options') }}</span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
+                                            @endif
                                         @endif
                                     </div>
                                     
@@ -833,7 +898,7 @@
                                         @if(!$estimate['has_date'])
                                             <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
                                                 <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                Veuillez sélectionner une date d'activité pour obtenir le tarif exact.
+                                                {{ __('Veuillez sélectionner une date d’activité pour obtenir le tarif exact.') }}
                                             </div>
                                         @endif
                                     </div>
@@ -869,6 +934,31 @@
                             </button>
                         </div>
 
+                        @if($product->days_before_opening || $product->days_before_request_deadline || $product->is_lottery)
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
+                                @if($product->days_before_opening)
+                                    <div style="background: #f0fdfa; border-left: 3px solid #0d9488; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #115e59; font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z" /></svg>
+                                        <span><strong>{{ __('Ouverture des réservations') }}</strong><br>{{ __('À partir de J-:days', ['days' => $product->days_before_opening]) }}</span>
+                                    </div>
+                                @endif
+
+                                @if($product->days_before_request_deadline)
+                                    <div style="background: #fff7ed; border-left: 3px solid #ea580c; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9a3412; font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.5a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" /></svg>
+                                        <span><strong>{{ __('Date limite de demande :') }}</strong><br>{{ __('Jusqu’à J-:days', ['days' => $product->days_before_request_deadline]) }}</span>
+                                    </div>
+                                @endif
+
+                                @if($product->is_lottery)
+                                    <div style="background: #fef2f2; border-left: 3px solid #e11d48; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9f1239; font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        <span><strong>{{ __('Disponibilité limitée') }}</strong><br>{{ __('Sous réserve de confirmation') }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
                         {{-- CONDITIONS D'ANNULATION --}}
                         @php
                             $isSpecific = $product->cancellation_type === 'specific' && !empty($product->cancellation_specifics);
@@ -886,7 +976,7 @@
                                     <svg width="20" height="20" style="width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #94a3b8; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    Détails des conditions d'annulation
+                                    {{ __('Détails des conditions d’annulation') }}
                                 </span>
                                 <svg width="20" height="20" :style="expanded ? 'transform: rotate(180deg); width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #64748b; transition: transform 0.2s; display: block;' : 'width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #64748b; transition: transform 0.2s; display: block;'" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                             </button>
@@ -910,8 +1000,8 @@
                         <div style="color: #0284c7; background: #e0f2fe; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #bae6fd;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #0f172a; margin: 0 0 0.5rem 0;">Vue Administrateur</h3>
-                        <p style="color: #475569; font-size: 0.9rem; line-height: 1.6; margin: 0;">Vous explorez le catalogue avec un compte administrateur. Pour utiliser la fonction d'ajout au panier, veuillez vous connecter avec un véritable compte Agence partenaire.</p>
+                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #0f172a; margin: 0 0 0.5rem 0;">{{ __('Vue Administrateur') }}</h3>
+                        <p style="color: #475569; font-size: 0.9rem; line-height: 1.6; margin: 0;">{{ __('Vous explorez le catalogue avec un compte administrateur. Pour utiliser la fonction d’ajout au panier, veuillez vous connecter avec un véritable compte Agence partenaire.') }}</p>
                     </div>
                 @endif
 
@@ -921,11 +1011,11 @@
                         <div style="color: #d97706; background: #fffbeb; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #fde68a;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                         </div>
-                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">Tarifs et Réservations Pro</h3>
-                        <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.75rem 0;">Les grilles tarifaires japonaises (saisonnières/enfants) ainsi que les modules de devis direct sont réservés aux agences de voyages partenaires.</p>
+                        <h3 style="font-size: 1.3rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">{{ __('Tarifs et Réservations Pro') }}</h3>
+                        <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.75rem 0;">{{ __('Les grilles tarifaires japonaises (saisonnières/enfants) ainsi que les modules de devis direct sont réservés aux agences de voyages partenaires.') }}</p>
                         
                         <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: #096a61; color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgba(9, 106, 97, 0.2); transition: background 0.2s;" onmouseover="this.style.background='#07534c'" onmouseout="this.style.background='#096a61'">
-                            S'identifier sur le portail
+                            {{ __('S’identifier sur le portail') }}
                         </a>
                     </div>
                 @endif

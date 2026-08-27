@@ -13,7 +13,7 @@ class ListHotels extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()->label('Ajouter un hôtel'),
+            Actions\CreateAction::make()->label(__('Ajouter un hôtel')),
         ];
     }
 }

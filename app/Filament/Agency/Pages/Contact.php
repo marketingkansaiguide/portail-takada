@@ -19,7 +19,6 @@ use Filament\Facades\Filament;
 use BackedEnum;
 use App\Models\Folder;
 use App\Models\FolderMessage;
-use App\Models\FolderHistory;
 use App\Models\Setting;
 use App\Mail\NewChatMessageForAdminMail;
 
@@ -126,7 +125,7 @@ class Contact extends Page implements HasForms
                         'agency_id' => $user->agency_id,
                         'main_seller_id' => $user->id,
                         'folder_name' => 'Demande : ' . $data['subject'],
-                        'lead_traveler_name' => 'À définir (' . $data['name'] . ')',
+            'lead_traveler_name' => __('À définir (:name)', ['name' => $data['name']]),
                         'status' => 'pending', 
                         'total_price' => 0,
                         'folder_fee' => 0,
@@ -136,15 +135,9 @@ class Contact extends Page implements HasForms
                         'end_date' => now()->format('Y-m-d'),   // Défaut obligatoire
                         'contact_phones' => [['phone' => '0000000000']], // Tableau JSON obligatoire
                         'ticket_dispatch_method' => 'autre',
-                        'ticket_dispatch_other' => 'À définir',
+            'ticket_dispatch_other' => __('À définir'),
                     ]);
 
-                    FolderHistory::create([
-                        'folder_id' => $folder->id,
-                        'user_id' => $user->id,
-                        'action' => 'Création',
-                        'changes_payload' => ['summary' => "Ouverture d'une nouvelle conversation / demande depuis le formulaire de contact."],
-                    ]);
                 }
 
                 if ($folder) {
@@ -198,9 +191,9 @@ class Contact extends Page implements HasForms
         } else {
             // Logique de secours pour les visiteurs non connectés
             try {
-                Mail::raw("Nouvelle demande B2B (Visiteur non connecté)\n\n"
-                    . "Nom : {$data['name']}\nAgence : {$data['agency_name']}\n"
-                    . "Sujet : {$data['subject']}\n\nMessage :\n{$data['message']}", 
+                Mail::raw(__('Nouvelle demande B2B (Visiteur non connecté)') . "\n\n"
+                    . __('Nom :') . " {$data['name']}\n" . __('Agence :') . " {$data['agency_name']}\n"
+                    . __('Sujet :') . " {$data['subject']}\n\n" . __('Message :') . "\n{$data['message']}",
                     function ($message) use ($data) {
                         $message->to('resa@kansai-guide.com')->subject('Demande Portail : ' . $data['subject'])->replyTo($data['email']);
                     }

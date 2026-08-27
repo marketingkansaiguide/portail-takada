@@ -51,36 +51,36 @@ class SupplierPerformance extends BaseWidget
             )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Fournisseur partenaire')
+                ->label(__('Fournisseur partenaire'))
                     ->searchable()
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                    ->label('Sollicité dans X Dossiers')
+                ->label(__('Sollicité dans X Dossiers'))
                     ->badge()
                     ->color('warning')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_purchase')
-                    ->label('Ce qu\'on leur a payé (Achat ¥)')
+                ->label(__('Ce qu\'on leur a payé (Achat ¥)'))
                     ->money('JPY')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_ca')
-                    ->label('CA Généré via eux (Vente ¥)')
+                ->label(__('CA Généré via eux (Vente ¥)'))
                     ->money('JPY')
                     ->weight('bold')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                    ->label('Marge Conservée (¥)')
+                ->label(__('Marge Conservée (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                    ->label('Marge Moy. / Dossier')
+                ->label(__('Marge Moy. / Dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
             ])

@@ -7,6 +7,7 @@ use App\Models\Folder;
 use App\Models\FolderItem; // 💡 IMPORT AJOUTÉ POUR LES ÉTIQUETTES DE TRAIN
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ContactController; // 💡 IMPORT AJOUTÉ POUR QUE LA CLASSE SOIT RECONNUE
+use App\Http\Controllers\FolderDriveFileController;
 
 // On laisse l'accueil libre pour le panel Filament Agence
 // Route::get('/', function () {
@@ -21,6 +22,11 @@ use App\Http\Controllers\ContactController; // 💡 IMPORT AJOUTÉ POUR QUE LA C
 
 Route::get('/contact', [ContactController::class, 'index'])->name('contact.index');
 Route::post('/contact', [ContactController::class, 'send'])->name('contact.send');
+
+Route::get('/dossiers/{folder}/fichiers/{fileId}', [FolderDriveFileController::class, 'show'])
+    ->where('fileId', '[A-Za-z0-9_-]+')
+    ->middleware(['auth:web,agency'])
+    ->name('folders.drive-file');
 
 
 /*
@@ -200,3 +206,22 @@ Route::get('/pdf/train-labels', function (Request $request) {
     
     return view('pdf.train-labels', compact('items'));
 })->name('pdf.train-labels')->middleware('auth');
+
+Route::get('/pdf/seven-tickets-labels', function (Request $request) {
+    $ids = array_filter(explode(',', (string) $request->query('ids', '')));
+
+    if ($ids === []) {
+        abort(400, 'Aucune prestation sélectionnée.');
+    }
+
+    $records = \App\Filament\Pages\SevenTicketsOrders::getSevenTicketsItemsQuery()
+        ->whereIn('folder_items.id', $ids)
+        ->orderBy('folder_items.service_date')
+        ->get();
+
+    if ($records->isEmpty()) {
+        abort(404, 'Aucune prestation Seven Tickets trouvée pour cette sélection.');
+    }
+
+    return view('pdf.seven-tickets-labels', compact('records'));
+})->name('pdf.seven-tickets-labels')->middleware('auth');

@@ -18,6 +18,8 @@ use Filament\Actions\DeleteAction;
 class HotelResource extends Resource
 {
     protected static ?string $model = Hotel::class;
+    protected static ?string $recordTitleAttribute = 'name';
+    protected static bool $isGloballySearchable = false;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';
 
@@ -38,29 +40,42 @@ class HotelResource extends Resource
         return __('Hôtels');
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'address', 'phone'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Adresse') => $record->address,
+            __('Téléphone') => $record->phone,
+        ]);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
             TextInput::make('name')
-                ->label('Nom de l\'hôtel')
+                ->label(__('Nom de l\'hôtel'))
                 ->required()
                 ->maxLength(255),
 
             TextInput::make('phone')
-                ->label('Numéro de téléphone')
+                ->label(__('Numéro de téléphone'))
                 ->tel()
                 ->placeholder('+81 ...')
                 ->maxLength(50),
 
             TextInput::make('google_maps_url')
-                ->label('Lien Google Maps')
+                ->label(__('Lien Google Maps'))
                 ->url()
                 ->placeholder('https://maps.google.com/...')
                 ->maxLength(500)
                 ->columnSpanFull(),
 
             Textarea::make('address')
-                ->label('Adresse de l\'hôtel')
+                ->label(__('Adresse de l\'hôtel'))
                 ->rows(3)
                 ->columnSpanFull(),
         ]);
@@ -71,21 +86,21 @@ class HotelResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nom de l\'hôtel')
+                    ->label(__('Nom de l\'hôtel'))
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('phone')
-                    ->label('Téléphone')
+                    ->label(__('Téléphone'))
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('address')
-                    ->label('Adresse')
+                    ->label(__('Adresse'))
                     ->limit(50)
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('google_maps_url')
-                    ->label('Google Maps')
+                    ->label(__('Google Maps'))
                     ->formatStateUsing(fn ($state) => $state ? '📍 Voir sur la carte' : '---')
                     ->url(fn ($record) => $record->google_maps_url, true),
             ])

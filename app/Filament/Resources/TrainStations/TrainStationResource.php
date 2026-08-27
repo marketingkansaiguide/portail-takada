@@ -19,6 +19,8 @@ use Filament\Tables\Table;
 class TrainStationResource extends Resource
 {
     protected static ?string $model = TrainStation::class;
+    protected static ?string $recordTitleAttribute = 'name_en';
+    protected static bool $isGloballySearchable = false;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
     protected static \UnitEnum|string|null $navigationGroup = 'Bases de données';    
@@ -37,11 +39,25 @@ class TrainStationResource extends Resource
         return __('Gares de Train');
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name_en', 'name_ja', 'name_kana', 'city', 'prefecture', 'aliases'];
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            __('Ville') => $record->city,
+            __('Préfecture') => $record->prefecture,
+            __('Nom japonais') => $record->name_ja,
+        ]);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Informations de la Gare')->schema([
+                    Section::make(__('Informations de la Gare'))->schema([
                     Group::make()->schema([
                         TextInput::make('name_en')
                             ->label(__('Nom (Anglais)'))
@@ -77,12 +93,12 @@ class TrainStationResource extends Resource
                             ->label(__('Score de Pertinence (1-100)'))
                             ->numeric()
                             ->default(10)
-                            ->helperText('Un score élevé affichera cette gare en premier dans les recherches (ex: 100 pour Osaka, 80 pour les hubs, 10 par défaut).'),
+                            ->helperText(__('Un score élevé affichera cette gare en premier dans les recherches (ex: 100 pour Osaka, 80 pour les hubs, 10 par défaut).')),
                             
                         TextInput::make('aliases')
                             ->label(__('Mots-clés / Alias'))
-                            ->placeholder('Ex: Disney, USJ, Kansai Airport...')
-                            ->helperText('Permet de trouver cette gare en tapant des mots-clés spécifiques.'),
+                            ->placeholder(__('Ex: Disney, USJ, Kansai Airport...'))
+                            ->helperText(__('Permet de trouver cette gare en tapant des mots-clés spécifiques.')),
                     ])->columns(2),
 
                     TextInput::make('address')

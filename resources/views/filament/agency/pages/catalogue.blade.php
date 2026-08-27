@@ -4,12 +4,12 @@
         <div style="display: flex; flex-direction: column; gap: 1rem; border-bottom: 2px solid #f3f4f6; padding-bottom: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
                 <div>
-                    <h1 style="font-size: 2rem; font-weight: 800; color: #096a61; margin: 0;">Explorez le Japon</h1>
-                    <p style="color: #64748b; font-size: 1rem; margin-top: 0.25rem;">Découvrez nos activités exclusives pour vos groupes et voyageurs.</p>
+                    <h1 style="font-size: 2rem; font-weight: 800; color: #096a61; margin: 0;">{{ __('Explorez le Japon') }}</h1>
+                    <p style="color: #64748b; font-size: 1rem; margin-top: 0.25rem;">{{ __('Découvrez nos activités exclusives pour vos groupes et voyageurs.') }}</p>
                 </div>
                 
                 <div style="position: relative; width: 100%; max-width: 400px;">
-                    <input type="text" wire:model.live="search" placeholder="Rechercher une activité..." 
+                    <input type="text" wire:model.live="search" placeholder="{{ __('Rechercher une activité...') }}"
                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem; border: 1px solid #e2e8f0; border-radius: 9999px; font-size: 0.9rem; outline: none; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <svg style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
@@ -40,7 +40,7 @@
                         @endif
                         
                         <div style="position: absolute; top: 1rem; left: 1rem; background: rgba(9, 106, 97, 0.9); color: white; padding: 0.2rem 0.75rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
-                            {{ $product->category->name ?? 'Activité' }}
+                            {{ $product->category->name ?? __('Activité') }}
                         </div>
                     </div>
 
@@ -70,21 +70,21 @@
 
                                 <div style="display: flex; flex-direction: column;">
                                     @if($product->is_on_demand)
-                                        <span style="font-size: 0.85rem; font-weight: 800; color: #c2410c; margin-top:0.5rem;">Sur Devis</span>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #c2410c; margin-top:0.5rem;">{{ __('Sur Devis') }}</span>
                                     @elseif($minPrice !== null)
-                                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">À partir de</span>
+                                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">{{ __('À partir de') }}</span>
                                         <span style="font-size: 1.25rem; font-weight: 800; color: #096a61;">{{ number_format($minPrice, 0, '.', ' ') }} ¥</span>
                                     @else
-                                        <span style="font-size: 0.85rem; font-weight: 800; color: #096a61; margin-top:0.5rem;">Prix saisonnier</span>
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #096a61; margin-top:0.5rem;">{{ __('Prix saisonnier') }}</span>
                                     @endif
                                 </div>
                             @else
-                                <span style="font-size: 0.75rem; font-weight: 600; color: #d97706; background: #fffbeb; padding: 0.25rem 0.6rem; border-radius: 0.375rem;">Tarifs pro sur connexion</span>
+                                <span style="font-size: 0.75rem; font-weight: 600; color: #d97706; background: #fffbeb; padding: 0.25rem 0.6rem; border-radius: 0.375rem;">{{ __('Tarifs pro sur connexion') }}</span>
                             @endif
 
                             <a href="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" 
                                style="background: #096a61; color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 700; transition: background 0.2s;">
-                                Découvrir
+                                {{ __('Découvrir') }}
                             </a>
                         </div>
                     </div>
@@ -94,7 +94,7 @@
 
         @if($this->products->isEmpty())
             <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem; border: 2px dashed #e2e8f0;">
-                <p style="color: #94a3b8; font-size: 1.1rem;">Aucun produit ne correspond à votre recherche.</p>
+                <p style="color: #94a3b8; font-size: 1.1rem;">{{ __('Aucun produit ne correspond à votre recherche.') }}</p>
             </div>
         @endif
     </div>

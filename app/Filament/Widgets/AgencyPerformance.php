@@ -17,7 +17,12 @@ class AgencyPerformance extends BaseWidget
     protected static bool $isDiscovered = false; 
     protected static bool $isLazy = false;
     protected int | string | array $columnSpan = 'full';
-    protected static ?string $heading = 'Performances & Rentabilité par Agence';
+    protected static ?string $heading = null;
+
+    protected function getTableHeading(): ?string
+    {
+        return __('Performances & Rentabilité par Agence');
+    }
 
     public function table(Table $table): Table
     {
@@ -61,23 +66,23 @@ class AgencyPerformance extends BaseWidget
             )
             ->columns([
                 Tables\Columns\TextColumn::make('name')
-                    ->label('Nom de l\'Agence')
+                ->label(__('Nom de l\'Agence'))
                     ->searchable()
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                    ->label('Nb. Dossiers')
+                ->label(__('Nb. Dossiers'))
                     ->badge()
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_ca')
-                    ->label('CA Total (¥)')
+                ->label(__('CA Total (¥)'))
                     ->money('JPY')
                     ->weight('bold')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                    ->label('Marge Globale')
+                ->label(__('Marge Globale'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
@@ -85,7 +90,7 @@ class AgencyPerformance extends BaseWidget
                     
                 // 💡 LA NOUVELLE COLONNE : Taux de marge (%)
                 Tables\Columns\TextColumn::make('taux_marge')
-                    ->label('Marge (%)')
+                ->label(__('Marge (%)'))
                     ->getStateUsing(function ($record) {
                         $marge = $record->total_ca - $record->total_purchase;
                         return $record->total_ca > 0 ? ($marge / $record->total_ca) * 100 : 0;
@@ -95,12 +100,12 @@ class AgencyPerformance extends BaseWidget
                     ->color(fn ($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger')),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                    ->label('Marge Moy. / Dossier')
+                ->label(__('Marge Moy. / Dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
                     
                 Tables\Columns\TextColumn::make('prestations_moyennes')
-                    ->label('Moy. Prestations / Dossier')
+                ->label(__('Moy. Prestations / Dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? round($record->items_count / $record->folders_count, 1) : 0)
                     ->numeric(1)
                     ->color('info'),

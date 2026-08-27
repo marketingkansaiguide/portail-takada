@@ -14,7 +14,7 @@ class ListAgencyFolders extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('➕ Créer un nouveau dossier')
+            ->label(__('➕ Créer un nouveau dossier'))
                 ->color('primary'),
         ];
     }

@@ -49,7 +49,7 @@ class StatsOverview extends BaseWidget
         // 3. Moteur de Comparaison (si des dates sont sélectionnées)
         $trendCA = 'neutral';
         $diffCA = 0;
-        $diffDesc = 'Aucun filtre sélectionné';
+        $diffDesc = __('Aucun filtre sélectionné');
 
         if ($startDate && $endDate) {
             $start = Carbon::parse($startDate);
@@ -77,7 +77,7 @@ class StatsOverview extends BaseWidget
             $trendCA = $diffCA > 0 ? 'up' : ($diffCA < 0 ? 'down' : 'neutral');
             
             $sign = $diffCA > 0 ? '+' : '';
-            $diffDesc = $sign . number_format($diffCA, 1) . '% vs période préc.';
+            $diffDesc = $sign . number_format($diffCA, 1) . '% ' . __('vs période préc.');
         }
 
         // Couleurs et Icones dynamiques
@@ -85,23 +85,23 @@ class StatsOverview extends BaseWidget
         $caColor = $trendCA === 'up' ? 'success' : ($trendCA === 'down' ? 'danger' : 'primary');
 
         return [
-            Stat::make('CA Généré', number_format($totalCA, 0, '.', ' ') . ' ¥')
-                ->description($startDate && $endDate ? $diffDesc : number_format($totalMargin, 0, '.', ' ') . ' ¥ de Marge Brute')
+            Stat::make(__('CA Généré'), number_format($totalCA, 0, '.', ' ') . ' ¥')
+                ->description($startDate && $endDate ? $diffDesc : number_format($totalMargin, 0, '.', ' ') . ' ¥ ' . __('de Marge Brute'))
                 ->descriptionIcon($caIcon)
                 ->color($caColor),
 
-            Stat::make('Taux de Marge Global (%)', number_format($marginRate, 2, '.', '') . ' %')
-                ->description('Rentabilité nette moyenne')
+            Stat::make(__('Taux de Marge Global (%)'), number_format($marginRate, 2, '.', '') . ' %')
+                ->description(__('Rentabilité nette moyenne'))
                 ->descriptionIcon('heroicon-m-chart-pie')
                 ->color($marginRate >= 20 ? 'success' : 'warning'),
 
-            Stat::make('Moyenne / Dossier', number_format($margeMoyenneDossier, 0, '.', ' ') . ' ¥ de Marge')
-                ->description('Panier : ' . number_format($panierMoyenDossier, 0, '.', ' ') . ' ¥')
+            Stat::make(__('Moyenne / Dossier'), number_format($margeMoyenneDossier, 0, '.', ' ') . ' ¥ ' . __('de Marge'))
+                ->description(__('Panier :') . ' ' . number_format($panierMoyenDossier, 0, '.', ' ') . ' ¥')
                 ->descriptionIcon('heroicon-m-folder-open')
                 ->color($margeMoyenneDossier >= 0 ? 'success' : 'danger'),
 
-            Stat::make('Volume de dossiers', $totalFolders . ' dossiers')
-                ->description($startDate ? 'Sur la période filtrée' : 'Depuis toujours')
+            Stat::make(__('Volume de dossiers'), $totalFolders . ' ' . __('dossiers'))
+                ->description($startDate ? __('Sur la période filtrée') : __('Depuis toujours'))
                 ->descriptionIcon('heroicon-m-briefcase')
                 ->color('info'),
         ];

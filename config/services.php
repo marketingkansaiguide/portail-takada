@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'guide_planning' => [
+        'base_url' => env('GUIDE_PLANNING_API_URL'),
+        'api_key' => env('GUIDE_PLANNING_API_KEY'),
+    ],
+
+    'google_drive' => [
+        'shared_drive_id' => env('GOOGLE_DRIVE_SHARED_DRIVE_ID'),
+        'service_account_json' => env('GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON'),
+    ],
+
 ];
