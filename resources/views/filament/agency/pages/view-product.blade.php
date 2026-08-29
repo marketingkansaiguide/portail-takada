@@ -48,6 +48,17 @@
             to { transform: rotate(360deg); }
         }
         .animate-spin-custom { animation: spin 1s linear infinite; }
+
+        /* Étapes compactes : la fiche reste volontairement sur une seule colonne. */
+        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.85rem; padding: 1rem; margin-bottom: 1rem; }
+        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem; color: #0f766e; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
+        .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: #14b8a6; flex: 0 0 auto; }
+        .product-variant-group { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
+        .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
+        .product-price-summary { background: #f0fdfa; border-color: #99f6e4; }
+        .product-final-step { border-color: #a7f3d0; background: #f0fdf4; }
+        @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
+
     </style>
 
     <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
@@ -338,7 +349,7 @@
                                     <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span style="color: #78350f; font-weight: 500;">
-                                                • Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} trajet{{ ($estimate['qty'] ?? 1) > 1 ? 's' : '' }} total)
+                                                • @if($estimate['base_is_global'] ?? false) {{ __('Forfait global') }} @else Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} trajet{{ ($estimate['qty'] ?? 1) > 1 ? 's' : '' }} total) @endif
                                             </span>
                                             <span style="font-weight: 600; color: #78350f;">
                                                 {{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥
@@ -371,7 +382,9 @@
                             </div>
                         @else
                             {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
-                            <div style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="product-config-section">
+                                <div class="product-config-section-title">{{ __('Date et participants') }}</div>
+                                <div class="product-config-two-columns" style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem;">
                                 <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;" 
                                      x-data="{ 
                                         open: false,
@@ -525,6 +538,7 @@
                                         @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                                     </div>
                                 @endif
+                                </div>
                             </div>
 
                             @php
@@ -537,13 +551,14 @@
                             @endphp
 
                             @if($requiredGrouped->count() > 0)
-                                <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
+                                <div class="product-config-section">
+                                    <h4 class="product-config-section-title">{{ __('Déclinaisons') }}</h4>
                                     @foreach($requiredGrouped as $groupName => $groupOptions)
                                         @php 
                                             $displayGroupName = ($groupName === 'default_required') ? __('Déclinaison') : $groupName;
                                             $selectedInGroup = $groupOptions->first(fn($o) => !empty($selectedOptions[$o->id]['enabled'])) ?? $groupOptions->first();
                                         @endphp
-                                        <div style="margin-bottom: 1rem;">
+                                        <div class="product-variant-group" style="margin-bottom: 0.75rem;">
                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                                 <label style="font-size: 0.85rem; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 0.35rem;">
                                                     <span>{{ $displayGroupName }}</span>
@@ -560,13 +575,19 @@
                                                     style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
                                                     onfocus="this.style.borderColor='#096a61';" onblur="this.style.borderColor='#d1d5db';">
                                                 @foreach($groupOptions as $option)
-                                                    @php $isSelected = !empty($selectedOptions[$option->id]['enabled']); @endphp
+                                                    @php
+                                                        $isSelected = !empty($selectedOptions[$option->id]['enabled']);
+                                                        $adultQuantity = $product->usesAgeSelector() ? $ageSelectorAdults : $quantity;
+                                                        $childQuantity = $product->usesAgeSelector() ? $ageSelectorChildren : $quantity;
+                                                        $teenQuantity = $product->usesAgeSelector() ? $ageSelectorTeenagers : $quantity;
+                                                        $optionBillingQty = $option->billableQuantityForDate($serviceDate, $adultQuantity, 'adult');
+                                                    @endphp
                                                     <option value="{{ $option->id }}" {{ $isSelected ? 'selected' : '' }}>
                                                         {{ $option->name }}
                                                         @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                            (+ {{ number_format($option->priceModifierForAge(false), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForAge(true), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ') }} ¥ adolescent@endif)
-                                                        @elseif(($option->price_modifier ?? 0) > 0)
-                                                            (+ {{ number_format($option->price_modifier, 0, '.', ' ') }} ¥)
+                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ adolescent@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }})
+                                                        @elseif($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity) > 0)
+                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }})
                                                         @endif
                                                     </option>
                                                 @endforeach
@@ -577,10 +598,17 @@
                             @endif
 
                             @if($optionalOptions->count() > 0)
-                                <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;">{{ __('Options complémentaires (facultatives) :') }}</h4>
+                                <div class="product-config-section">
+                                    <h4 class="product-config-section-title">{{ __('Options complémentaires') }}</h4>
+                                    <p style="margin: -0.4rem 0 0.85rem; font-size: 0.8rem; color: #64748b;">{{ __('Facultatives') }}</p>
                                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                                         @foreach($optionalOptions as $option)
+                                            @php
+                                                $adultQuantity = $product->usesAgeSelector() ? $ageSelectorAdults : $quantity;
+                                                $childQuantity = $product->usesAgeSelector() ? $ageSelectorChildren : $quantity;
+                                                $teenQuantity = $product->usesAgeSelector() ? $ageSelectorTeenagers : $quantity;
+                                                $optionBillingQty = $option->billableQuantityForDate($serviceDate, $adultQuantity, 'adult');
+                                            @endphp
                                             <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
                                                 <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                                                     <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: #096a61;">
@@ -588,9 +616,9 @@
                                                         {{ $option->name }}
                                                         <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">
                                                             @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                                + {{ number_format($option->priceModifierForAge(false), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForAge(true), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ') }} ¥ adolescent@endif
+                                                                + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ adolescent@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
                                                             @else
-                                                                + {{ number_format($option->price_modifier ?? 0, 0, '.', ' ') }} ¥
+                                                                + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }}
                                                             @endif
                                                         </span>
                                                     </label>
@@ -612,6 +640,11 @@
                                 @php
                                     $globalFields = [];
                                     $paxFields = [];
+                                    $hotelDirectory = \App\Models\Hotel::query()
+                                        ->orderBy('name')
+                                        ->get(['name', 'address', 'google_maps_url'])
+                                        ->map(fn ($hotel) => ['name' => $hotel->name, 'address' => $hotel->address, 'google_maps_url' => $hotel->google_maps_url])
+                                        ->all();
                                     foreach($product->custom_field_definitions as $def) {
                                         if ($def['is_per_passenger'] ?? false) {
                                             $paxFields[] = $def;
@@ -622,8 +655,8 @@
                                     $qty = intval($quantity) > 0 ? intval($quantity) : 1;
                                 @endphp
 
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
+                                <div class="product-config-section product-required-fields">
+                                    <h4 class="product-config-section-title">{{ __('Informations requises') }}</h4>
                                     
                                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         
@@ -634,8 +667,10 @@
                                                         $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
                                                         $isRequired = $def['is_required'] ?? false;
                                                         $modelKey = "customValues.{$key}";
+                                                        $hotelAddressModelKey = "customValues.{$key}_address";
+                                                        $hotelMapsModelKey = "customValues.{$key}_google_maps_url";
                                                     @endphp
-                                                    <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                    <div wire:key="global-field-{{ $key }}" style="grid-column: span {{ in_array($def['type'], ['textarea', 'file', 'client_hotel']) ? '2' : '1' }}; display: flex; flex-direction: column; gap: 0.25rem;">
                                                         <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
                                                             {{ $def['name'] }} {!! $isRequired ? '<span style="color:#dc2626;">*</span>' : '' !!}
                                                         </label>
@@ -653,6 +688,49 @@
                                                             <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
                                                         @elseif($def['type'] === 'number')
                                                             <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                        @elseif($def['type'] === 'client_hotel')
+                                                            <div x-data="{
+                                                                manualHotel: false,
+                                                                open: false,
+                                                                query: '',
+                                                                selected: @entangle($modelKey).live,
+                                                                address: @entangle($hotelAddressModelKey).live,
+                                                                mapsUrl: @entangle($hotelMapsModelKey).live,
+                                                                hotels: @js($hotelDirectory),
+                                                                get results() {
+                                                                    const needle = (this.query || '').toLocaleLowerCase();
+                                                                    return this.hotels.filter(hotel => hotel.name.toLocaleLowerCase().includes(needle)).slice(0, 12);
+                                                                },
+                                                                choose(hotel) { this.selected = hotel.name; this.address = hotel.address || ''; this.mapsUrl = hotel.google_maps_url || ''; this.query = hotel.name; this.open = false; }
+                                                            }" x-init="query = selected || ''; const savedHotel = hotels.find(hotel => hotel.name === selected); if (savedHotel) { address = address || savedHotel.address || ''; mapsUrl = mapsUrl || savedHotel.google_maps_url || ''; }" style="display:flex; flex-direction:column; gap:0.5rem;">
+                                                                <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''">
+                                                                    <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 {{ __('Rechercher dans la base d’hébergements') }}</label>
+                                                                    <div style="position:relative;">
+                                                                        <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                        <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:calc(100% - 1px); left:0; right:0; max-height:15rem; overflow-y:auto; border:1px solid #cbd5e1; border-radius:0 0 0.5rem 0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
+                                                                        <template x-for="hotel in results" :key="hotel.name">
+                                                                            <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
+                                                                                <span x-text="hotel.name" style="display:block; color:#1e293b; font-size:.85rem; font-weight:700;"></span>
+                                                                                <span x-show="hotel.address" x-text="hotel.address" style="display:block; margin-top:.12rem; color:#64748b; font-size:.75rem;"></span>
+                                                                            </button>
+                                                                        </template>
+                                                                        <p x-show="results.length === 0" style="margin:0; padding:.75rem; color:#64748b; font-size:.8rem;">{{ __('Aucun hébergement correspondant') }}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
+                                                                    <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid #99f6e4; border-radius:.45rem; background:#f0fdfa; color:#0f766e; font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ {{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
+                                                                </div>
+                                                                <div x-show="manualHotel" style="display:none;">
+                                                                    <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
+                                                                    <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                    <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Adresse de l’hébergement') }}</label>
+                                                                    <textarea x-model="address" rows="2" placeholder="{{ __('Adresse complète (optionnel)') }}" style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none; font-family:inherit;"></textarea>
+                                                                    <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Lien Google Maps') }} <span style="font-weight:500; color:#64748b;">({{ __('optionnel') }})</span></label>
+                                                                    <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none;">
+                                                                    <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
+                                                                    <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
+                                                                </div>
+                                                            </div>
                                                         @elseif($def['type'] === 'toggle')
                                                             <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                                 <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:#096a61;">
@@ -757,6 +835,39 @@
                                                                         <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
                                                                     @elseif($def['type'] === 'number')
                                                                         <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    @elseif($def['type'] === 'client_hotel')
+                                                                        <div x-data="{
+                                                                            manualHotel: false,
+                                                                            open: false,
+                                                                            query: '',
+                                                                            selected: @entangle($modelKey).live,
+                                                                            hotels: @js($hotelDirectory),
+                                                                            get results() {
+                                                                                const needle = (this.query || '').toLocaleLowerCase();
+                                                                                return this.hotels.filter(hotel => hotel.name.toLocaleLowerCase().includes(needle)).slice(0, 12);
+                                                                            },
+                                                                            choose(hotel) { this.selected = hotel.name; this.query = hotel.name; this.open = false; }
+                                                                        }" x-init="query = selected || ''" style="display:flex; flex-direction:column; gap:0.5rem;">
+                                                                            <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''" style="position:relative;">
+                                                                                <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 {{ __('Rechercher dans la base d’hébergements') }}</label>
+                                                                                <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                                <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:100%; left:0; right:0; max-height:15rem; overflow-y:auto; margin-top:0.25rem; border:1px solid #cbd5e1; border-radius:0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
+                                                                                    <template x-for="hotel in results" :key="hotel.name">
+                                                                                        <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
+                                                                                            <span x-text="hotel.name" style="display:block; color:#1e293b; font-size:.85rem; font-weight:700;"></span>
+                                                                                            <span x-show="hotel.address" x-text="hotel.address" style="display:block; margin-top:.12rem; color:#64748b; font-size:.75rem;"></span>
+                                                                                        </button>
+                                                                                    </template>
+                                                                                    <p x-show="results.length === 0" style="margin:0; padding:.75rem; color:#64748b; font-size:.8rem;">{{ __('Aucun hébergement correspondant') }}</p>
+                                                                                </div>
+                                                                                <button type="button" x-on:click="manualHotel = true" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
+                                                                            </div>
+                                                                            <div x-show="manualHotel" style="display:none;">
+                                                                                <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
+                                                                                <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                                <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
+                                                                            </div>
+                                                                        </div>
                                                                     @elseif($def['type'] === 'toggle')
                                                                         <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                                             <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:#096a61;">
@@ -821,8 +932,8 @@
                         @endif
 
                         {{-- RECAPITULATIF DU TARIF POUR PRODUIT STANDARD (NON TRANSPORT) --}}
-                        <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;">{{ __('Récapitulatif du tarif :') }}</h4>
+                        <div class="product-config-section product-price-summary">
+                            <h4 class="product-config-section-title">{{ $product->category_id === 4 ? __('Détail du tarif guidage') : __('Récapitulatif du tarif') }}</h4>
                             @php
                                 $estimate = $this->getEstimatedPrice();
                             @endphp
@@ -833,9 +944,47 @@
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">{{ __('Cette prestation nécessite une cotation personnalisée.') }}</p>
                                 </div>
                             @else
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
+                                <div style="background: rgba(255,255,255,.78); border: 1px solid #ccfbf1; border-radius: 0.7rem; padding: 1rem; display: flex; flex-direction: column;">
                                     
-                                    @if($product->usesAgeSelector() && $estimate['base_adult_total'] !== null)
+                                    @if(($estimate['is_guiding'] ?? false) && ($estimate['has_date'] ?? false))
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.65rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Type de prestation') }}</span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155; text-align: right;">{{ filled($estimate['guiding_variant_names'] ?? []) ? implode(' · ', $estimate['guiding_variant_names']) : __('Aucune déclinaison sélectionnée') }}</span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                {{ __('Tarif de la saison') }}@if(filled($estimate['guiding_season_name'] ?? null)) <span style="font-weight: 500;">({{ $estimate['guiding_season_name'] }})</span>@endif
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;">{{ number_format($estimate['guiding_variant_total'] ?? 0, 0, '.', ' ') }} ¥</span>
+                                        </div>
+                                        @if($estimate['base_adult_total'] !== null)
+                                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                    {{ __('Tarif adultes') }} ({{ $ageSelectorAdults }} {{ __('adulte(s)') }})@if(filled($estimate['guiding_pax_label'] ?? null)) <span style="font-weight: 500;">· {{ $estimate['guiding_pax_label'] }}</span>@endif
+                                                </span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;">{{ number_format($estimate['base_adult_total'], 0, '.', ' ') }} ¥</span>
+                                            </div>
+                                            @if($product->hasChildSelector() && $ageSelectorChildren > 0)
+                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Tarif enfants') }} ({{ $ageSelectorChildren }} {{ __('enfant(s)') }})</span>
+                                                    <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;">{{ ($estimate['base_child_total'] ?? 0) == 0 ? __('Gratuit selon la grille tarifaire') : number_format($estimate['base_child_total'], 0, '.', ' ') . ' ¥' }}</span>
+                                                </div>
+                                            @endif
+                                            @if($product->hasTeenSelector() && $ageSelectorTeenagers > 0)
+                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Tarif adolescents') }} ({{ $ageSelectorTeenagers }} {{ __('adolescent(s)') }})</span>
+                                                    <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;">{{ ($estimate['base_teen_total'] ?? 0) == 0 ? __('Gratuit selon la grille tarifaire') : number_format($estimate['base_teen_total'], 0, '.', ' ') . ' ¥' }}</span>
+                                                </div>
+                                            @endif
+                                        @else
+                                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                    {{ __('Tarif lié au nombre de pax') }}@if(filled($estimate['guiding_pax_label'] ?? null)) <span style="font-weight: 500;">({{ $estimate['guiding_pax_label'] }})</span>@endif
+                                                </span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
+                                            </div>
+                                        @endif
+                                    @elseif($product->usesAgeSelector() && $estimate['base_adult_total'] !== null)
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
                                                 {{ __('Tarif adulte') }} ({{ $ageSelectorAdults }} × {{ number_format($estimate['base_adult_unit'], 0, '.', ' ') }} ¥)
@@ -866,7 +1015,10 @@
                                     @endif
 
                                     <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
-                                        @if($estimate['total_options'] > 0)
+                                        @if(($estimate['is_guiding'] ?? false) && ($estimate['guiding_optional_total'] ?? 0) > 0)
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Options complémentaires') }}</span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['guiding_optional_total'], 0, '.', ' ') }} ¥</span>
+                                        @elseif(!($estimate['is_guiding'] ?? false) && $estimate['total_options'] > 0)
                                             @if($product->usesAgeSelector())
                                                 <div style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; font-weight:600; color:#64748b;">
                                                     <span>{{ __('Options adultes') }}</span>
@@ -908,7 +1060,8 @@
                         @endif
 
                         {{-- DOSSIER ET ACTION --}}
-                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="product-config-section product-final-step" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                            <h4 class="product-config-section-title" style="margin-bottom: 0;">{{ __('Ajouter au dossier') }}</h4>
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>

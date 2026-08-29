@@ -10,6 +10,10 @@
 <?php $component->withAttributes([]); ?>
 <?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::processComponentKey($component); ?>
 
+    <?php
+        $catalogueSettings = $this->catalogueSettings;
+        $carouselEnabled = $catalogueSettings['useCarousel'];
+    ?>
     <div style="display: flex; flex-direction: column; gap: 2rem;">
         
         <div style="display: flex; flex-direction: column; gap: 1rem; border-bottom: 2px solid #f3f4f6; padding-bottom: 1.5rem;">
@@ -17,6 +21,9 @@
                 <div>
                     <h1 style="font-size: 2rem; font-weight: 800; color: #096a61; margin: 0;"><?php echo e(__('Explorez le Japon')); ?></h1>
                     <p style="color: #64748b; font-size: 1rem; margin-top: 0.25rem;"><?php echo e(__('Découvrez nos activités exclusives pour vos groupes et voyageurs.')); ?></p>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($categoryId): ?>
+                        <a href="<?php echo e(route('filament.agency.pages.catalogue')); ?>" style="display: inline-flex; margin-top: 0.65rem; color: #096a61; font-size: 0.85rem; font-weight: 700; text-decoration: none;">← <?php echo e(__('Voir toutes les catégories')); ?></a>
+                    <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                 </div>
                 
                 <div style="position: relative; width: 100%; max-width: 400px;">
@@ -27,9 +34,30 @@
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $this->products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
-                <div style="background: white; border-radius: 1rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" 
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $this->productSections; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $section): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+            <section style="display: flex; flex-direction: column; gap: 1rem;">
+                <?php
+                    $carouselId = 'category-carousel-' . $loop->index;
+                ?>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: baseline; gap: 0.6rem;">
+                        <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;"><?php echo e($section['name']); ?></h2>
+                        <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;"><?php echo e($section['total']); ?> <?php echo e($section['total'] > 1 ? __('prestations') : __('prestation')); ?></span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($carouselEnabled && $section['products']->count() > 1): ?>
+                            <button type="button" aria-label="<?php echo e(__('Prestation précédente')); ?>" onclick="document.getElementById('<?php echo e($carouselId); ?>').scrollBy({ left: -340, behavior: 'smooth' })" style="display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border: 1px solid #cbd5e1; border-radius: 9999px; background: white; color: #096a61; cursor: pointer; font-size: 1.1rem;">←</button>
+                            <button type="button" aria-label="<?php echo e(__('Prestation suivante')); ?>" onclick="document.getElementById('<?php echo e($carouselId); ?>').scrollBy({ left: 340, behavior: 'smooth' })" style="display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border: 1px solid #cbd5e1; border-radius: 9999px; background: white; color: #096a61; cursor: pointer; font-size: 1.1rem;">→</button>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(!$categoryId && blank($search) && $section['categoryId'] && $section['total'] > $section['products']->count()): ?>
+                            <a href="<?php echo e(route('filament.agency.pages.catalogue', ['category' => $section['categoryId']])); ?>" style="color: #096a61; font-size: 0.85rem; font-weight: 800; text-decoration: none; white-space: nowrap; margin-left: 0.35rem;"><?php echo e(__('Voir plus')); ?> →</a>
+                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                    </div>
+                </div>
+
+                <div id="<?php echo e($carouselId); ?>" style="<?php echo e($carouselEnabled ? 'display: flex; gap: 1.25rem; overflow-x: auto; padding: 0.25rem 0.2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #99c9c3 transparent;' : 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;'); ?>">
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $section['products']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                <div data-takada-page-link="<?php echo e(route('filament.agency.pages.view-product', ['record' => $product->id])); ?>" style="<?php echo e($carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : ''); ?> background: white; border-radius: 1rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
                      onmouseover="this.style.transform='translateY(-4px)'; this.style.box-shadow='0 10px 15px -3px rgba(0,0,0,0.1)';" 
                      onmouseout="this.style.transform='translateY(0)'; this.style.box-shadow='0 4px 6px -1px rgba(0,0,0,0.05)';"
                      onclick="window.location.href='<?php echo e(route('filament.agency.pages.view-product', ['record' => $product->id])); ?>'">
@@ -103,8 +131,10 @@
                         </div>
                     </div>
                 </div>
-            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
-        </div>
+                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
+                </div>
+            </section>
+        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
 
         <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($this->products->isEmpty()): ?>
             <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem; border: 2px dashed #e2e8f0;">

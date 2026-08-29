@@ -104,8 +104,93 @@ class RoleResource extends Resource
                         ->hiddenLabel()
                         ->options([
                             'user.viewAny' => __('Gérer les comptes utilisateurs (Backoffice)'),
+                            'user.view' => __('Voir un compte utilisateur'),
+                            'user.create' => __('Créer un compte utilisateur'),
+                            'user.update' => __('Modifier un compte utilisateur'),
+                            'user.delete' => __('Supprimer un compte utilisateur'),
                             'setting.viewAny' => __('Accéder aux paramètres globaux'),
+                            'setting.view' => __('Voir un paramètre global'),
+                            'setting.create' => __('Créer un paramètre global'),
+                            'setting.update' => __('Modifier un paramètre global'),
+                            'setting.delete' => __('Supprimer un paramètre global'),
                             'client_group.viewAny' => __('Gérer les groupes clients & prix'),
+                            'client_group.view' => __('Voir un groupe client'),
+                            'client_group.create' => __('Créer un groupe client'),
+                            'client_group.update' => __('Modifier un groupe client'),
+                            'client_group.delete' => __('Supprimer un groupe client'),
+                        ])
+                        ->columns(2)
+                        ->gridDirection('vertical')
+                        ->bulkToggleable(),
+                ]),
+
+            Section::make(__('Référentiels'))
+                ->compact()
+                ->schema([
+                    CheckboxList::make('permissions')
+                        ->hiddenLabel()
+                        ->options([
+                            'category.viewAny' => __('Voir les catégories'),
+                            'category.view' => __('Voir une catégorie'),
+                            'category.create' => __('Créer une catégorie'),
+                            'category.update' => __('Modifier une catégorie'),
+                            'category.delete' => __('Supprimer une catégorie'),
+                            'supplier.viewAny' => __('Voir les fournisseurs'),
+                            'supplier.view' => __('Voir un fournisseur'),
+                            'supplier.create' => __('Créer un fournisseur'),
+                            'supplier.update' => __('Modifier un fournisseur'),
+                            'supplier.delete' => __('Supprimer un fournisseur'),
+                            'hotel.viewAny' => __('Voir les hébergements'),
+                            'hotel.view' => __('Voir un hébergement'),
+                            'hotel.create' => __('Créer un hébergement'),
+                            'hotel.update' => __('Modifier un hébergement'),
+                            'hotel.delete' => __('Supprimer un hébergement'),
+                            'item_status.viewAny' => __('Voir les statuts de prestation'),
+                            'item_status.view' => __('Voir un statut de prestation'),
+                            'item_status.create' => __('Créer un statut de prestation'),
+                            'item_status.update' => __('Modifier un statut de prestation'),
+                            'item_status.delete' => __('Supprimer un statut de prestation'),
+                        ])
+                        ->columns(2)
+                        ->gridDirection('vertical')
+                        ->bulkToggleable(),
+                ]),
+
+            Section::make(__('Gares & Stations'))
+                ->compact()
+                ->schema([
+                    CheckboxList::make('permissions')
+                        ->hiddenLabel()
+                        ->options([
+                            'train_station.viewAny' => __('Voir les gares ferroviaires'),
+                            'train_station.view' => __('Voir une gare ferroviaire'),
+                            'train_station.create' => __('Créer une gare ferroviaire'),
+                            'train_station.update' => __('Modifier une gare ferroviaire'),
+                            'train_station.delete' => __('Supprimer une gare ferroviaire'),
+                            'bus_station.viewAny' => __('Voir les stations de bus'),
+                            'bus_station.view' => __('Voir une station de bus'),
+                            'bus_station.create' => __('Créer une station de bus'),
+                            'bus_station.update' => __('Modifier une station de bus'),
+                            'bus_station.delete' => __('Supprimer une station de bus'),
+                        ])
+                        ->columns(2)
+                        ->gridDirection('vertical')
+                        ->bulkToggleable(),
+                ]),
+
+            Section::make(__('Opérations & Rapports'))
+                ->compact()
+                ->schema([
+                    CheckboxList::make('permissions')
+                        ->hiddenLabel()
+                        ->options([
+                            'dashboard.view' => __('Accéder au tableau de bord'),
+                            'operations.checkins' => __('Gérer les check-ins'),
+                            'operations.train_tickets' => __('Gérer les billets de train'),
+                            'operations.iwa_orders' => __('Gérer les commandes IWA'),
+                            'operations.ic_cards' => __('Gérer les cartes IC'),
+                            'operations.seven_tickets' => __('Gérer les commandes Seven Tickets'),
+                            'operations.statistics' => __('Consulter les statistiques financières'),
                         ])
                         ->columns(2)
                         ->gridDirection('vertical')

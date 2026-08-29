@@ -1,4 +1,8 @@
 <x-filament-panels::page>
+    @php
+        $catalogueSettings = $this->catalogueSettings;
+        $carouselEnabled = $catalogueSettings['useCarousel'];
+    @endphp
     <div style="display: flex; flex-direction: column; gap: 2rem;">
         
         <div style="display: flex; flex-direction: column; gap: 1rem; border-bottom: 2px solid #f3f4f6; padding-bottom: 1.5rem;">
@@ -6,6 +10,9 @@
                 <div>
                     <h1 style="font-size: 2rem; font-weight: 800; color: #096a61; margin: 0;">{{ __('Explorez le Japon') }}</h1>
                     <p style="color: #64748b; font-size: 1rem; margin-top: 0.25rem;">{{ __('Découvrez nos activités exclusives pour vos groupes et voyageurs.') }}</p>
+                    @if($categoryId)
+                        <a href="{{ route('filament.agency.pages.catalogue') }}" style="display: inline-flex; margin-top: 0.65rem; color: #096a61; font-size: 0.85rem; font-weight: 700; text-decoration: none;">← {{ __('Voir toutes les catégories') }}</a>
+                    @endif
                 </div>
                 
                 <div style="position: relative; width: 100%; max-width: 400px;">
@@ -16,9 +23,30 @@
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-            @foreach($this->products as $product)
-                <div style="background: white; border-radius: 1rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" 
+        @foreach($this->productSections as $section)
+            <section style="display: flex; flex-direction: column; gap: 1rem;">
+                @php
+                    $carouselId = 'category-carousel-' . $loop->index;
+                @endphp
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+                    <div style="display: flex; align-items: baseline; gap: 0.6rem;">
+                        <h2 style="font-size: 1.4rem; font-weight: 800; color: #1e293b; margin: 0;">{{ $section['name'] }}</h2>
+                        <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">{{ $section['total'] }} {{ $section['total'] > 1 ? __('prestations') : __('prestation') }}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        @if($carouselEnabled && $section['products']->count() > 1)
+                            <button type="button" aria-label="{{ __('Prestation précédente') }}" onclick="document.getElementById('{{ $carouselId }}').scrollBy({ left: -340, behavior: 'smooth' })" style="display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border: 1px solid #cbd5e1; border-radius: 9999px; background: white; color: #096a61; cursor: pointer; font-size: 1.1rem;">←</button>
+                            <button type="button" aria-label="{{ __('Prestation suivante') }}" onclick="document.getElementById('{{ $carouselId }}').scrollBy({ left: 340, behavior: 'smooth' })" style="display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border: 1px solid #cbd5e1; border-radius: 9999px; background: white; color: #096a61; cursor: pointer; font-size: 1.1rem;">→</button>
+                        @endif
+                        @if(!$categoryId && blank($search) && $section['categoryId'] && $section['total'] > $section['products']->count())
+                            <a href="{{ route('filament.agency.pages.catalogue', ['category' => $section['categoryId']]) }}" style="color: #096a61; font-size: 0.85rem; font-weight: 800; text-decoration: none; white-space: nowrap; margin-left: 0.35rem;">{{ __('Voir plus') }} →</a>
+                        @endif
+                    </div>
+                </div>
+
+                <div id="{{ $carouselId }}" style="{{ $carouselEnabled ? 'display: flex; gap: 1.25rem; overflow-x: auto; padding: 0.25rem 0.2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #99c9c3 transparent;' : 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;' }}">
+                    @foreach($section['products'] as $product)
+                <div data-takada-page-link="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" style="{{ $carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : '' }} background: white; border-radius: 1rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
                      onmouseover="this.style.transform='translateY(-4px)'; this.style.box-shadow='0 10px 15px -3px rgba(0,0,0,0.1)';" 
                      onmouseout="this.style.transform='translateY(0)'; this.style.box-shadow='0 4px 6px -1px rgba(0,0,0,0.05)';"
                      onclick="window.location.href='{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}'">
@@ -59,6 +87,10 @@
                                         foreach($product->productPeriods as $period) {
                                             if ($period->productPrices) {
                                                 foreach($period->productPrices as $price) {
+                                                    if ($price->isExtraPaxRate()) {
+                                                        continue;
+                                                    }
+
                                                     if ($minPrice === null || $price->price < $minPrice) {
                                                         $minPrice = $price->price;
                                                     }
@@ -89,8 +121,10 @@
                         </div>
                     </div>
                 </div>
-            @endforeach
-        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endforeach
 
         @if($this->products->isEmpty())
             <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem; border: 2px dashed #e2e8f0;">

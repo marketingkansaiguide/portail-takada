@@ -4,32 +4,64 @@
     <meta charset="UTF-8">
     <title>{{ __('Récapitulatif') }} - {{ $folder->reference }}</title>
     <style>
-        body { font-family: Arial, sans-serif; color: #1e293b; font-size: 10pt; line-height: 1.4; }
-        .header { width: 100%; margin-bottom: 20px; }
-        .title { font-size: 22pt; font-weight: bold; color: #1e3a8a; text-transform: uppercase; text-align: right; }
-        .company { font-size: 18pt; font-weight: bold; color: #0f172a; text-transform: uppercase; }
-        .divider { height: 2px; background-color: #e2e8f0; margin: 15px 0 25px 0; }
-        .info-table { width: 100%; margin-bottom: 30px; }
+        @page { margin: 18px 24px 22px; }
+
+        /* Dompdf n’embarque pas Arial ni les glyphes japonais : cette police Unicode est incluse dans le PDF. */
+        @font-face {
+            font-family: 'M PLUS 1p';
+            font-style: normal;
+            font-weight: 400;
+            src: url('{{ public_path('fonts/MPLUS1p-Regular.ttf') }}') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'M PLUS 1p';
+            font-style: normal;
+            font-weight: 700;
+            src: url('{{ public_path('fonts/MPLUS1p-Bold.ttf') }}') format('truetype');
+        }
+
+        /* M PLUS a une hauteur de glyphe supérieure à Arial : ces valeurs préservent le format compact d’origine. */
+        body { margin: 0; padding: 0; font-family: 'M PLUS 1p', 'DejaVu Sans', sans-serif; color: #1e293b; font-size: 8.8pt; line-height: 1.12; }
+        .header { width: 100%; margin-bottom: 14px; }
+        .title { font-size: 19pt; font-weight: bold; color: #1e3a8a; text-transform: uppercase; text-align: right; }
+        .brand-logo { display: block; width: 180px; height: auto; }
+        .divider { height: 2px; background-color: #e2e8f0; margin: 10px 0 16px 0; }
+        .info-table { width: 100%; margin-bottom: 18px; }
         .info-table td { width: 50%; vertical-align: top; }
-        .info-box h2 { font-size: 11pt; color: #1e3a8a; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; margin-top: 0; }
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .items-table th { background-color: #1e3a8a; color: #ffffff; padding: 8px; font-size: 9pt; text-transform: uppercase; text-align: left; }
-        .items-table td { padding: 8px; border: 1px solid #e2e8f0; font-size: 9.5pt; }
+        .info-box h2 { font-size: 10pt; color: #1e3a8a; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; margin-top: 0; }
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        .items-table th { background-color: #1e3a8a; color: #ffffff; padding: 4px 5px; font-size: 8pt; line-height: 1.1; text-transform: uppercase; text-align: left; vertical-align: middle; }
+        .items-table td { padding: 4px 5px; border: 1px solid #e2e8f0; font-size: 8.4pt; line-height: 1.1; vertical-align: middle; }
+        .items-table .base-tariff-label { margin-left: 4px; white-space: nowrap; }
+        .items-table .option-row td { padding-top: 2px; padding-bottom: 2px; color: #64748b; font-size: 7.4pt; line-height: 1.05; vertical-align: middle; }
+        .items-table .option-description { padding-left: 14px; }
+        .items-table .option-total { color: #475569; }
+        .items-table .item-subtotal td { padding-top: 2px; padding-bottom: 2px; color: #1e3a8a; font-size: 7.6pt; line-height: 1.05; }
+        .items-table .transport-routes { margin-top: 3px; color: #64748b; font-size: 7.2pt; line-height: 1.1; }
+        .items-table .transport-route { margin-top: 1px; }
+        .items-table .transport-route-journey { color: #334155; font-weight: bold; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .totals-table { width: 40%; margin-left: 60%; border-collapse: collapse; }
-        .totals-table td { padding: 6px; border-bottom: 1px solid #e2e8f0; }
-        .total-row td { font-size: 12pt; font-weight: bold; color: #1e3a8a; background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 8px; }
-        .footer { margin-top: 40px; text-align: center; font-size: 8.5pt; color: #94a3b8; }
+        .totals-table td { padding: 3px 4px; border-bottom: 1px solid #e2e8f0; line-height: 1.1; vertical-align: middle; }
+        .total-row td { font-size: 10.5pt; font-weight: bold; color: #1e3a8a; background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 5px; line-height: 1.1; vertical-align: middle; }
+        .footer { margin-top: 20px; text-align: center; font-size: 7.5pt; color: #94a3b8; }
     </style>
 </head>
 <body>
 
+    @php
+        $configuredLogo = \App\Models\Setting::query()->first()?->site_logo_path;
+        $logoPath = $configuredLogo && \Illuminate\Support\Facades\Storage::disk('public')->exists($configuredLogo)
+            ? \Illuminate\Support\Facades\Storage::disk('public')->path($configuredLogo)
+            : public_path('images/logo.svg');
+    @endphp
+
     <table class="header" style="width: 100%;">
         <tr>
             <td>
-                <div class="company">TAKADA PORTAL</div>
-                <div style="color: #64748b; font-size: 9pt;">{{ __('Réservation B2B Japon') }}</div>
+                <img class="brand-logo" src="{{ $logoPath }}" alt="Takada Travel">
             </td>
             <td class="text-right">
                 <div class="title">{{ __('Pré-Facture') }}</div>
@@ -38,8 +70,6 @@
             </td>
         </tr>
     </table>
-
-    <div class="divider"></div>
 
     <table class="info-table">
         <tr>
@@ -134,51 +164,99 @@
                     $hasOptions = count($optionsList) > 0;
                     $baseTotal = $item->total_price - $optionsTotal;
                     $baseUnitPrice = $item->quantity > 0 ? ($baseTotal / $item->quantity) : 0;
+
+                    $transportRoutes = $item->product?->product_type === 'transport'
+                        ? collect($item->custom_values['transport_routes'] ?? [])
+                            ->filter(fn ($route): bool => is_array($route))
+                            ->map(function (array $route): ?array {
+                                $departure = trim((string) ($route['departure_station'] ?? ''));
+                                $arrival = trim((string) ($route['arrival_station'] ?? ''));
+
+                                if ($departure === '' && $arrival === '') {
+                                    return null;
+                                }
+
+                                $date = ! empty($route['departure_date'])
+                                    ? \Carbon\Carbon::parse($route['departure_date'])->format('d/m/Y')
+                                    : null;
+                                $departureLabel = trim(implode(' ', array_filter([
+                                    $route['departure_time'] ?? null,
+                                    $departure,
+                                ])));
+                                $arrivalLabel = trim(implode(' ', array_filter([
+                                    $route['arrival_time'] ?? null,
+                                    $arrival,
+                                ])));
+
+            return [
+                'date' => $date,
+                'journey' => trim($departureLabel . ' → ' . $arrivalLabel),
+                'pax' => filled($route['pax_count'] ?? null) ? (int) $route['pax_count'] : null,
+            ];
+                            })
+                            ->filter()
+                            ->values()
+                        : collect();
                 @endphp
 
-                @if(!$hasOptions)
-                    <!-- Prestation simple sans option -->
-                    <tr style="background-color: #ffffff;">
-                        <td><strong>{{ $item->product?->name }}</strong></td>
-                        <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
-                        <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-right">¥{{ number_format($item->unit_price) }}</td>
-                        <td class="text-right"><strong>¥{{ number_format($item->total_price) }}</strong></td>
-                    </tr>
-                @else
-                    <!-- Prestation AVEC options : Décomposition explicite (Base + Options) -->
-                    <tr style="background-color: #ffffff;">
-                        <td>
-                            <strong>{{ $item->product?->name }}</strong>
-                            <br><span style="font-size: 8pt; color: #64748b;">({{ __('Tarif de base') }})</span>
-                        </td>
-                        <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
-                        <td class="text-center">{{ $item->quantity }}</td>
-                        <td class="text-right">¥{{ number_format($baseUnitPrice) }}</td>
-                        <td class="text-right">¥{{ number_format($baseTotal) }}</td>
-                    </tr>
+                <tr style="background-color: #ffffff;">
+                    <td>
+                        <strong>{{ $item->product?->name }}</strong>
 
+                        @if($hasOptions)
+                            <span class="base-tariff-label" style="font-size: 8pt; color: #64748b;">({{ __('Tarif de base') }})</span>
+                        @endif
+
+                        @if($transportRoutes->isNotEmpty())
+                            <div class="transport-routes">
+                                @foreach($transportRoutes as $route)
+                                    <div class="transport-route">
+                                        @if($route['date'])
+                                            {{ $route['date'] }} ·
+                                        @endif
+                                        <span class="transport-route-journey">{{ $route['journey'] }}</span>
+                                        @if($route['pax'])
+                                            · {{ $route['pax'] }} pax
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </td>
+                    <td class="text-center">{{ $item->service_date?->format('d/m/Y') }}</td>
+                    <td class="text-center">{{ $item->quantity }}</td>
+                    <td class="text-right">
+                        ¥{{ number_format($hasOptions ? $baseUnitPrice : $item->unit_price) }}
+                    </td>
+                    <td class="text-right"><strong>¥{{ number_format($hasOptions ? $baseTotal : $item->total_price) }}</strong></td>
+                </tr>
+
+                @if($hasOptions)
                     @foreach($optionsList as $opt)
-                        <tr style="background-color: #f8fafc; color: #475569; font-size: 8.5pt;">
-                            <td style="padding-left: 20px;">
-                                <span style="color: #94a3b8;">-</span> <em>{{ __('Option :') }}</em> <strong>{{ $opt['name'] }}</strong>
-                                <span style="color: #64748b; font-size: 8pt;">({{ $opt['calc_label'] }})</span>
-                            </td>
-                            <td class="text-center" style="color: #94a3b8;">---</td>
+                        <tr class="option-row" style="background-color: #f8fafc;">
+                            <td class="option-description">{{ $opt['name'] }}</td>
+                            <td class="text-center" style="color: #94a3b8;">—</td>
                             <td class="text-center">{{ $opt['display_qty'] }}</td>
-                            <td class="text-right">¥{{ number_format($opt['unit_price']) }}</td>
-                            <td class="text-right">+¥{{ number_format($opt['total']) }}</td>
+                            <td class="text-right">
+                                @if((float) $opt['total'] === 0.0)
+                                    —
+                                @else
+                                    ¥{{ number_format($opt['unit_price']) }}
+                                @endif
+                            </td>
+                            <td class="text-right option-total">
+                                @if((float) $opt['total'] !== 0.0)
+                                    +¥{{ number_format($opt['total']) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
 
-                    <!-- Sous-total explicite de l'activité -->
-                    <tr style="background-color: #f1f5f9; border-bottom: 2px solid #cbd5e1; font-size: 9pt;">
-                        <td colspan="4" class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
-                            {{ __('Sous-total') }} {{ $item->product?->name }} :
-                        </td>
-                        <td class="text-right" style="padding: 6px 8px; font-weight: bold; color: #1e3a8a;">
-                            ¥{{ number_format($item->total_price) }}
-                        </td>
+                    <tr class="item-subtotal" style="background-color: #f1f5f9; border-bottom: 1px solid #cbd5e1;">
+                        <td colspan="4" class="text-right" style="font-weight: bold;">{{ __('Sous-total') }} :</td>
+                        <td class="text-right" style="font-weight: bold;">¥{{ number_format($item->total_price) }}</td>
                     </tr>
                 @endif
             @endforeach

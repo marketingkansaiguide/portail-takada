@@ -12,3 +12,11 @@ Schedule::call(function () {
 })->daily();
 
 Schedule::command('ic-cards:check-opening')->dailyAt('08:00');
+
+Schedule::command('backups:database-to-google-drive')
+    ->cron('5 */6 * * *')
+    ->withoutOverlapping(180);
+
+Schedule::command('monitor:system')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(20);

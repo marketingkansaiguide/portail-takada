@@ -6,6 +6,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Filters\SelectFilter;
 
 class ProductsTable
 {
@@ -40,6 +41,13 @@ class ProductsTable
                 IconColumn::make('is_on_demand')
                     ->label(__('Devis'))
                     ->boolean(),
+            ])
+            ->filters([
+                SelectFilter::make('category')
+                    ->label(__('Filtrer par catégorie'))
+                    ->relationship('category', 'name')
+                    ->searchable()
+                    ->preload(),
             ]);
     }
 }

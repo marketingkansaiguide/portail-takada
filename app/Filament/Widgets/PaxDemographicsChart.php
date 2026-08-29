@@ -3,17 +3,20 @@
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use App\Models\Folder;
 
 class PaxDemographicsChart extends ChartWidget
 {
+    use InteractsWithPageFilters;
+
     protected static bool $isLazy = false; 
     protected static bool $isDiscovered = false;
     protected ?string $heading = null;
 
     public function getHeading(): ?string
     {
-        return __('Répartition Adultes / Enfants');
+        return __('Répartition des voyageurs');
     }
     protected int | string | array $columnSpan = 1;
     
@@ -22,8 +25,14 @@ class PaxDemographicsChart extends ChartWidget
 
     protected function getData(): array
     {
-        $adults = Folder::whereIn('status', ['confirmed', 'completed'])->sum('pax_adults');
-        $children = Folder::whereIn('status', ['confirmed', 'completed'])->sum('pax_children');
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
+        $query = Folder::whereIn('status', ['confirmed', 'completed'])
+            ->when($startDate, fn ($query) => $query->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate));
+
+        $adults = (clone $query)->sum('pax_adults');
+        $children = (clone $query)->sum('pax_children');
 
         return [
             'datasets' => [
@@ -33,7 +42,7 @@ class PaxDemographicsChart extends ChartWidget
                     'backgroundColor' => ['#3b82f6', '#10b981'], 
                 ],
             ],
-            'labels' => ['Adultes', 'Enfants (-18 ans)'],
+            'labels' => [__('Adultes'), __('Enfants')],
         ];
     }
 

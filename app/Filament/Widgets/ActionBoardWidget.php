@@ -266,16 +266,10 @@ class ActionBoardWidget extends Widget implements HasActions, HasForms
         if (count($newIcAlertItems) > 0) {
             try {
                 $setting = Setting::first();
-                $adminEmails = [];
+                $adminEmails = $setting?->adminNotificationEmails() ?? [];
 
-                if ($setting && !empty($setting->admin_email_notifications)) {
-                    $adminEmails = explode(',', $setting->admin_email_notifications);
-                    $adminEmails = array_map('trim', $adminEmails);
-                    $adminEmails = array_filter($adminEmails);
-                }
-
-                if (empty($adminEmails)) {
-                    $adminEmails = [env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS'))];
+                if (empty($adminEmails) && filled(config('mail.admin_receiver'))) {
+                    $adminEmails = [config('mail.admin_receiver')];
                 }
 
                 if (!empty($adminEmails)) {

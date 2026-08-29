@@ -17,6 +17,7 @@ use Filament\Tables;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -605,25 +606,10 @@ Repeater::make('transport_routes')
                                                 }
 
                                                 $date = $routes[0]['departure_date'] ?? now()->format('Y-m-d');
-                                                $mdStr = \Carbon\Carbon::parse($date)->format('m-d');
-
                                                 $feePerPax = 0;
-                                                if ($product->productPeriods) {
-                                                    foreach ($product->productPeriods as $period) {
-                                                        $inPeriod = true; // Par défaut : Toute l'année
-                                                        
-                                                        if ($period->start_date && $period->end_date) {
-                                                            $inPeriod = ($period->start_date <= $period->end_date) 
-                                                                ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                                                                : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                                                        }
-                                                        
-                                                        if ($inPeriod && $period->productPrices) {
-                                                            $validPrices = $period->productPrices->where('min_pax', '<=', $totalPax)->where('max_pax', '>=', $totalPax);
-                                                            $feePerPax = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
-                                                            break;
-                                                        }
-                                                    }
+                                                if ($period = $product->periodForDate($date)) {
+                                                    $validPrices = $period->productPrices->where('min_pax', '<=', $totalPax)->where('max_pax', '>=', $totalPax);
+                                                    $feePerPax = $validPrices->isNotEmpty() ? $validPrices->first()->price : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
                                                 }
 
                                                 $totalFee = $feePerPax * $totalPax;
@@ -931,6 +917,10 @@ Repeater::make('transport_routes')
                                                         'date' => DatePicker::make($formKey)->label($label),
                                                         'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                         'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                        'client_hotel' => TextInput::make($formKey)
+                                                            ->label($label)
+                                                            ->placeholder($def['placeholder'] ?? __('Rechercher un hébergement ou saisir son nom...'))
+                                                            ->datalist(fn (): array => Hotel::query()->orderBy('name')->pluck('name')->all()),
                                                         'file' => self::storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload::make($formKey)
                                                             ->label($label)
                                                             ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
@@ -953,6 +943,13 @@ Repeater::make('transport_routes')
                                                     'date' => DatePicker::make($formKey)->label($label),
                                                     'toggle' => Toggle::make($formKey)->label($label)->inline(false),
                                                     'select' => Select::make($formKey)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                                    'client_hotel' => ViewField::make($formKey)
+                                                        ->label($label)
+                                                        ->view('filament.forms.components.client-hotel-picker')
+                                                        ->viewData([
+                                                            'hotels' => Hotel::query()->orderBy('name')->get(['name', 'address', 'google_maps_url'])->map(fn (Hotel $hotel): array => $hotel->only(['name', 'address', 'google_maps_url']))->all(),
+                                                            'placeholder' => $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…'),
+                                                        ]),
                                                     'file' => self::storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload::make($formKey)
                                                         ->label($label)
                                                         ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
@@ -994,45 +991,40 @@ Repeater::make('transport_routes')
                                                 
                                                 if (!$productId || !$date) return new HtmlString('<span class="text-gray-500">' . e(__('Sélectionnez une date pour estimer le prix.')) . '</span>');
                                                 
-                                                $product = \App\Models\Product::with(['productPeriods.productPrices', 'productOptions'])->find($productId);
+                                                $product = \App\Models\Product::with(['productPeriods.productPrices', 'productOptions.seasonalPrices'])->find($productId);
                                                 if (!$product) return 'Produit introuvable.';
                                                 
-                                                $mdStr = \Carbon\Carbon::parse($date)->format('m-d');
                                                 $matchedPrice = null;
+                                                $matchedPriceRow = null;
+                                                $matchedPricePeriod = null;
                                                 $ageBaseTotal = null;
+                                                $ageBaseBreakdown = null;
                                                 $ageAdults = max(0, (int) ($get('age_selector_adults') ?? 0));
                                                 $ageChildren = max(0, (int) ($get('age_selector_children') ?? 0));
                                                 $ageTeenagers = max(0, (int) ($get('age_selector_teenagers') ?? 0));
                                                 if (($ageAdults + $ageChildren + $ageTeenagers) === 0) {
                                                     $ageAdults = $qty;
                                                 }
-                                                if ($product->productPeriods) {
-                                                    foreach ($product->productPeriods as $period) {
-                                                        $inPeriod = true; // Par défaut : Toute l'année
-                                                        
-                                                        if ($period->start_date && $period->end_date) {
-                                                            $inPeriod = ($period->start_date <= $period->end_date) 
-                                                                ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                                                                : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+                                                if ($product->usesAgeSelector()) {
+                                                    $qty = $ageAdults + $ageChildren + $ageTeenagers;
+                                                }
+                                                if ($period = $product->periodForDate($date)) {
+                                                    $matchedPricePeriod = $period;
+                                                    $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty)
+                                                        ->reject(fn ($price) => $price->isExtraPaxRate());
+                                                    if ($validPrices->isNotEmpty()) {
+                                                        $matchedPriceRow = $validPrices->first();
+                                                        $matchedPrice = $matchedPriceRow->price;
+                                                        if ($product->usesAgeSelector()) {
+                                                            $ageBaseBreakdown = $product->calculateAgeBasedBreakdown($period, $qty, $ageAdults, $ageChildren, $ageTeenagers);
+                                                            $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
                                                         }
-                                                        
-                                                        if ($inPeriod && $period->productPrices) {
-                                                            $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
-                                                            if ($validPrices->isNotEmpty()) {
-                                                                $matchedPrice = $validPrices->first()->price;
-                                                                if ($product->enable_age_selector) {
-                                                                    $ageBaseTotal = $product->calculateAgeBasedBaseTotal(
-                                                                        $period,
-                                                                        $qty,
-                                                                        $ageAdults,
-                                                                        $ageChildren,
-                                                                        $ageTeenagers,
-                                                                    );
-                                                                }
-                                                            } else {
-                                                                $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                                                            }
-                                                            break;
+                                                    } else {
+                                                        $matchedPriceRow = $period->productPrices->reject(fn ($price) => $price->isExtraPaxRate())->sortByDesc('max_pax')->first();
+                                                        $matchedPrice = $matchedPriceRow?->price ?? 0;
+                                                        if ($product->usesAgeSelector()) {
+                                                            $ageBaseBreakdown = $product->calculateAgeBasedBreakdown($period, $qty, $ageAdults, $ageChildren, $ageTeenagers);
+                                                            $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
                                                         }
                                                     }
                                                 }
@@ -1040,9 +1032,26 @@ Repeater::make('transport_routes')
                                                 $baseUnitPrice = $matchedPrice ?? 0;
                                                 $baseTotal = $ageBaseTotal !== null
                                                     ? $ageBaseTotal
-                                                    : ($baseUnitPrice * $qty);
-                                                if ($ageBaseTotal !== null) {
-                                                    $baseUnitPrice = $ageBaseTotal / max(1, $qty);
+                                                    : $product->baseRateTotal($matchedPriceRow, $qty, $matchedPricePeriod);
+                                                $baseUnitPrice = $baseTotal / max(1, $qty);
+                                                if ($ageBaseBreakdown !== null) {
+                                                    $ageParts = [];
+                                                    if ($ageAdults > 0) {
+                                                        $ageParts[] = "{$ageAdults} adulte(s) : " . number_format($ageBaseBreakdown['adult_total'] ?? 0, 0, '.', ' ') . ' ¥';
+                                                    }
+                                                    if ($ageChildren > 0) {
+                                                        $childTotal = (float) ($ageBaseBreakdown['child_total'] ?? 0);
+                                                        $ageParts[] = "{$ageChildren} enfant(s) : " . ($childTotal === 0.0 ? __('Gratuit selon la grille tarifaire') : number_format($childTotal, 0, '.', ' ') . ' ¥');
+                                                    }
+                                                    if ($ageTeenagers > 0) {
+                                                        $teenTotal = (float) ($ageBaseBreakdown['teen_total'] ?? 0);
+                                                        $ageParts[] = "{$ageTeenagers} adolescent(s) : " . ($teenTotal === 0.0 ? __('Gratuit selon la grille tarifaire') : number_format($teenTotal, 0, '.', ' ') . ' ¥');
+                                                    }
+                                                    $baseLabel = implode(' • ', $ageParts);
+                                                } else {
+                                                    $baseLabel = $product->usesGlobalGuidingRate($matchedPriceRow)
+                                                        ? __('Forfait global')
+                                                        : number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax";
                                                 }
                                                 
                                                 $optionsTotal = 0;
@@ -1050,17 +1059,20 @@ Repeater::make('transport_routes')
                                                 if ($product->productOptions) {
                                                     foreach ($product->productOptions as $opt) {
                                                         if ($get("opt_enabled_{$opt->id}")) {
-                                                            $mod = $opt->price_modifier ?? 0;
-                                                            if ($opt->billing_type === 'per_pax') {
-                                                                if ($product->enable_age_selector) {
-                                                                    $adultMod = $opt->priceModifierForAge(false);
-                                                                    $childMod = $opt->priceModifierForAge(true);
-                                                                    $teenMod = $opt->priceModifierForAgeGroup('teen');
-                                                                    $optTotal = ($adultMod * $ageAdults) + ($childMod * $ageChildren) + ($teenMod * $ageTeenagers);
-                                                                    $calcText = number_format($adultMod, 0, '.', ' ') . " ¥ × {$ageAdults} adulte(s) + " . number_format($childMod, 0, '.', ' ') . " ¥ × {$ageChildren} enfant(s)" . ($product->teen_age_limit !== null ? " + " . number_format($teenMod, 0, '.', ' ') . " ¥ × {$ageTeenagers} adolescent(s)" : '');
+                                                            $pricingQuantity = $product->usesAgeSelector() ? $ageAdults : $qty;
+                                                            $mod = $opt->priceModifierForDate($date, 'adult', $pricingQuantity);
+                                                            if ($opt->billing_type === 'per_pax' || $opt->hasExtraPaxSeasonalModifierForDate($date, $pricingQuantity)) {
+                                                                if ($product->usesAgeSelector()) {
+                                                                    $billableGroups = $opt->billableAgeGroupQuantitiesForDate($date, $qty, $ageAdults, $ageChildren, $ageTeenagers);
+                                                                    $adultMod = $opt->priceModifierForDate($date, 'adult', $ageAdults);
+                                                                    $childMod = $opt->priceModifierForDate($date, 'child', $ageChildren);
+                                                                    $teenMod = $opt->priceModifierForDate($date, 'teen', $ageTeenagers);
+                                                                    $optTotal = ($adultMod * $billableGroups['adults']) + ($childMod * $billableGroups['children']) + ($teenMod * $billableGroups['teenagers']);
+                                                                    $calcText = number_format($adultMod, 0, '.', ' ') . " ¥ × {$billableGroups['adults']} adulte(s) + " . number_format($childMod, 0, '.', ' ') . " ¥ × {$billableGroups['children']} enfant(s)" . ($product->teen_age_limit !== null ? " + " . number_format($teenMod, 0, '.', ' ') . " ¥ × {$billableGroups['teenagers']} adolescent(s)" : '');
                                                                 } else {
-                                                                    $optTotal = $mod * $qty;
-                                                                    $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                                    $billableQty = $opt->billableQuantityForDate($date, $qty);
+                                                                    $optTotal = $mod * $billableQty;
+                                                                    $calcText = number_format($mod, 0, '.', ' ') . " ¥ × {$billableQty} pax" . ($billableQty < $qty ? ' supplémentaires' : '');
                                                                 }
                                                             } elseif ($opt->billing_type === 'per_booking') {
                                                                 $optTotal = $mod;
@@ -1087,7 +1099,7 @@ Repeater::make('transport_routes')
                                                     <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 1rem;'>
                                                         <div style='font-weight:600; color:#166534; font-size:0.9rem; margin-bottom:0.35rem;'>Calcul estimatif du prix :</div>
                                                         <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#15803d;'>
-                                                            <span>• Tarif de base / Frais de service (" . number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax)</span>
+                                                            <span>• Tarif de base / Frais de service ({$baseLabel})</span>
                                                             <span><b>" . number_format($baseTotal, 0, '.', ' ') . " ¥</b></span>
                                                         </div>
                                                         " . implode('', $optRows) . "
@@ -1235,6 +1247,11 @@ Repeater::make('transport_routes')
                                                 $fk = "custom_{$key}";
                                                 if (isset($mergedData[$fk])) {
                                                     $customValues[$key] = $mergedData[$fk];
+
+                                                    if (($def['type'] ?? null) === 'client_hotel') {
+                                                        $customValues["{$key}_address"] = $mergedData["{$fk}_address"] ?? null;
+                                                        $customValues["{$key}_google_maps_url"] = $mergedData["{$fk}_google_maps_url"] ?? null;
+                                                    }
                                                 }
                                             }
                                         }
@@ -1331,7 +1348,14 @@ Repeater::make('transport_routes')
                                         $itemData = $state[$arguments['item']] ?? [];
                                         if (!empty($itemData['id'])) {
                                             $item = \App\Models\FolderItem::find($itemData['id']);
-                                            if ($item) {
+                                            $record = $component->getLivewire()->getRecord();
+                                            if (
+                                                $item
+                                                && $record instanceof Folder
+                                                && (int) $item->folder_id === (int) $record->id
+                                                && (int) $record->agency_id === (int) Filament::auth()->user()?->agency_id
+                                                && $record->status === 'draft'
+                                            ) {
                                                 $folder = $item->folder;
                                                 $item->delete();
                                                 if ($folder) {
@@ -1474,20 +1498,25 @@ Repeater::make('transport_routes')
                                                 if (!empty($optId)) {
                                                     $optModel = \App\Models\ProductOption::find($optId);
                                                     if ($optModel) {
-                                                        $mod = (float) ($optModel->price_modifier ?? 0);
+                                                        $serviceDate = $item->service_date?->toDateString() ?? $item->folder?->start_date?->toDateString();
+                                                        $pricingQuantity = $item->product?->enable_age_selector ? $ageAdults : $qty;
+                                                        $mod = $optModel->priceModifierForDate($serviceDate, 'adult', $pricingQuantity);
                                                         $optQty = is_array($optData) ? (int) ($optData['quantity'] ?? 1) : 1;
 
-                                                        if ($optModel->billing_type === 'per_pax') {
+                                                        if ($optModel->billing_type === 'per_pax' || $optModel->hasExtraPaxSeasonalModifierForDate($serviceDate, $pricingQuantity)) {
                                                             if ($item->product?->enable_age_selector && ($ageAdults + $ageChildren + $ageTeenagers) > 0) {
-                                                                $adultMod = $optModel->priceModifierForAge(false);
-                                                                $childMod = $optModel->priceModifierForAge(true);
-                                                                $teenMod = $optModel->priceModifierForAgeGroup('teen');
-                                                                $lineTotal = ($adultMod * $ageAdults) + ($childMod * $ageChildren) + ($teenMod * $ageTeenagers);
-                                                                $teenText = $item->product?->teen_age_limit !== null ? " + {$teenMod}¥ x {$ageTeenagers} adolescents" : '';
-                                                                $optRows[] = "{$optModel->name} (+{$adultMod}¥ x {$ageAdults} adultes + {$childMod}¥ x {$ageChildren} enfants{$teenText} = {$lineTotal}¥)";
+                                                                $billableGroups = $optModel->billableAgeGroupQuantitiesForDate($serviceDate, $qty, $ageAdults, $ageChildren, $ageTeenagers);
+                                                                $adultMod = $optModel->priceModifierForDate($serviceDate, 'adult', $ageAdults);
+                                                                $childMod = $optModel->priceModifierForDate($serviceDate, 'child', $ageChildren);
+                                                                $teenMod = $optModel->priceModifierForDate($serviceDate, 'teen', $ageTeenagers);
+                                                                $lineTotal = ($adultMod * $billableGroups['adults']) + ($childMod * $billableGroups['children']) + ($teenMod * $billableGroups['teenagers']);
+                                                                $teenText = $item->product?->teen_age_limit !== null ? " + {$teenMod}¥ x {$billableGroups['teenagers']} adolescents" : '';
+                                                                $optRows[] = "{$optModel->name} (+{$adultMod}¥ x {$billableGroups['adults']} adultes + {$childMod}¥ x {$billableGroups['children']} enfants{$teenText} = {$lineTotal}¥)";
                                                             } else {
-                                                                $lineTotal = $mod * $qty;
-                                                                $optRows[] = "{$optModel->name} (+{$mod}¥ x {$qty} pax = {$lineTotal}¥)";
+                                                                $billableQty = $optModel->billableQuantityForDate($serviceDate, $qty);
+                                                                $lineTotal = $mod * $billableQty;
+                                                                $extraText = $billableQty < $qty ? ' pax supplémentaires' : ' pax';
+                                                                $optRows[] = "{$optModel->name} (+{$mod}¥ x {$billableQty}{$extraText} = {$lineTotal}¥)";
                                                             }
                                                             $optionsTotal += $lineTotal;
                                                         } elseif ($optModel->billing_type === 'manual') {

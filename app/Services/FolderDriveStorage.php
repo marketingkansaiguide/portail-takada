@@ -14,6 +14,8 @@ class FolderDriveStorage
 {
     private const PATH_PREFIX = 'gdrive://';
 
+    private const TECHNICAL_BACKUPS_FOLDER = 'Sauvegardes portail Takada';
+
     /**
      * Upload a file into the dedicated folder of a client dossier.
      */
@@ -153,6 +155,90 @@ class FolderDriveStorage
         }
     }
 
+    /**
+     * Upload a technical database backup outside of client dossier folders.
+     */
+    public function uploadDatabaseBackup(string $absolutePath, string $fileName): string
+    {
+        if (! is_file($absolutePath)) {
+            throw new RuntimeException('Le fichier de sauvegarde local est introuvable.');
+        }
+
+        $name = $this->safeFileName($fileName);
+        $created = $this->drive()->files->create(new DriveFile([
+            'name' => $name,
+            'parents' => [$this->technicalBackupsFolderId()],
+        ]), [
+            'data' => file_get_contents($absolutePath),
+            'mimeType' => 'application/gzip',
+            'uploadType' => 'multipart',
+            'supportsAllDrives' => true,
+            'fields' => 'id,name',
+        ]);
+
+        return (string) $created->getId();
+    }
+
+    /**
+     * Keep the newest technical backups and delete the older ones from Drive.
+     */
+    public function pruneDatabaseBackups(int $keep): int
+    {
+        $folderId = $this->technicalBackupsFolderId();
+        $result = $this->drive()->files->listFiles([
+            'q' => sprintf("'%s' in parents and trashed = false", $folderId),
+            'corpora' => 'drive',
+            'driveId' => $this->sharedDriveId(),
+            'includeItemsFromAllDrives' => true,
+            'supportsAllDrives' => true,
+            'spaces' => 'drive',
+            'orderBy' => 'createdTime desc',
+            'fields' => 'files(id)',
+            'pageSize' => 1000,
+        ]);
+
+        $deleted = 0;
+
+        foreach (array_slice($result->getFiles(), max(1, $keep)) as $file) {
+            $this->drive()->files->delete($file->getId(), ['supportsAllDrives' => true]);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Return the newest database backup stored in the shared Drive.
+     *
+     * @return array{id: string, name: string, created_at: string}|null
+     */
+    public function latestDatabaseBackup(): ?array
+    {
+        $result = $this->drive()->files->listFiles([
+            'q' => sprintf("'%s' in parents and trashed = false", $this->technicalBackupsFolderId()),
+            'corpora' => 'drive',
+            'driveId' => $this->sharedDriveId(),
+            'includeItemsFromAllDrives' => true,
+            'supportsAllDrives' => true,
+            'spaces' => 'drive',
+            'orderBy' => 'createdTime desc',
+            'fields' => 'files(id,name,createdTime)',
+            'pageSize' => 1,
+        ]);
+
+        $file = $result->getFiles()[0] ?? null;
+
+        if ($file === null || $file->getCreatedTime() === null) {
+            return null;
+        }
+
+        return [
+            'id' => (string) $file->getId(),
+            'name' => (string) $file->getName(),
+            'created_at' => (string) $file->getCreatedTime(),
+        ];
+    }
+
     private function sectionId(Folder $folder, string $section): string
     {
         $folderId = $this->folderId($folder);
@@ -163,6 +249,11 @@ class FolderDriveStorage
         };
 
         return $this->findOrCreateFolder($sectionName, $folderId);
+    }
+
+    private function technicalBackupsFolderId(): string
+    {
+        return $this->findOrCreateFolder(self::TECHNICAL_BACKUPS_FOLDER, $this->sharedDriveId());
     }
 
     private function folderId(Folder $folder): string

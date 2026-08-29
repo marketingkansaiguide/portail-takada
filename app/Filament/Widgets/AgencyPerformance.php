@@ -21,7 +21,12 @@ class AgencyPerformance extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('Performances & Rentabilité par Agence');
+        return __('Performance par agence');
+    }
+
+    protected function getTableDescription(): ?string
+    {
+        return __('Uniquement les agences ayant des dossiers confirmés ou terminés sur la période.');
     }
 
     public function table(Table $table): Table
@@ -32,6 +37,14 @@ class AgencyPerformance extends BaseWidget
         return $table
             ->query(
                 Agency::query()
+                    ->whereExists(function ($query) use ($startDate, $endDate) {
+                        $query->selectRaw('1')
+                            ->from('folders')
+                            ->whereColumn('folders.agency_id', 'agencies.id')
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate));
+                    })
                     ->addSelect([
                         'folders_count' => Folder::selectRaw('count(*)')
                             ->whereColumn('agency_id', 'agencies.id')
@@ -71,7 +84,7 @@ class AgencyPerformance extends BaseWidget
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                ->label(__('Nb. Dossiers'))
+                ->label(__('Dossiers'))
                     ->badge()
                     ->sortable(),
                     
@@ -82,13 +95,12 @@ class AgencyPerformance extends BaseWidget
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                ->label(__('Marge Globale'))
+                ->label(__('Marge brute'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
                     
-                // 💡 LA NOUVELLE COLONNE : Taux de marge (%)
                 Tables\Columns\TextColumn::make('taux_marge')
                 ->label(__('Marge (%)'))
                     ->getStateUsing(function ($record) {
@@ -100,15 +112,16 @@ class AgencyPerformance extends BaseWidget
                     ->color(fn ($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger')),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                ->label(__('Marge Moy. / Dossier'))
+                ->label(__('Marge moy. / dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
                     
                 Tables\Columns\TextColumn::make('prestations_moyennes')
-                ->label(__('Moy. Prestations / Dossier'))
+                ->label(__('Prestations / dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? round($record->items_count / $record->folders_count, 1) : 0)
                     ->numeric(1)
-                    ->color('info'),
+                    ->color('info')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('total_ca', 'desc')
             ->striped();

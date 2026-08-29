@@ -26,7 +26,17 @@ class FolderChat extends Component
 
     public function mount(Folder $folder)
     {
+        abort_unless($this->mayAccessFolder($folder), 403);
+
         $this->folder = $folder;
+    }
+
+    private function mayAccessFolder(Folder $folder): bool
+    {
+        $userId = $this->getActiveUserId();
+        $user = $userId ? User::find($userId) : null;
+
+        return $user?->can('view', $folder) ?? false;
     }
 
     /**
@@ -56,6 +66,8 @@ class FolderChat extends Component
 
     public function sendMessage()
     {
+        abort_unless($this->mayAccessFolder($this->folder), 403);
+
         $this->validate([
             'newMessage' => 'required_without:attachment|string|max:2000',
             'attachment' => 'nullable|file|max:10240',
@@ -90,18 +102,12 @@ class FolderChat extends Component
             // Si c'est l'AGENCE qui écrit
             else {
                 $setting = \App\Models\Setting::first();
-                $adminEmails = [];
-                
-                // On récupère la liste des e-mails et on la transforme en tableau (array)
-                if ($setting && !empty($setting->admin_email_notifications)) {
-                    $adminEmails = explode(',', $setting->admin_email_notifications);
-                    $adminEmails = array_map('trim', $adminEmails);
-                    $adminEmails = array_filter($adminEmails);
-                }
-                
-                // Si aucune adresse n'est configurée, on utilise celle du .env par défaut
-                if (empty($adminEmails)) {
-                    $adminEmails = [env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS'))];
+                $adminEmails = $setting?->adminNotificationEmails() ?? [];
+
+                // Si aucune adresse n'est configurée, on utilise le destinataire
+                // déclaré dans la configuration (compatible avec config:cache).
+                if (empty($adminEmails) && filled(config('mail.admin_receiver'))) {
+                    $adminEmails = [config('mail.admin_receiver')];
                 }
                 
                 // Envoi à toutes les adresses récoltées
@@ -117,6 +123,8 @@ class FolderChat extends Component
 
     public function render()
     {
+        abort_unless($this->mayAccessFolder($this->folder), 403);
+
         $messages = FolderMessage::where('folder_id', $this->folder->id)
             ->with('user')
             ->oldest()

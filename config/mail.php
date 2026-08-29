@@ -115,4 +115,8 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    // Destinataires internes réutilisables par les alertes de l'application.
+    'admin_receiver' => env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS')),
+    'admin_alert_address' => env('ADMIN_ALERT_EMAIL', env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS'))),
+
 ];

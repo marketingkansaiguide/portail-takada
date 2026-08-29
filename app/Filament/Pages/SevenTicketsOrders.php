@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\FolderItem;
 use App\Models\ProductSupplier;
+use App\Support\AdminAccess;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -21,6 +22,11 @@ use Illuminate\Database\Eloquent\Builder;
 
 class SevenTicketsOrders extends Page implements HasTable
 {
+    public static function canAccess(): bool
+    {
+        return AdminAccess::allows('operations.seven_tickets');
+    }
+
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-ticket';

@@ -9,6 +9,20 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\ContactController; // 💡 IMPORT AJOUTÉ POUR QUE LA CLASSE SOIT RECONNUE
 use App\Http\Controllers\FolderDriveFileController;
 
+Route::get('/robots.txt', function () {
+    try {
+        $preventIndexing = (bool) \App\Models\Setting::query()->value('prevent_search_indexing');
+    } catch (\Throwable) {
+        $preventIndexing = false;
+    }
+
+    $content = $preventIndexing
+        ? "User-agent: *\nDisallow: /\n"
+        : "User-agent: *\nAllow: /\n";
+
+    return response($content, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+})->name('robots');
+
 // On laisse l'accueil libre pour le panel Filament Agence
 // Route::get('/', function () {
 //     return view('welcome');
@@ -28,6 +42,10 @@ Route::get('/dossiers/{folder}/fichiers/{fileId}', [FolderDriveFileController::c
     ->middleware(['auth:web,agency'])
     ->name('folders.drive-file');
 
+Route::get('/dossiers/{folder}/fichiers-historiques', [FolderDriveFileController::class, 'showLegacy'])
+    ->middleware(['auth:web,agency'])
+    ->name('folders.legacy-file');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -35,8 +53,19 @@ Route::get('/dossiers/{folder}/fichiers/{fileId}', [FolderDriveFileController::c
 |--------------------------------------------------------------------------
 */
 Route::get('/pdf/recapitulatif/{folder}', function (Folder $folder) {
+    abort_unless(auth('web')->check(), 403);
+    abort_unless(auth('web')->user()->can('view', $folder), 403);
+
     // 1. On charge les relations nécessaires (Agence, Prestations, Options)
-    $folder->load(['agency', 'folderItems.product', 'folderItems.productOption']);
+    $folder->load([
+        'agency',
+        'folderItems' => fn ($query) => $query
+            ->orderByRaw('service_date IS NULL')
+            ->orderBy('service_date')
+            ->orderBy('id'),
+        'folderItems.product',
+        'folderItems.productOption',
+    ]);
 
     // 2. On prépare toutes les variables dynamiques
     $dateEmit = now()->format('d/m/Y');
@@ -69,6 +98,9 @@ Route::get('/pdf/recapitulatif/{folder}', function (Folder $folder) {
 |--------------------------------------------------------------------------
 */
 Route::get('/pdf/fax/{folderItem}', function (\App\Models\FolderItem $folderItem) {
+    abort_unless(auth('web')->check(), 403);
+    abort_unless(auth('web')->user()->can('view', $folderItem), 403);
+
     $item = $folderItem->load(['product.supplier', 'folder']);
     
     $faxData = $item->product->supplier_fax_header ?? [];
@@ -97,7 +129,7 @@ Route::get('/pdf/fax/{folderItem}', function (\App\Models\FolderItem $folderItem
     ];
 
     return view('pdf.fax', $data);
-})->name('pdf.fax')->middleware('auth');
+})->name('pdf.fax');
 
 
 /*
@@ -125,41 +157,6 @@ Route::get('/storage/{path}', function (string $path) {
 | ROUTE DE TÉLÉCHARGEMENT UNIVERSELLE (PARFEITE POUR WINDOWS / HERD)
 |--------------------------------------------------------------------------
 */
-Route::get('/download-file', function (Illuminate\Http\Request $request) {
-    $path = $request->query('path');
-    
-    if (!$path) {
-        abort(404, 'Le chemin du fichier est manquant.');
-    }
-
-    // 1. Nettoyage des slashs Windows et des préfixes inutiles
-    $cleanPath = str_replace(['\\', '//'], '/', $path);
-    $cleanPath = preg_replace('#^/?(storage/|public/)#', '', $cleanPath);
-    $cleanPath = ltrim($cleanPath, '/');
-
-    // 2. Recherche sur le disque public (storage/app/public/...)
-    if (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
-        return \Illuminate\Support\Facades\Storage::disk('public')->download($cleanPath);
-    }
-
-    // 3. Recherche sur le disque local (storage/app/...)
-    if (\Illuminate\Support\Facades\Storage::disk('local')->exists($cleanPath)) {
-        return \Illuminate\Support\Facades\Storage::disk('local')->download($cleanPath);
-    }
-
-    // 4. Vérification physique directe des fichiers sur le disque dur
-    $pubFile = storage_path('app/public/' . $cleanPath);
-    if (file_exists($pubFile)) {
-        return response()->download($pubFile);
-    }
-
-    $locFile = storage_path('app/' . $cleanPath);
-    if (file_exists($locFile)) {
-        return response()->download($locFile);
-    }
-
-    abort(404, "Fichier introuvable sur le serveur ($cleanPath).");
-})->name('file.download');
 /*
 |--------------------------------------------------------------------------
 | ROUTE DE LANGUE
@@ -179,6 +176,10 @@ Route::get('/lang/{locale}', function (string $locale) {
 |--------------------------------------------------------------------------
 */
 Route::get('/pdf/labels', function (Illuminate\Http\Request $request) {
+    abort_unless(auth('web')->check(), 403);
+    $user = auth('web')->user();
+    abort_unless($user?->can('viewAny', Folder::class), 403);
+
     $rawIds = $request->query('ids', '');
     
     if (empty($rawIds)) {
@@ -196,18 +197,29 @@ Route::get('/pdf/labels', function (Illuminate\Http\Request $request) {
         abort(404, 'Aucun dossier confirmé trouvé pour cette sélection.');
     }
 
+    abort_unless($folders->every(fn (Folder $folder) => $user->can('view', $folder)), 403);
+
     return view('pdf.labels', compact('folders'));
-})->name('pdf.labels')->middleware('auth');
+})->name('pdf.labels');
 
 Route::get('/pdf/train-labels', function (Request $request) {
+    abort_unless(auth('web')->check(), 403);
+    $user = auth('web')->user();
+    abort_unless($user?->can('viewAny', Folder::class), 403);
+
     // On récupère les IDs sélectionnés passés en paramètre
     $ids = explode(',', $request->get('ids'));
     $items = FolderItem::with('folder')->whereIn('id', $ids)->get();
+    abort_unless($items->isNotEmpty() && $items->every(fn (FolderItem $item) => $user->can('view', $item)), 403);
     
     return view('pdf.train-labels', compact('items'));
-})->name('pdf.train-labels')->middleware('auth');
+})->name('pdf.train-labels');
 
 Route::get('/pdf/seven-tickets-labels', function (Request $request) {
+    abort_unless(auth('web')->check(), 403);
+    $user = auth('web')->user();
+    abort_unless($user?->can('viewAny', Folder::class), 403);
+
     $ids = array_filter(explode(',', (string) $request->query('ids', '')));
 
     if ($ids === []) {
@@ -223,5 +235,7 @@ Route::get('/pdf/seven-tickets-labels', function (Request $request) {
         abort(404, 'Aucune prestation Seven Tickets trouvée pour cette sélection.');
     }
 
+    abort_unless($records->every(fn (FolderItem $item) => $user->can('view', $item)), 403);
+
     return view('pdf.seven-tickets-labels', compact('records'));
-})->name('pdf.seven-tickets-labels')->middleware('auth');
+})->name('pdf.seven-tickets-labels');

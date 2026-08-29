@@ -158,6 +158,25 @@ class TransportProductResource extends Resource
                                         ->default('Toute l\'année')
                                         ->required(),
 
+                                    Repeater::make('date_ranges')
+                                        ->label(__('Plages de validité (facultatif pour toute l’année)'))
+                                        ->helperText(__('Une même saison peut couvrir plusieurs plages de dates.'))
+                                        ->addActionLabel(__('Ajouter une plage de dates'))
+                                        ->schema([
+                                            TextInput::make('start_date')
+                                                ->label(__('Date de début (JJ/MM)'))
+                                                ->mask('99/99')
+                                                ->formatStateUsing(fn (?string $state) => $state && str_contains($state, '-') ? implode('/', array_reverse(explode('-', $state))) : $state)
+                                                ->dehydrateStateUsing(fn (?string $state) => $state && str_contains($state, '/') ? implode('-', array_reverse(explode('/', $state))) : $state)
+                                                ->required(),
+                                            TextInput::make('end_date')
+                                                ->label(__('Date de fin (JJ/MM)'))
+                                                ->mask('99/99')
+                                                ->formatStateUsing(fn (?string $state) => $state && str_contains($state, '-') ? implode('/', array_reverse(explode('-', $state))) : $state)
+                                                ->dehydrateStateUsing(fn (?string $state) => $state && str_contains($state, '/') ? implode('-', array_reverse(explode('/', $state))) : $state)
+                                                ->required(),
+                                        ])->columns(2),
+
                                     Repeater::make('productPrices')
                                         ->relationship()
                                         ->label(__('Frais fixes par tranche de pax'))

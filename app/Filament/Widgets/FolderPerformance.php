@@ -5,11 +5,14 @@ namespace App\Filament\Widgets;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use App\Models\Folder;
 use App\Models\FolderItem;
 
 class FolderPerformance extends BaseWidget
 {
+    use InteractsWithPageFilters;
+
     // 💡 Désactivation du Lazy Loading pour Windows
     protected static bool $isLazy = false; 
     protected static bool $isDiscovered = false;
@@ -21,15 +24,26 @@ class FolderPerformance extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('Rentabilité détaillée par Dossier');
+        return __('Dossiers les plus importants');
+    }
+
+    protected function getTableDescription(): ?string
+    {
+        return __('Dossiers confirmés ou terminés, classés par chiffre d’affaires.');
     }
 
     public function table(Table $table): Table
     {
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
+
         return $table
             ->query(
                 Folder::query()
                     ->whereIn('status', ['confirmed', 'completed'])
+                    ->where('total_price', '>', 0)
+                    ->when($startDate, fn ($query) => $query->whereDate('created_at', '>=', $startDate))
+                    ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate))
                     ->addSelect([
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(purchase_total_price), 0)')
                             ->whereColumn('folder_id', 'folders.id'),
@@ -68,7 +82,7 @@ class FolderPerformance extends BaseWidget
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('marge_brute')
-                ->label(__('Marge Nette (¥)'))
+                ->label(__('Marge brute (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_price - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
@@ -84,7 +98,7 @@ class FolderPerformance extends BaseWidget
                     ->suffix('%')
                     ->color(fn ($state) => $state >= 20 ? 'success' : ($state >= 10 ? 'warning' : 'danger')),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('total_price', 'desc')
             ->striped();
     }
 }

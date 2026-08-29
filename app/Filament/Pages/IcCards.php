@@ -6,6 +6,7 @@ use App\Models\Folder;
 use App\Models\FolderItem;
 use App\Models\ItemStatus;
 use App\Models\ProductOption;
+use App\Support\AdminAccess;
 use BackedEnum;
 use UnitEnum;
 use Carbon\Carbon;
@@ -28,6 +29,11 @@ use Livewire\Attributes\Computed;
 
 class IcCards extends Page implements HasTable
 {
+    public static function canAccess(): bool
+    {
+        return AdminAccess::allows('operations.ic_cards');
+    }
+
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';

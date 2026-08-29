@@ -17,12 +17,12 @@ class HotelPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasPermission('hotel.viewAny') || $user->agency_id !== null;
+        return $user->hasPermission('hotel.viewAny') || $user->hasRole(User::ROLE_AGENCY);
     }
 
     public function view(User $user, Hotel $hotel): bool
     {
-        return $user->hasPermission('hotel.view') || $user->agency_id !== null;
+        return $user->hasPermission('hotel.view') || $user->hasRole(User::ROLE_AGENCY);
     }
 
     public function create(User $user): bool

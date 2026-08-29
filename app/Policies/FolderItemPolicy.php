@@ -17,13 +17,14 @@ class FolderItemPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->agency_id !== null || $user->hasPermission('folder.viewAny');
+        return $user->hasRole(User::ROLE_AGENCY) || $user->hasPermission('folder.viewAny');
     }
 
     public function view(User $user, FolderItem $folderItem): bool
     {
-        if ($user->agency_id !== null && $folderItem->folder && $folderItem->folder->agency_id === $user->agency_id) {
-            return true;
+        if ($user->hasRole(User::ROLE_AGENCY)) {
+            return $folderItem->folder
+                && (int) $folderItem->folder->agency_id === (int) $user->agency_id;
         }
 
         return $user->hasPermission('folder.view');
@@ -31,13 +32,14 @@ class FolderItemPolicy
 
     public function create(User $user): bool
     {
-        return $user->agency_id !== null || $user->hasPermission('folder.update');
+        return $user->hasRole(User::ROLE_AGENCY) || $user->hasPermission('folder.update');
     }
 
     public function update(User $user, FolderItem $folderItem): bool
     {
-        if ($user->agency_id !== null && $folderItem->folder && $folderItem->folder->agency_id === $user->agency_id) {
-            return true;
+        if ($user->hasRole(User::ROLE_AGENCY)) {
+            return $folderItem->folder
+                && (int) $folderItem->folder->agency_id === (int) $user->agency_id;
         }
 
         return $user->hasPermission('folder.update');
@@ -45,8 +47,10 @@ class FolderItemPolicy
 
     public function delete(User $user, FolderItem $folderItem): bool
     {
-        if ($user->agency_id !== null && $folderItem->folder && $folderItem->folder->agency_id === $user->agency_id) {
-            return $folderItem->folder->status === 'draft';
+        if ($user->hasRole(User::ROLE_AGENCY)) {
+            return $folderItem->folder
+                && (int) $folderItem->folder->agency_id === (int) $user->agency_id
+                && $folderItem->folder->status === 'draft';
         }
 
         return $user->hasPermission('folder.delete');

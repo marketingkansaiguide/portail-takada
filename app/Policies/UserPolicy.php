@@ -27,7 +27,7 @@ class UserPolicy
     {
         // 💡 SÉCURITÉ : Une agence ne peut voir que les vendeurs de son agence
         if ($user->role === User::ROLE_AGENCY) {
-            return $user->agency_id === $model->agency_id;
+            return $user->agency_id === $model->agency_id && $model->role === User::ROLE_AGENCY;
         }
         return $user->hasPermission('user.view');
     }
@@ -45,7 +45,7 @@ class UserPolicy
     {
         // 💡 SÉCURITÉ : Une agence ne peut modifier que les vendeurs de son agence
         if ($user->role === User::ROLE_AGENCY) {
-            return $user->agency_id === $model->agency_id;
+            return $user->agency_id === $model->agency_id && $model->role === User::ROLE_AGENCY;
         }
         return $user->hasPermission('user.update');
     }
@@ -59,7 +59,7 @@ class UserPolicy
         
         // 💡 SÉCURITÉ : Une agence ne peut supprimer que les vendeurs de son agence
         if ($user->role === User::ROLE_AGENCY) {
-            return $user->agency_id === $model->agency_id;
+            return $user->agency_id === $model->agency_id && $model->role === User::ROLE_AGENCY;
         }
         return $user->hasPermission('user.delete');
     }

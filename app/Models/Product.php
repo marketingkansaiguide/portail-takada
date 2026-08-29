@@ -36,6 +36,41 @@ class Product extends Model
         return $this->product_type === 'transport';
     }
 
+    public function usesGlobalGuidingRate(?ProductPrice $price): bool
+    {
+        return (int) $this->category_id === 4 && $price?->isGlobalRate();
+    }
+
+    public function baseRateTotal(?ProductPrice $price, int $quantity, ?ProductPeriod $period = null, ?int $age = null): float
+    {
+        if (! $price) {
+            return 0.0;
+        }
+
+        $baseTotal = $this->usesGlobalGuidingRate($price)
+            ? (float) $price->price
+            : (float) $price->price * max(1, $quantity);
+
+        $legacyExtraPax = (int) $this->category_id === 4
+            ? max(0, $quantity - (int) ($price->max_pax ?? $quantity))
+            : 0;
+
+        $extraTotal = $legacyExtraPax * (float) ($price->extra_pax_price ?? 0);
+
+        if ((int) $this->category_id === 4 && $period) {
+            foreach ($period->productPrices
+                ->filter(fn (ProductPrice $candidate): bool => $candidate->isExtraPaxRate())
+                ->filter(fn (ProductPrice $candidate): bool => $age === null || ((int) $candidate->min_age <= $age && (int) $candidate->max_age >= $age)) as $extraRate) {
+                $from = max(1, (int) $extraRate->min_pax);
+                $to = max($from, (int) ($extraRate->max_pax ?? $quantity));
+                $affectedPax = max(0, min($quantity, $to) - $from + 1);
+                $extraTotal += $affectedPax * (float) $extraRate->price;
+            }
+        }
+
+        return $baseTotal + $extraTotal;
+    }
+
     /**
      * Date limite à laquelle une agence peut encore demander la prestation.
      */
@@ -112,10 +147,11 @@ class Product extends Model
         $teenAge = (int) ($this->child_age_limit ?? 11) + 1;
         $adultAge = $this->teen_age_limit !== null ? (int) $this->teen_age_limit + 1 : $teenAge;
 
-        $findPrice = function (int $age) use ($prices, $totalPax): ?float {
-            $price = $prices
-                ->where('min_pax', '<=', $totalPax)
-                ->where('max_pax', '>=', $totalPax)
+        $findPrice = function (int $age, int $paxCount) use ($prices, $period): ?array {
+            $regularPrices = $prices->reject(fn (ProductPrice $price): bool => $price->isExtraPaxRate());
+            $price = $regularPrices
+                ->where('min_pax', '<=', $paxCount)
+                ->where('max_pax', '>=', $paxCount)
                 ->where('min_age', '<=', $age)
                 ->where('max_age', '>=', $age)
                 ->sortBy(function ($price): int {
@@ -128,25 +164,59 @@ class Product extends Model
                 })
                 ->first();
 
-            return $price ? (float) $price->price : null;
+            if ($price) {
+                $total = $this->usesGlobalGuidingRate($price)
+                    ? (float) $price->price
+                    : (float) $price->price * $paxCount;
+
+                return [
+                    'unit' => $total / max(1, $paxCount),
+                    'total' => $total,
+                ];
+            }
+
+            // Dans le guidage, une catégorie d'âge sans ligne tarifaire est
+            // gratuite. Les adultes au-delà de la dernière tranche restent,
+            // eux, éligibles au supplément par pax supplémentaire.
+            if ((int) $this->category_id === 4) {
+                $fallback = $regularPrices
+                    ->where('min_age', '<=', $age)
+                    ->where('max_age', '>=', $age)
+                    ->sortByDesc('max_pax')
+                    ->first();
+
+                if (! $fallback) {
+                    return ['unit' => 0.0, 'total' => 0.0];
+                }
+
+                $total = $this->baseRateTotal($fallback, $paxCount, $period, $age);
+
+                return [
+                    'unit' => $total / max(1, $paxCount),
+                    'total' => $total,
+                ];
+            }
+
+            return null;
         };
 
-        $childPrice = $children > 0 ? $findPrice($childAge) : 0.0;
-        $teenPrice = $teenagers > 0 ? $findPrice($teenAge) : 0.0;
-        $adultPrice = $adults > 0 ? $findPrice($adultAge) : 0.0;
+        $usePerAgePaxCount = (int) $this->category_id === 4;
+        $childPrice = $children > 0 ? $findPrice($childAge, $usePerAgePaxCount ? $children : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
+        $teenPrice = $teenagers > 0 ? $findPrice($teenAge, $usePerAgePaxCount ? $teenagers : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
+        $adultPrice = $adults > 0 ? $findPrice($adultAge, $usePerAgePaxCount ? $adults : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
 
         if (($children > 0 && $childPrice === null) || ($teenagers > 0 && $teenPrice === null) || ($adults > 0 && $adultPrice === null)) {
             return null;
         }
 
         return [
-            'adult_unit' => $adultPrice,
-            'child_unit' => $childPrice,
-            'teen_unit' => $teenPrice,
-            'adult_total' => $adultPrice * $adults,
-            'child_total' => $childPrice * $children,
-            'teen_total' => $teenPrice * $teenagers,
-            'total' => ($adultPrice * $adults) + ($childPrice * $children) + ($teenPrice * $teenagers),
+            'adult_unit' => $adultPrice['unit'],
+            'child_unit' => $childPrice['unit'],
+            'teen_unit' => $teenPrice['unit'],
+            'adult_total' => $adultPrice['total'],
+            'child_total' => $childPrice['total'],
+            'teen_total' => $teenPrice['total'],
+            'total' => $adultPrice['total'] + $childPrice['total'] + $teenPrice['total'],
         ];
     }
 
@@ -232,9 +302,27 @@ class Product extends Model
         return $this->hasMany(ProductPeriod::class);
     }
 
+    public function periodForDate(string|Carbon|null $date): ?ProductPeriod
+    {
+        if (blank($date)) {
+            return null;
+        }
+
+        $periods = $this->relationLoaded('productPeriods')
+            ? $this->productPeriods
+            : $this->productPeriods()->get();
+
+        return $periods->first(fn (ProductPeriod $period): bool => $period->matchesDate($date));
+    }
+
     public function productOptions()
     {
         return $this->hasMany(ProductOption::class);
+    }
+
+    public function guidingOptionSeasonPrices()
+    {
+        return $this->hasMany(ProductOptionSeasonPrice::class);
     }
 
     public function productSuppliers()

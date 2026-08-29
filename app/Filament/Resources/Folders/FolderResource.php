@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Folders;
 use App\Filament\Resources\Folders\Pages;
 use App\Filament\Resources\Folders\FolderResource\RelationManagers; 
 use App\Models\Folder;
+use App\Models\FolderItem;
 use App\Models\FolderMessage;
 use App\Services\FolderDriveStorage;
 use App\Models\Hotel;
@@ -158,7 +159,7 @@ class FolderResource extends Resource
         $selectedOptions = $get('selected_options') ?? [];
         $customValues = $get('custom_values') ?? [];
 
-        $product = $productId ? \App\Models\Product::with('productPeriods.productPrices')->find($productId) : null;
+        $product = $productId ? \App\Models\Product::with(['productPeriods.productPrices', 'productOptions.seasonalPrices'])->find($productId) : null;
         $ageBaseTotal = null;
         $ageBaseBreakdown = null;
         $ageSelectorData = null;
@@ -192,36 +193,26 @@ class FolderResource extends Resource
         }
         
         $basePrice = 0;
+        $basePriceRow = null;
+        $basePricePeriod = null;
         if ($product && $serviceDate) {
-            $mdStr = \Carbon\Carbon::parse($serviceDate)->format('m-d');
-            if ($product->productPeriods) {
-                foreach ($product->productPeriods as $period) {
-                    $inPeriod = true; // Par défaut, la saison "Toute l'année" (sans dates) est valide.
-                    
-                    if ($period->start_date && $period->end_date) {
-                        $inPeriod = ($period->start_date <= $period->end_date) 
-                            ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                            : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
+            if ($period = $product->periodForDate($serviceDate)) {
+                $basePricePeriod = $period;
+                $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity)
+                    ->reject(fn ($price) => $price->isExtraPaxRate());
+                if ($validPrices->isNotEmpty()) {
+                    $basePriceRow = $validPrices->first();
+                    $basePrice = $basePriceRow->price;
+                    if ($ageSelectorData && $product->usesAgeSelector()) {
+                        $ageBaseBreakdown = $product->calculateAgeBasedBreakdown($period, $itemQuantity, $ageSelectorData['adults'], $ageSelectorData['children'], $ageSelectorData['teenagers']);
+                        $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
                     }
-                    
-                    if ($inPeriod && $period->productPrices) {
-                        $validPrices = $period->productPrices->where('min_pax', '<=', $itemQuantity)->where('max_pax', '>=', $itemQuantity);
-                        if ($validPrices->isNotEmpty()) {
-                            $basePrice = $validPrices->first()->price;
-                            if ($ageSelectorData) {
-                                $ageBaseBreakdown = $product->calculateAgeBasedBreakdown(
-                                    $period,
-                                    $itemQuantity,
-                                    $ageSelectorData['adults'],
-                                    $ageSelectorData['children'],
-                                    $ageSelectorData['teenagers'],
-                                );
-                                $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
-                            }
-                        } else {
-                            $basePrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                        }
-                        break;
+                } else {
+                    $basePriceRow = $period->productPrices->reject(fn ($price) => $price->isExtraPaxRate())->sortByDesc('max_pax')->first();
+                    $basePrice = $basePriceRow?->price ?? 0;
+                    if ($ageSelectorData && $product->usesAgeSelector()) {
+                        $ageBaseBreakdown = $product->calculateAgeBasedBreakdown($period, $itemQuantity, $ageSelectorData['adults'], $ageSelectorData['children'], $ageSelectorData['teenagers']);
+                        $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
                     }
                 }
             }
@@ -235,15 +226,17 @@ class FolderResource extends Resource
                 if (empty($optData['product_option_id'])) continue;
                 $option = \App\Models\ProductOption::find($optData['product_option_id']);
                 if ($option) {
-                    $mod = (float) $option->price_modifier;
-                    if ($option->billing_type === 'per_pax') {
+                    $pricingQuantity = $ageSelectorData ? $ageSelectorData['adults'] : $itemQuantity;
+                    $mod = $option->priceModifierForDate($serviceDate, 'adult', $pricingQuantity);
+                    if ($option->billing_type === 'per_pax' || $option->hasExtraPaxSeasonalModifierForDate($serviceDate, $pricingQuantity)) {
                         if ($ageSelectorData) {
-                            $adultMod = $option->priceModifierForAge(false);
-                            $childMod = $option->priceModifierForAge(true);
-                            $teenMod = $option->priceModifierForAgeGroup('teen');
-                            $perPaxOptionsTotal += (($adultMod * $ageSelectorData['adults']) + ($childMod * $ageSelectorData['children']) + ($teenMod * $ageSelectorData['teenagers'])) / max(1, $itemQuantity);
+                            $billableGroups = $option->billableAgeGroupQuantitiesForDate($serviceDate, $itemQuantity, $ageSelectorData['adults'], $ageSelectorData['children'], $ageSelectorData['teenagers']);
+                            $adultMod = $option->priceModifierForDate($serviceDate, 'adult', $ageSelectorData['adults']);
+                            $childMod = $option->priceModifierForDate($serviceDate, 'child', $ageSelectorData['children']);
+                            $teenMod = $option->priceModifierForDate($serviceDate, 'teen', $ageSelectorData['teenagers']);
+                            $perPaxOptionsTotal += (($adultMod * $billableGroups['adults']) + ($childMod * $billableGroups['children']) + ($teenMod * $billableGroups['teenagers'])) / max(1, $itemQuantity);
                         } else {
-                            $perPaxOptionsTotal += $mod;
+                            $perPaxOptionsTotal += ($mod * $option->billableQuantityForDate($serviceDate, $itemQuantity)) / max(1, $itemQuantity);
                         }
                     } elseif ($option->billing_type === 'per_booking') {
                         $fixedOptionsTotal += $mod;
@@ -256,12 +249,14 @@ class FolderResource extends Resource
         }
 
         // --- NOUVELLE LOGIQUE DE CALCUL ---
-        $unitPrice = $ageBaseTotal !== null
-            ? ((float) $ageBaseTotal / max(1, $itemQuantity)) + (float) $perPaxOptionsTotal
-            : (float) $basePrice + (float) $perPaxOptionsTotal;
         $baseTotal = $ageBaseTotal !== null
             ? (float) $ageBaseTotal
-            : ((float) $basePrice * (float) $itemQuantity);
+            : $product?->baseRateTotal($basePriceRow, $itemQuantity, $basePricePeriod) ?? ((float) $basePrice * (float) $itemQuantity);
+        $baseUnitPrice = $ageBaseTotal !== null
+            ? (float) $ageBaseTotal / max(1, $itemQuantity)
+            : $baseTotal / max(1, $itemQuantity);
+        $unitPrice = $baseUnitPrice
+            + (float) $perPaxOptionsTotal;
         $fraisFixesBase = $baseTotal + ((float) $perPaxOptionsTotal * (float) $itemQuantity) + (float) $fixedOptionsTotal;
 
         if ($product && $product->product_type === 'transport') {
@@ -1835,15 +1830,18 @@ Repeater::make('transport_routes')
                                                 
                                                 $fields[] = Placeholder::make($key . '_display')
                                                     ->label($label . ($perPax ? ' (' . __('Par passager') . ')' : ''))
-                                                    ->content(function ($get) use ($key) {
+                                                    ->content(function ($get, ?FolderItem $record) use ($key) {
                                                         $val = $get($key);
+                                                        $folder = $record?->folder;
                                                         
                                                         if (empty($val)) {
                                                             return new HtmlString('<span style="color:#9ca3af; font-style:italic;">Aucun fichier fourni</span>');
                                                         }
                                                         
-                                                        $html = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) {
-                                                            $url = route('file.download', ['path' => trim($m[1])]);
+                                                        $html = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) use ($folder) {
+                                                            $url = $folder
+                                                                ? route('folders.legacy-file', ['folder' => $folder, 'path' => trim($m[1])])
+                                                                : '#';
                                                             return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
                                                         }, (string)$val);
                                                         
@@ -1913,6 +1911,12 @@ Repeater::make('transport_routes')
                                                                 $station = \App\Models\BusStation::where('name_en', $value)->first();
                                                                 return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
                                                             }),
+
+                                                        'client_hotel' => TextInput::make($key)
+                                                            ->label($label)
+                                                            ->placeholder($placeholder ?? __('Rechercher un hébergement ou saisir son nom...'))
+                                                            ->datalist(fn (): array => Hotel::query()->orderBy('name')->pluck('name')->all())
+                                                            ->helperText(__('Choisissez un hébergement de la base ou saisissez-en un autre.')),
 
                                                         default => TextInput::make($key)->label($label)->placeholder($placeholder),
                                                     };

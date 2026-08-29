@@ -163,8 +163,9 @@ class FolderHistory extends Model
     }
 
     /**
-     * Envoie aux membres de l'agence les changements réalisés par Takada ou
-     * par le système. Les actions de l'agence ne lui sont jamais renvoyées.
+     * Envoie aux membres de l'agence uniquement les changements réellement
+     * effectués par un membre de l'équipe Takada. Les actions de l'agence,
+     * les tâches automatiques et les exports techniques restent internes.
      */
     private static function notifyAgency(?Folder $folder, string $action, string $summary, string $category, array $changes, array $metadata, ?int $actorId): void
     {
@@ -173,7 +174,18 @@ class FolderHistory extends Model
         }
 
         $actor = $actorId ? User::find($actorId) : null;
-        if ($actor?->role === User::ROLE_AGENCY) {
+        if (! $actor || ! in_array($actor->role, [
+            User::ROLE_SUPER_ADMIN,
+            User::ROLE_ADMIN,
+            User::ROLE_AGENT,
+        ], true)) {
+            return;
+        }
+
+        // L'impression ou l'export d'étiquettes est un traitement interne :
+        // il ne doit jamais encombrer le centre de notifications agence.
+        $changedFields = collect($changes)->pluck('field')->filter()->all();
+        if (in_array('label_exported_at', $changedFields, true)) {
             return;
         }
 
@@ -221,14 +233,19 @@ class FolderHistory extends Model
 
     private static function agencyNotificationContent(Folder $folder, string $action, string $summary, string $category, array $changes, array $metadata): array
     {
-        $folderName = filled($folder->folder_name) ? $folder->folder_name : $folder->reference;
+        // Le centre agence ne doit jamais exposer la référence technique du
+        // dossier. Un dossier sans nom reste explicitement identifiable comme
+        // tel, sans retomber sur sa référence interne.
+        $folderName = filled($folder->folder_name)
+            ? $folder->folder_name
+            : __('Dossier sans nom');
         $changedFields = collect($changes)->pluck('field')->filter()->all();
 
         if (in_array('documents', $changedFields, true)) {
             return [
                 'type' => 'document',
                 'title' => __('Nouveaux documents dans le dossier'),
-                'body' => __('De nouveaux documents ont été ajoutés au dossier :reference.', ['reference' => $folderName]),
+                'body' => __('De nouveaux documents ont été ajoutés au dossier :folder.', ['folder' => $folderName]),
             ];
         }
 
@@ -236,7 +253,7 @@ class FolderHistory extends Model
             return [
                 'type' => 'message',
                 'title' => __('Nouveau message de l’équipe Takada'),
-                'body' => __('Un nouveau message vous attend dans le dossier :reference.', ['reference' => $folderName]),
+                'body' => __('Un nouveau message vous attend dans le dossier :folder.', ['folder' => $folderName]),
             ];
         }
 
@@ -250,7 +267,7 @@ class FolderHistory extends Model
 
         return [
             'type' => $category === 'task' ? 'task' : 'default',
-            'title' => __('Mise à jour — dossier :reference', ['reference' => $folderName]),
+            'title' => __('Mise à jour — dossier :folder', ['folder' => $folderName]),
             'body' => str($action . ' — ' . $summary)->squish()->limit(220)->toString(),
         ];
     }

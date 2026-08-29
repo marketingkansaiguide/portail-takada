@@ -15,7 +15,7 @@ class GoogleCalendarWidget extends Widget
 
     public function getUpcomingEventsGroupedByDate(): array
     {
-        $calendarId = env('GOOGLE_CALENDAR_ID');
+        $calendarId = config('services.google_calendar.calendar_id');
         $keyFilePath = storage_path('app/google-credentials.json');
 
         if (!$calendarId || !file_exists($keyFilePath)) {

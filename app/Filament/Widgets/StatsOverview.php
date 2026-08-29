@@ -49,7 +49,7 @@ class StatsOverview extends BaseWidget
         // 3. Moteur de Comparaison (si des dates sont sélectionnées)
         $trendCA = 'neutral';
         $diffCA = 0;
-        $diffDesc = __('Aucun filtre sélectionné');
+        $diffDesc = __('Comparaison disponible avec une période complète');
 
         if ($startDate && $endDate) {
             $start = Carbon::parse($startDate);
@@ -86,19 +86,19 @@ class StatsOverview extends BaseWidget
 
         return [
             Stat::make(__('CA Généré'), number_format($totalCA, 0, '.', ' ') . ' ¥')
-                ->description($startDate && $endDate ? $diffDesc : number_format($totalMargin, 0, '.', ' ') . ' ¥ ' . __('de Marge Brute'))
+                ->description($startDate && $endDate ? $diffDesc : __('Tous les dossiers confirmés et terminés'))
                 ->descriptionIcon($caIcon)
                 ->color($caColor),
 
-            Stat::make(__('Taux de Marge Global (%)'), number_format($marginRate, 2, '.', '') . ' %')
-                ->description(__('Rentabilité nette moyenne'))
+            Stat::make(__('Marge brute estimée'), number_format($totalMargin, 0, '.', ' ') . ' ¥')
+                ->description(number_format($marginRate, 1, '.', '') . ' % ' . __('du CA'))
                 ->descriptionIcon('heroicon-m-chart-pie')
                 ->color($marginRate >= 20 ? 'success' : 'warning'),
 
-            Stat::make(__('Moyenne / Dossier'), number_format($margeMoyenneDossier, 0, '.', ' ') . ' ¥ ' . __('de Marge'))
-                ->description(__('Panier :') . ' ' . number_format($panierMoyenDossier, 0, '.', ' ') . ' ¥')
+            Stat::make(__('Panier moyen / dossier'), number_format($panierMoyenDossier, 0, '.', ' ') . ' ¥')
+                ->description(__('Marge moyenne :') . ' ' . number_format($margeMoyenneDossier, 0, '.', ' ') . ' ¥')
                 ->descriptionIcon('heroicon-m-folder-open')
-                ->color($margeMoyenneDossier >= 0 ? 'success' : 'danger'),
+                ->color($panierMoyenDossier > 0 ? 'primary' : 'gray'),
 
             Stat::make(__('Volume de dossiers'), $totalFolders . ' ' . __('dossiers'))
                 ->description($startDate ? __('Sur la période filtrée') : __('Depuis toujours'))

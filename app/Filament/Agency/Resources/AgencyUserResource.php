@@ -49,8 +49,45 @@ class AgencyUserResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // SÉCURITÉ : L'agence ne voit que les comptes liés à son ID
-        return parent::getEloquentQuery()->where('agency_id', Filament::auth()->user()->agency_id);
+        // L'agence ne gère que ses propres comptes externes, jamais un compte
+        // interne auquel une agence aurait été associée par erreur.
+        return parent::getEloquentQuery()
+            ->where('agency_id', Filament::auth()->user()->agency_id)
+            ->where('role', User::ROLE_AGENCY);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return Filament::auth()->user()?->role === User::ROLE_AGENCY;
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::canViewAny();
+    }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::belongsToCurrentAgency($record);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::belongsToCurrentAgency($record);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return static::belongsToCurrentAgency($record) && Filament::auth()->id() !== $record->id;
+    }
+
+    private static function belongsToCurrentAgency(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = Filament::auth()->user();
+
+        return $user?->role === User::ROLE_AGENCY
+            && $record->role === User::ROLE_AGENCY
+            && (int) $record->agency_id === (int) $user->agency_id;
     }
 
     public static function form(Schema $schema): Schema

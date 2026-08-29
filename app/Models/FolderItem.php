@@ -477,7 +477,7 @@ class FolderItem extends Model
             }
         }
 
-        $calendarId = env('GOOGLE_CALENDAR_ID');
+        $calendarId = config('services.google_calendar.calendar_id');
         if (!$calendarId) {
             Log::warning("CALENDAR : ARRÊT -> L'ID du calendrier (GOOGLE_CALENDAR_ID) est introuvable. Pense à faire php artisan config:clear");
             return;
@@ -567,7 +567,7 @@ class FolderItem extends Model
             }
         }
 
-        $calendarId = env('GOOGLE_CALENDAR_ID');
+        $calendarId = config('services.google_calendar.calendar_id');
         $keyFilePath = storage_path('app/google-credentials.json');
         
         if (!$calendarId || !file_exists($keyFilePath)) {

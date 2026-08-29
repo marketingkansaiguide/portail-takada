@@ -16,7 +16,17 @@ class SupplierPerformance extends BaseWidget
     protected static bool $isLazy = false;
     protected static bool $isDiscovered = false;
     protected int | string | array $columnSpan = 'full';
-    protected static ?string $heading = 'Volume d\'Affaires par Fournisseur';
+    protected static ?string $heading = null;
+
+    protected function getTableHeading(): ?string
+    {
+        return __('Performance par fournisseur');
+    }
+
+    protected function getTableDescription(): ?string
+    {
+        return __('Fournisseurs réellement sollicités dans les dossiers confirmés ou terminés.');
+    }
 
     public function table(Table $table): Table
     {
@@ -26,6 +36,15 @@ class SupplierPerformance extends BaseWidget
         return $table
             ->query(
                 Supplier::query()
+                    ->whereExists(function ($query) use ($startDate, $endDate) {
+                        $query->selectRaw('1')
+                            ->from('folder_items')
+                            ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
+                            ->whereColumn('folder_items.supplier_id', 'suppliers.id')
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate));
+                    })
                     ->addSelect([
                         'folders_count' => FolderItem::selectRaw('COUNT(DISTINCT folder_items.folder_id)')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
@@ -56,31 +75,31 @@ class SupplierPerformance extends BaseWidget
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                ->label(__('Sollicité dans X Dossiers'))
+                ->label(__('Dossiers'))
                     ->badge()
                     ->color('warning')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_purchase')
-                ->label(__('Ce qu\'on leur a payé (Achat ¥)'))
+                ->label(__('Achats (¥)'))
                     ->money('JPY')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('total_ca')
-                ->label(__('CA Généré via eux (Vente ¥)'))
+                ->label(__('Ventes (¥)'))
                     ->money('JPY')
                     ->weight('bold')
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                ->label(__('Marge Conservée (¥)'))
+                ->label(__('Marge brute (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                ->label(__('Marge Moy. / Dossier'))
+                ->label(__('Marge moy. / dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
             ])

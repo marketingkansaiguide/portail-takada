@@ -1,7 +1,7 @@
 <?php
 
-test('the application returns a successful response', function () {
+test('the public entry point redirects to the catalogue', function () {
     $response = $this->get('/');
 
-    $response->assertStatus(200);
+    $response->assertRedirect('/catalogue');
 });

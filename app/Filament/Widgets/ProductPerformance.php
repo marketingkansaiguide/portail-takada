@@ -19,7 +19,12 @@ class ProductPerformance extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('Popularité & Rentabilité par Prestation (Produit)');
+        return __('Prestations les plus performantes');
+    }
+
+    protected function getTableDescription(): ?string
+    {
+        return __('Classement par chiffre d’affaires des prestations réellement vendues.');
     }
 
     public function table(Table $table): Table
@@ -30,8 +35,16 @@ class ProductPerformance extends BaseWidget
         return $table
             ->query(
                 Product::query()
+                    ->whereExists(function ($query) use ($startDate, $endDate) {
+                        $query->selectRaw('1')
+                            ->from('folder_items')
+                            ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
+                            ->whereColumn('folder_items.product_id', 'products.id')
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate));
+                    })
                     ->addSelect([
-                        // Nombre de dossiers distincts contenant ce produit
                         'folders_count' => FolderItem::selectRaw('COUNT(DISTINCT folder_items.folder_id)')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.product_id', 'products.id')
@@ -39,7 +52,6 @@ class ProductPerformance extends BaseWidget
                             ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
-                        // Somme totale des ventes pour ce produit
                         'total_ca' => FolderItem::selectRaw('COALESCE(SUM(folder_items.total_price), 0)')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.product_id', 'products.id')
@@ -47,7 +59,6 @@ class ProductPerformance extends BaseWidget
                             ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
-                        // Somme totale des achats pour ce produit
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(folder_items.purchase_total_price), 0)')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.product_id', 'products.id')
@@ -63,7 +74,7 @@ class ProductPerformance extends BaseWidget
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('folders_count')
-                ->label(__('Présent dans X Dossiers'))
+                ->label(__('Dossiers'))
                     ->badge()
                     ->color('info')
                     ->sortable(),
@@ -75,14 +86,14 @@ class ProductPerformance extends BaseWidget
                     ->sortable(),
                     
                 Tables\Columns\TextColumn::make('marge_brute')
-                ->label(__('Marge Totale (¥)'))
+                ->label(__('Marge brute (¥)'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('marge_moyenne')
-                ->label(__('Marge Moy. / Dossier incluant ce produit'))
+                ->label(__('Marge moy. / dossier'))
                     ->getStateUsing(fn ($record) => $record->folders_count > 0 ? ($record->total_ca - $record->total_purchase) / $record->folders_count : 0)
                     ->money('JPY'),
             ])

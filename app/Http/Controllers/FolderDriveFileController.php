@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Folder;
+use App\Models\User;
 use App\Services\FolderDriveStorage;
 use Illuminate\Http\Response;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class FolderDriveFileController extends Controller
 {
@@ -24,6 +27,24 @@ class FolderDriveFileController extends Controller
         ]);
     }
 
+    /**
+     * Télécharge les anciens fichiers locaux, uniquement lorsqu'ils sont bien
+     * référencés dans le dossier demandé. Les chemins fournis par l'URL ne sont
+     * jamais utilisés directement sans cette vérification.
+     */
+    public function showLegacy(Folder $folder, Request $request)
+    {
+        abort_unless($this->mayAccess($folder), 403);
+
+        $path = trim((string) $request->query('path'));
+        abort_unless($this->isLegacyPathInFolder($folder, $path), 404);
+        abort_unless(Storage::disk('public')->exists($path), 404);
+
+        return Storage::disk('public')->download($path, basename($path), [
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     private function mayAccess(Folder $folder): bool
     {
         $user = auth('agency')->user() ?? auth('web')->user();
@@ -32,11 +53,9 @@ class FolderDriveFileController extends Controller
             return false;
         }
 
-        if (in_array($user->role ?? null, ['super_admin', 'admin', 'agent'], true)) {
-            return true;
-        }
-
-        return (int) ($user->agency_id ?? 0) === (int) $folder->agency_id;
+        return $user->can('view', $folder)
+            || ($user->hasRole(User::ROLE_AGENCY)
+                && (int) $user->agency_id === (int) $folder->agency_id);
     }
 
     private function findPath(Folder $folder, string $fileId): ?string
@@ -72,6 +91,42 @@ class FolderDriveFileController extends Controller
 
         if (is_string($value) && str_starts_with($value, 'gdrive://')) {
             $paths[] = $value;
+        }
+    }
+
+    private function isLegacyPathInFolder(Folder $folder, string $path): bool
+    {
+        if (! str_starts_with($path, 'folders/custom_fields/')) {
+            return false;
+        }
+
+        $paths = [];
+
+        foreach ($folder->allFolderItems()->pluck('custom_values') as $values) {
+            $this->collectLegacyPaths($values, $paths);
+        }
+
+        return in_array($path, $paths, true);
+    }
+
+    private function collectLegacyPaths(mixed $value, array &$paths): void
+    {
+        if (is_array($value)) {
+            foreach ($value as $entry) {
+                $this->collectLegacyPaths($entry, $paths);
+            }
+
+            return;
+        }
+
+        if (! is_string($value)) {
+            return;
+        }
+
+        preg_match_all('/(folders\/custom_fields\/[^\r\n]+?\.(?:pdf|jpe?g|png|docx?|xlsx?|xls|csv))/i', $value, $matches);
+
+        foreach ($matches[1] ?? [] as $legacyPath) {
+            $paths[] = $legacyPath;
         }
     }
 }

@@ -117,7 +117,20 @@ class Contact extends Page implements HasForms
 
                 // 💡 CAS 1 : L'AGENCE A SÉLECTIONNÉ UN DOSSIER
                 if (!empty($data['folder_id'])) {
-                    $folder = Folder::find($data['folder_id']);
+                    $folder = Folder::query()
+                        ->whereKey($data['folder_id'])
+                        ->where('agency_id', $user->agency_id)
+                        ->first();
+
+                    if (! $folder) {
+                        Notification::make()
+                            ->title(__('Dossier introuvable'))
+                            ->body(__('Le dossier sélectionné n’est pas accessible à votre agence.'))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
                 } 
                 // 💡 CAS 2 : NOUVELLE DEMANDE (On injecte des données par défaut pour ne pas bloquer la DB)
                 else {
@@ -152,16 +165,10 @@ class Contact extends Page implements HasForms
 
                     // Notifications Admin
                     $setting = Setting::first();
-                    $adminEmails = [];
-                    
-                    if ($setting && !empty($setting->admin_email_notifications)) {
-                        $adminEmails = explode(',', $setting->admin_email_notifications);
-                        $adminEmails = array_map('trim', $adminEmails);
-                        $adminEmails = array_filter($adminEmails);
-                    }
-                    
-                    if (empty($adminEmails)) {
-                        $adminEmails = [env('MAIL_ADMIN_RECEIVER', env('MAIL_FROM_ADDRESS'))];
+                    $adminEmails = $setting?->adminNotificationEmails() ?? [];
+
+                    if (empty($adminEmails) && filled(config('mail.admin_receiver'))) {
+                        $adminEmails = [config('mail.admin_receiver')];
                     }
                     
                     if (!empty($adminEmails)) {

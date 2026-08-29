@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->text('address')->nullable();
+            $table->string('phone')->nullable();
             $table->text('google_maps_url')->nullable();
             $table->timestamps();
         });

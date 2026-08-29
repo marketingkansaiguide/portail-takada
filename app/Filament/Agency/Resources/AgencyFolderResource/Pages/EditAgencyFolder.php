@@ -3,6 +3,7 @@
 namespace App\Filament\Agency\Resources\AgencyFolderResource\Pages;
 
 use App\Filament\Agency\Resources\AgencyFolderResource;
+use App\Models\User;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms\Components\Placeholder;
@@ -142,11 +143,23 @@ class EditAgencyFolder extends EditRecord
                     }
 
                     try {
-                        $adminEmail = config('mail.admin_alert_address') 
-                            ?? env('ADMIN_ALERT_EMAIL') 
-                            ?? \App\Models\User::where('is_admin', true)->value('email');
+                        $adminEmails = \App\Models\Setting::query()->first()?->adminNotificationEmails() ?? [];
 
-                        if ($adminEmail) {
+                        if ($adminEmails === [] && filled(config('mail.admin_receiver'))) {
+                            $adminEmails = [(string) config('mail.admin_receiver')];
+                        }
+
+                        if ($adminEmails === []) {
+                            $fallbackEmail = \App\Models\User::whereIn('role', [
+                                \App\Models\User::ROLE_SUPER_ADMIN,
+                                \App\Models\User::ROLE_ADMIN,
+                                \App\Models\User::ROLE_AGENT,
+                            ])->value('email');
+
+                            $adminEmails = $fallbackEmail ? [$fallbackEmail] : [];
+                        }
+
+                        if ($adminEmails !== []) {
                             Mail::raw(
                                 "Un nouveau dossier vient d'être validé par l'agence " . ($record->agency->name ?? 'Inconnue') . ".\n\n" .
                                 "Référence : {$record->reference}\n" .
@@ -155,8 +168,8 @@ class EditAgencyFolder extends EditRecord
                                 "Nombre de prestations : " . $record->folderItems()->count() . "\n" .
                                 "Montant Total : " . number_format($record->total_price, 0, '.', ' ') . " ¥\n\n" .
                                 "Accéder au dossier dans l'Admin : " . route('filament.admin.resources.folders.edit', ['record' => $record->id]),
-                                function ($message) use ($adminEmail, $record) {
-                                    $message->to($adminEmail)
+                                function ($message) use ($adminEmails, $record) {
+                                    $message->to($adminEmails)
                                             ->subject("🚨 [NOUVEAU DOSSIER VALIDÉ] {$record->reference} - {$record->folder_name}");
                                 }
                             );
@@ -210,6 +223,17 @@ class EditAgencyFolder extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        // Les champs invisibles ne doivent jamais devenir un moyen de changer
+        // le propriétaire, le statut ou les frais d'un dossier depuis le front.
+        $data['agency_id'] = $this->record->agency_id;
+        $data['status'] = $this->record->status;
+        $data['folder_fee'] = $this->record->folder_fee;
+        $data['main_seller_id'] = User::query()
+            ->whereKey($data['main_seller_id'] ?? $this->record->main_seller_id)
+            ->where('agency_id', $this->record->agency_id)
+            ->where('role', User::ROLE_AGENCY)
+            ->value('id') ?? $this->record->main_seller_id;
+
         $totalItems = 0;
         if (isset($data['folderItems']) && is_array($data['folderItems'])) {
             foreach ($data['folderItems'] as $item) {

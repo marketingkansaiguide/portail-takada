@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\FolderItem;
 use App\Models\ProductOption;
 use App\Models\ProductSupplier;
+use App\Support\AdminAccess;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -27,6 +28,11 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class IwaOrders extends Page implements HasTable
 {
+    public static function canAccess(): bool
+    {
+        return AdminAccess::allows('operations.iwa_orders');
+    }
+
     use InteractsWithTable;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-arrow-down';

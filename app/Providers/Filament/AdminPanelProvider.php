@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Models\Setting;
 use App\Http\Middleware\SetLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -22,15 +23,29 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Support\Facades\Storage;
 
 class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        try {
+            $settings = Setting::query()->first();
+        } catch (\Throwable) {
+            $settings = null;
+        }
+        $brandLogo = $settings?->site_logo_path
+            ? Storage::disk('public')->url($settings->site_logo_path)
+            : asset('images/logo.svg');
+        $favicon = $settings?->site_favicon_path
+            ? Storage::disk('public')->url($settings->site_favicon_path)
+            : asset('images/logo.svg');
+
         return $panel
             ->default()
             ->id('admin')
             ->path('admin')
+            ->spa(true, true)
             ->databaseNotifications()
             ->globalSearch(position: GlobalSearchPosition::Topbar)
             ->globalSearchDebounce('300ms')
@@ -40,9 +55,9 @@ class AdminPanelProvider extends PanelProvider
             
             // 🎨 Identité Visuelle (Logo SVG & Config)
             ->brandName('Portail Takada')
-            ->brandLogo(asset('images/logo.svg')) 
+            ->brandLogo($brandLogo)
             ->brandLogoHeight('3rem')             
-            ->favicon(asset('images/logo.svg'))   
+            ->favicon($favicon)
             
             // 🌍 Sélecteur de Langue Manuel dans le menu Utilisateur
             ->userMenuItems([
@@ -66,6 +81,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.partials.admin-dark-mode-overrides')->render(),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): string => view('filament.partials.page-navigation-feedback')->render(),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

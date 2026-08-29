@@ -3,6 +3,7 @@
 namespace App\Filament\Agency\Resources\AgencyFolderResource\Pages;
 
 use App\Filament\Agency\Resources\AgencyFolderResource;
+use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -36,6 +37,11 @@ class CreateAgencyFolder extends CreateRecord
         $data['agency_id'] = $agencyId;
         $data['user_id'] = $user->id;
         $data['status'] = 'draft';
+        $data['main_seller_id'] = User::query()
+            ->whereKey($data['main_seller_id'] ?? $user->id)
+            ->where('agency_id', $agencyId)
+            ->where('role', User::ROLE_AGENCY)
+            ->value('id') ?? $user->id;
 
         $totalItems = 0;
         if (isset($data['folderItems']) && is_array($data['folderItems'])) {

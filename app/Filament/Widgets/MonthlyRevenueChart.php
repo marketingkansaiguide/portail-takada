@@ -3,18 +3,23 @@
 namespace App\Filament\Widgets;
 
 use Filament\Widgets\ChartWidget;
+use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use App\Models\Folder;
 use Carbon\Carbon;
 
 class MonthlyRevenueChart extends ChartWidget
 {
+    use InteractsWithPageFilters;
+
     protected static bool $isLazy = false; 
     protected static bool $isDiscovered = false;
     protected ?string $heading = null;
 
     public function getHeading(): ?string
     {
-        return __('Évolution du CA (12 derniers mois)');
+        return ($this->filters['startDate'] ?? null) || ($this->filters['endDate'] ?? null)
+            ? __('Évolution du CA — période sélectionnée')
+            : __('Évolution du CA — 12 derniers mois');
     }
     protected int | string | array $columnSpan = 1;
 
@@ -25,17 +30,26 @@ class MonthlyRevenueChart extends ChartWidget
     {
         $data = [];
         $labels = [];
+        $startDate = $this->filters['startDate'] ?? null;
+        $endDate = $this->filters['endDate'] ?? null;
 
-        for ($i = 11; $i >= 0; $i--) {
-            $date = Carbon::now()->startOfMonth()->subMonths($i);
+        $firstMonth = $startDate
+            ? Carbon::parse($startDate)->startOfMonth()
+            : ($endDate ? Carbon::parse($endDate)->startOfMonth()->subMonths(11) : Carbon::now()->startOfMonth()->subMonths(11));
+        $lastMonth = $endDate ? Carbon::parse($endDate)->startOfMonth() : Carbon::now()->startOfMonth();
+
+        $monthlyTotals = Folder::query()
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->when($startDate, fn ($query) => $query->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate))
+            ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COALESCE(SUM(total_price), 0) as total')
+            ->groupByRaw('YEAR(created_at), MONTH(created_at)')
+            ->get()
+            ->keyBy(fn ($row) => sprintf('%04d-%02d', $row->year, $row->month));
+
+        for ($date = $firstMonth->copy(); $date->lte($lastMonth); $date->addMonth()) {
             $labels[] = ucfirst($date->translatedFormat('M Y')); 
-
-            $sum = Folder::whereIn('status', ['confirmed', 'completed'])
-                ->whereYear('created_at', $date->year)
-                ->whereMonth('created_at', $date->month)
-                ->sum('total_price');
-
-            $data[] = $sum;
+            $data[] = (float) ($monthlyTotals->get($date->format('Y-m'))?->total ?? 0);
         }
 
         return [

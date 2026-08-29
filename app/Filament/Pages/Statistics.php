@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Support\AdminAccess;
 use Filament\Pages\Dashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
 use Filament\Schemas\Schema; 
@@ -11,6 +12,11 @@ use Filament\Schemas\Components\Section;
 class Statistics extends Dashboard 
 {
     use HasFiltersForm; 
+
+    public static function canAccess(): bool
+    {
+        return AdminAccess::allows('operations.statistics');
+    }
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-presentation-chart-line';
     protected static string | \UnitEnum | null $navigationGroup = 'Rapports & Analyses';
@@ -28,21 +34,21 @@ class Statistics extends Dashboard
     {
         return $form->schema([
             Section::make(__('Période d\'analyse'))
-            ->description(__('Filtrez toutes les statistiques (basé sur la date de création des dossiers). Les indicateurs globaux compareront automatiquement avec la période précédente.'))
+            ->description(__('Tous les indicateurs ci-dessous utilisent la date de création des dossiers. Sans filtre, la synthèse couvre tout l’historique et le graphique présente les 12 derniers mois.'))
                 ->schema([
                     DatePicker::make('startDate')
-                ->label(__('Du (inclus)'))
+                ->label(__('Du'))
                         ->native(false)
                         ->maxDate(now()),
                         
                     DatePicker::make('endDate')
-                ->label(__('Au (inclus)'))
+                ->label(__('Au'))
                         ->native(false)
                         ->maxDate(now()),
                 ])
                 ->columns(2)
-                ->columnSpanFull() // 💡 Force le bloc à s'étaler sur toute la largeur de l'écran
-                ->compact(),       // 💡 Réduit les marges pour que le bloc prenne le moins de place possible en hauteur
+                ->columnSpanFull()
+                ->compact(),
         ]);
     }
 

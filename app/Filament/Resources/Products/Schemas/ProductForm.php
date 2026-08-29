@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Placeholder;
@@ -16,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Str;
 
 class ProductForm
@@ -91,8 +93,14 @@ class ProductForm
                                                 'file' => __('Fichier joint (Image / PDF)'), 
                                                 'train_station' => __('Gare de Train (Autocomplétion)'), // 💡 NOUVEAU
                                                 'bus_station' => __('Station de Bus (Autocomplétion)'), // 💡 NOUVEAU
+                                                'client_hotel' => __('Hôtel du client (Autocomplétion + saisie libre)'),
                                             ])
                                             ->live()
+                                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                                if ($state === 'client_hotel') {
+                                                    $set('is_per_passenger', false);
+                                                }
+                                            })
                                             ->required(),
                                     ])->columns(3),
 
@@ -107,7 +115,7 @@ class ProductForm
                                         TextInput::make('placeholder')
                                             ->label(__('Exemple d\'aide (Placeholder)'))
                                             ->placeholder(__('Ex: M, L, XL ou 175cm...'))
-                                            ->visible(fn (Get $get) => in_array($get('type'), ['text', 'textarea', 'number', 'select', 'train_station', 'bus_station'])),
+                                            ->visible(fn (Get $get) => in_array($get('type'), ['text', 'textarea', 'number', 'select', 'train_station', 'bus_station', 'client_hotel'])),
                                         Toggle::make('is_required')
                                             ->label(__('Rendre obligatoire'))
                                             ->default(true)
@@ -118,6 +126,7 @@ class ProductForm
                                         ->label(__('Multiplier cette question par le nombre de voyageurs / quantité'))
                                         ->helperText(__('Si coché, et que l\'agence achète 4 unités, le système générera automatiquement 4 lignes de saisie distinctes en Front-Office.'))
                                         ->default(false)
+                                        ->disabled(fn (Get $get): bool => $get('type') === 'client_hotel')
                                         ->columnSpanFull(),
                                 ])
                         ]),
@@ -134,6 +143,7 @@ class ProductForm
                                     : __('Nouveau choix'))
                                 ->collapsible()
                                 ->collapsed(true) // 💡 Replié par défaut pour économiser l'espace
+                                ->cloneable()
                                 ->reorderable(true)
                                 ->columns(12) // 💡 Disposition horizontale ultra-compacte
                                 ->schema([
@@ -201,6 +211,126 @@ class ProductForm
                                         ->label(__('Clé Shortcode Email'))
                                         ->placeholder(__('Ex: ic_2000'))
                                         ->columnSpanFull(),
+
+                                    Repeater::make('seasonalPrices')
+                                        ->relationship()
+                                        ->label(__('Tarifs par saison'))
+                                        ->helperText(__('Guidage uniquement : choisissez une saison, puis renseignez le supplément de chaque tranche affichée automatiquement.'))
+                                        ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->table([
+                                            TableColumn::make(__('Saison'))->width('135px')->markAsRequired(),
+                                            TableColumn::make(__('Tranche tarifaire'))->width('190px')->markAsRequired(),
+                                            TableColumn::make(__('Vente & coût d’achat')),
+                                        ])
+                                        ->compact()
+                                        ->addActionLabel(__('Ajouter un tarif saisonnier'))
+                                        ->schema([
+                                            Select::make('product_period_id')
+                                                ->label(__('Saison'))
+                                                ->options(function ($livewire): array {
+                                                    $product = data_get($livewire, 'record');
+
+                                                    return $product
+                                                        ? $product->productPeriods()->orderBy('name')->pluck('name', 'id')->all()
+                                                        : [];
+                                                })
+                                                ->searchable()
+                                                ->preload()
+                                                ->live()
+                                                ->afterStateUpdated(function ($state, Get $get, Set $set): void {
+                                                    if (! $state) {
+                                                        return;
+                                                    }
+
+                                                    $tiers = \App\Models\ProductPrice::query()
+                                                        ->where('product_period_id', $state)
+                                                        ->orderBy('min_pax')
+                                                        ->get(['id']);
+
+                                                    if ($tiers->isEmpty()) {
+                                                        return;
+                                                    }
+
+                                                    $rows = $get('../../seasonalPrices') ?? [];
+                                                    $firstTierId = (int) $tiers->first()->id;
+                                                    $assignedCurrentRow = false;
+
+                                                    foreach ($rows as &$row) {
+                                                        if (! $assignedCurrentRow
+                                                            && (int) ($row['product_period_id'] ?? 0) === (int) $state
+                                                            && blank($row['product_price_id'] ?? null)) {
+                                                            $row['product_price_id'] = $firstTierId;
+                                                            $assignedCurrentRow = true;
+                                                        }
+                                                    }
+                                                    unset($row);
+
+                                                    $existingTierIds = collect($rows)
+                                                        ->filter(fn (array $row): bool => (int) ($row['product_period_id'] ?? 0) === (int) $state)
+                                                        ->pluck('product_price_id')
+                                                        ->filter()
+                                                        ->map(fn ($id): int => (int) $id)
+                                                        ->all();
+
+                                                    foreach ($tiers as $tier) {
+                                                        if (! in_array($tier->id, $existingTierIds, true)) {
+                                                            $rows[] = [
+                                                                'product_period_id' => $state,
+                                                                'product_price_id' => $tier->id,
+                                                            ];
+                                                        }
+                                                    }
+
+                                                    $set('../../seasonalPrices', array_values($rows));
+                                                })
+                                                ->required(),
+                                            Select::make('product_price_id')
+                                                ->label(__('Tranche tarifaire'))
+                                                ->options(function (Get $get): array {
+                                                    $periodId = $get('product_period_id');
+
+                                                    return $periodId
+                                                        ? \App\Models\ProductPrice::query()
+                                                            ->where('product_period_id', $periodId)
+                                                            ->orderBy('min_pax')
+                                                            ->get()
+                                                            ->mapWithKeys(function ($price): array {
+                                                                $label = $price->pricing_mode === 'extra_pax'
+                                                                    ? __(':min+ pax — supplément :price ¥', ['min' => $price->min_pax, 'price' => number_format($price->price, 0, '.', ' ')])
+                                                                    : __(':min–:max pax — :price ¥', ['min' => $price->min_pax, 'max' => $price->max_pax, 'price' => number_format($price->price, 0, '.', ' ')]);
+
+                                                                return [$price->id => $label];
+                                                            })
+                                                            ->all()
+                                                        : [];
+                                                })
+                                                ->searchable()
+                                                ->preload()
+                                                ->required(),
+                                            Group::make()
+                                                ->schema([
+                                                    TextInput::make('adult_price_modifier')
+                                                        ->label(__('Adulte (¥)'))
+                                                        ->numeric()
+                                                        ->placeholder(__('Adulte')),
+                                                    TextInput::make('purchase_price_modifier')
+                                                        ->label(__('Coût d’achat (¥)'))
+                                                        ->numeric()
+                                                        ->placeholder(__('Achat')),
+                                                    TextInput::make('child_price_modifier')
+                                                        ->label(__('Enfant (¥)'))
+                                                        ->numeric()
+                                                        ->placeholder(__('Enfant'))
+                                                        ->visible(fn (Get $get, $livewire): bool => (bool) ($get('../../../../enable_child_selector') ?? data_get($livewire, 'record.enable_child_selector'))),
+                                                    TextInput::make('teen_price_modifier')
+                                                        ->label(__('Adolescent (¥)'))
+                                                        ->numeric()
+                                                        ->placeholder(__('Ado'))
+                                                        ->visible(fn (Get $get, $livewire): bool => (bool) ($get('../../../../enable_teen_selector') ?? data_get($livewire, 'record.enable_teen_selector'))),
+                                                ])
+                                                ->columns(3),
+                                        ])->columns(2)
+                                        ->columnSpanFull(),
                                 ])
                         ]),
 
@@ -212,7 +342,8 @@ class ProductForm
                                 ->helperText(__('Cette borne définit la tranche enfant, ou le début de la tranche adolescent si seul ce sélecteur est activé.'))
                                 ->numeric()
                                 ->default(11)
-                                ->required(fn (Get $get): bool => (bool) $get('enable_child_selector') || (bool) $get('enable_teen_selector')),
+                                ->required(fn (Get $get): bool => (bool) $get('enable_child_selector'))
+                                ->visible(fn (Get $get): bool => (bool) $get('enable_child_selector')),
 
                             TextInput::make('teen_age_limit')
                                 ->label(__('Âge maximum pour être considéré adolescent (Inclus)'))
@@ -238,7 +369,7 @@ class ProductForm
                                 ->relationship()
                                 ->hiddenLabel() 
                                 ->collapsible()
-                                ->collapsed()
+                                ->collapsed(fn (Get $get, $livewire): bool => (int) (data_get($livewire, 'record.category_id') ?? $get('category_id')) !== 4)
                                 ->cloneable()
                                 ->addActionLabel(__('Créer une nouvelle période / saison'))
                                 ->itemLabel(fn (array $state): ?string => $state['name'] ?? __('Nouvelle Saison'))
@@ -249,65 +380,49 @@ class ProductForm
                                         ->columnSpanFull()
                                         ->required(),
                                         
-                                    Group::make()->schema([
-                                        TextInput::make('start_date')
-                                            ->label(__('Date de début (JJ/MM)'))
-                                            ->placeholder('Ex: 01/04')
-                                            ->mask('99/99')
-                                            ->rules([
-                                                function () {
+                                    Repeater::make('date_ranges')
+                                        ->label(__('Plages de validité de cette saison'))
+                                        ->helperText(__('Ajoutez plusieurs plages lorsque la même grille tarifaire s’applique à différentes périodes de l’année.'))
+                                        ->defaultItems(1)
+                                        ->addActionLabel(__('Ajouter une plage de dates'))
+                                        ->schema([
+                                            TextInput::make('start_date')
+                                                ->label(__('Date de début (JJ/MM)'))
+                                                ->placeholder('Ex: 01/04')
+                                                ->mask('99/99')
+                                                ->rules([function () {
                                                     return function (string $attribute, $value, \Closure $fail) {
-                                                        $parts = explode('/', $value);
-                                                        if (count($parts) !== 2 || !checkdate((int)($parts[1] ?? 0), (int)($parts[0] ?? 0), 2024)) {
-                                                            $fail('Date de début invalide (Format JJ/MM attendu).');
+                                                        $parts = explode('/', (string) $value);
+                                                        if (count($parts) !== 2 || ! checkdate((int) ($parts[1] ?? 0), (int) ($parts[0] ?? 0), 2024)) {
+                                                            $fail(__('Date de début invalide (format JJ/MM attendu).'));
                                                         }
                                                     };
-                                                },
-                                            ])
-                                            ->formatStateUsing(function (?string $state) {
-                                                if (!$state) return null;
-                                                $parts = explode('-', $state);
-                                                return count($parts) === 2 ? $parts[1] . '/' . $parts[0] : $state;
-                                            })
-                                            ->dehydrateStateUsing(function (?string $state) {
-                                                if (!$state) return null;
-                                                $parts = explode('/', $state);
-                                                return count($parts) === 2 ? $parts[1] . '-' . $parts[0] : $state;
-                                            })
-                                            ->required(),
-
-                                        TextInput::make('end_date')
-                                            ->label(__('Date de fin (JJ/MM)'))
-                                            ->placeholder('Ex: 31/10')
-                                            ->mask('99/99')
-                                            ->rules([
-                                                function () {
+                                                }])
+                                                ->formatStateUsing(fn (?string $state) => $state && str_contains($state, '-') ? implode('/', array_reverse(explode('-', $state))) : $state)
+                                                ->dehydrateStateUsing(fn (?string $state) => $state && str_contains($state, '/') ? implode('-', array_reverse(explode('/', $state))) : $state)
+                                                ->required(),
+                                            TextInput::make('end_date')
+                                                ->label(__('Date de fin (JJ/MM)'))
+                                                ->placeholder('Ex: 31/10')
+                                                ->mask('99/99')
+                                                ->rules([function () {
                                                     return function (string $attribute, $value, \Closure $fail) {
-                                                        $parts = explode('/', $value);
-                                                        if (count($parts) !== 2 || !checkdate((int)($parts[1] ?? 0), (int)($parts[0] ?? 0), 2024)) {
-                                                            $fail('Date de fin invalide (Format JJ/MM attendu).');
+                                                        $parts = explode('/', (string) $value);
+                                                        if (count($parts) !== 2 || ! checkdate((int) ($parts[1] ?? 0), (int) ($parts[0] ?? 0), 2024)) {
+                                                            $fail(__('Date de fin invalide (format JJ/MM attendu).'));
                                                         }
                                                     };
-                                                },
-                                            ])
-                                            ->formatStateUsing(function (?string $state) {
-                                                if (!$state) return null;
-                                                $parts = explode('-', $state);
-                                                return count($parts) === 2 ? $parts[1] . '/' . $parts[0] : $state;
-                                            })
-                                            ->dehydrateStateUsing(function (?string $state) {
-                                                if (!$state) return null;
-                                                $parts = explode('/', $state);
-                                                return count($parts) === 2 ? $parts[1] . '-' . $parts[0] : $state;
-                                            })
-                                            ->required(),
-                                    ])->columns(2),
+                                                }])
+                                                ->formatStateUsing(fn (?string $state) => $state && str_contains($state, '-') ? implode('/', array_reverse(explode('-', $state))) : $state)
+                                                ->dehydrateStateUsing(fn (?string $state) => $state && str_contains($state, '/') ? implode('-', array_reverse(explode('/', $state))) : $state)
+                                                ->required(),
+                                        ])->columns(2),
                                     
                                     Repeater::make('productPrices')
                                         ->relationship()
                                         ->label(__('Grille tarifaire (Pax & Âges)'))
                                         ->collapsible()
-                                        ->collapsed()
+                                        ->collapsed(fn (Get $get, $livewire): bool => (int) (data_get($livewire, 'record.category_id') ?? $get('../../category_id')) !== 4)
                                         ->addActionLabel(__('Ajouter un palier de prix'))
                                         ->itemLabel(fn (array $state): ?string => isset($state['price']) ? __('Tarif : ') . $state['price'] . ' ¥' : __('Nouveau tarif'))
                                         ->schema([
@@ -322,10 +437,39 @@ class ProductForm
                                             ])->columns(2),
 
                                             TextInput::make('price')
-                                                ->label(__('Prix net (¥)'))
+                                                ->label(fn (Get $get): string => $get('pricing_mode') === 'extra_pax'
+                                                    ? __('Supplément par pax (¥)')
+                                                    : __('Prix net (¥)'))
+                                                ->helperText(fn (Get $get): ?string => $get('pricing_mode') === 'extra_pax'
+                                                    ? __('Cette ligne est ajoutée au tarif de base pour chaque pax inclus dans sa tranche.')
+                                                    : null)
                                                 ->placeholder('0')
                                                 ->numeric()
                                                 ->required(),
+
+                                            Select::make('pricing_mode')
+                                                ->label(__('Type de tarif'))
+                                                ->options([
+                                                    'per_pax' => __('Par pax'),
+                                                    'global' => __('Forfait global par tranche'),
+                                                    'extra_pax' => __('Supplément par pax supplémentaire'),
+                                                ])
+                                                ->default('per_pax')
+                                                ->live()
+                                                ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                                ->required(),
+
+                                            TextInput::make('purchase_price')
+                                                ->label(fn (Get $get): string => $get('pricing_mode') === 'extra_pax'
+                                                    ? __('Coût d’achat par pax supplémentaire (¥)')
+                                                    : __('Coût d’achat (¥)'))
+                                                ->helperText(fn (Get $get): string => $get('pricing_mode') === 'extra_pax'
+                                                    ? __('Coût interne appliqué pour chaque pax supplémentaire de cette tranche.')
+                                                    : __('Information interne, non visible par les agences.'))
+                                                ->numeric()
+                                                ->minValue(0)
+                                                ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 4),
+
                                         ])->columns(3)
                                 ])
                         ]),
@@ -575,6 +719,8 @@ class ProductForm
                                 ->placeholder(__('Ex: 10 (Laissez vide si illimité)'))
                                 ->helperText(__('Empêchera l\'agence de réserver pour un nombre supérieur à cette limite.'))
                                 ->numeric()
+                                ->default(null)
+                                ->dehydrateStateUsing(fn ($state): ?int => blank($state) ? null : max(1, (int) $state))
                                 ->minValue(1),
 
                             Toggle::make('is_public')

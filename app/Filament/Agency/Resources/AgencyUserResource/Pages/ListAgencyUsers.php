@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Filament\Agency\Resources\AgencyUserResource\Pages;
+
+use App\Filament\Agency\Resources\AgencyUserResource;
+use App\Models\Agency;
+use Filament\Actions;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\ListRecords;
+
+class ListAgencyUsers extends ListRecords
+{
+    protected static string $resource = AgencyUserResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('editAgencyProfile')
+                ->label(__('Profil de l\'Agence'))
+                ->icon('heroicon-o-building-office-2')
+                ->color('info')
+                ->modalHeading(__('Coordonnées de l\'Agence'))
+                ->modalDescription(__('Mettez à jour les informations principales de votre agence de voyage. Ces données peuvent être utilisées pour nos échanges ou la facturation.'))
+                ->modalSubmitActionLabel(__('Enregistrer les modifications'))
+                ->fillForm(function () {
+                    $agencyId = Filament::auth()->user()->agency_id;
+
+                    return $agencyId ? Agency::find($agencyId)?->toArray() ?? [] : [];
+                })
+                ->form([
+                    TextInput::make('name')->label(__('Nom de l\'agence'))->required()->maxLength(255),
+                    TextInput::make('contact_name')->label(__('Nom du contact principal'))->maxLength(255),
+                    TextInput::make('email')->label(__('Adresse mail de contact principale'))->email()->required()->maxLength(255),
+                    TextInput::make('phone')->label(__('Téléphone'))->tel()->maxLength(255),
+                    Textarea::make('address')->label(__('Adresse postale complète'))->rows(3)->columnSpanFull(),
+                ])
+                ->action(function (array $data) {
+                    $agencyId = Filament::auth()->user()->agency_id;
+
+                    if ($agencyId) {
+                        Agency::find($agencyId)?->update($data);
+                        Notification::make()->title(__('Profil de l\'agence mis à jour avec succès !'))->success()->send();
+                    }
+                }),
+            Actions\CreateAction::make()->label(__('Ajouter un vendeur'))->icon('heroicon-o-plus'),
+        ];
+    }
+}

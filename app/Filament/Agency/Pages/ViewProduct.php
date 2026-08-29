@@ -95,10 +95,16 @@ class ViewProduct extends Page
             }
         }
 
+        $this->product = Product::with(['productOptions.seasonalPrices', 'productPeriods.productPrices'])->findOrFail($record);
+
         if (isset($this->product->is_public) && !$this->product->is_public) {
             if (!$this->activeAgencyId) {
             abort(403, __('Cette activité requiert un compte partenaire B2B privilégié.'));
             }
+        }
+
+        if (! $this->isAdmin && ! $this->product->isAvailableForAgency($this->activeAgencyId)) {
+            abort(403, __('Cette prestation n’est pas disponible pour le groupe de votre agence.'));
         }
 
         if ($this->product->productOptions) {
@@ -145,6 +151,11 @@ class ViewProduct extends Page
                     $this->customValues[$key] = [];
                 } else {
                     $this->customValues[$key] = $def['type'] === 'toggle' ? false : null;
+
+                    if (($def['type'] ?? null) === 'client_hotel') {
+                        $this->customValues["{$key}_address"] = null;
+                        $this->customValues["{$key}_google_maps_url"] = null;
+                    }
                 }
             }
         }
@@ -487,7 +498,6 @@ class ViewProduct extends Page
 
         while ($date <= $endDate) {
             $dateStr = $date->format('Y-m-d');
-            $mdStr = $date->format('m-d');
             $dayOfWeek = strtolower($date->format('D'));
 
             $isAvailable = true;
@@ -500,23 +510,9 @@ class ViewProduct extends Page
 
             $price = 0;
             if (!$isOnDemand && $isAvailable) {
-                $matchedPrice = null;
-                foreach ($this->product->productPeriods as $period) {
-                    if (!$period->start_date || !$period->end_date) continue;
-                    $inPeriod = false;
-                    if ($period->start_date <= $period->end_date) {
-                        $inPeriod = ($mdStr >= $period->start_date && $mdStr <= $period->end_date);
-                    } else {
-                        $inPeriod = ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                    }
-                    if ($inPeriod) {
-                        $minP = $period->productPrices->min('price');
-                        if ($minP !== null) {
-                            $matchedPrice = $minP;
-                            break;
-                        }
-                    }
-                }
+                $matchedPrice = $this->product->periodForDate($date)?->productPrices
+                    ->reject(fn ($price): bool => $price->isExtraPaxRate())
+                    ->min('price');
                 if ($matchedPrice !== null) {
                     $price = $matchedPrice;
                 }
@@ -551,29 +547,13 @@ class ViewProduct extends Page
                 $totalTickets += $pax; // Chaque passager sur un trajet = 1 billet
                 
                 $rDate = $route['departure_date'] ?? null;
-                $mdStr = !empty($rDate) ? \Carbon\Carbon::parse($rDate)->format('m-d') : now()->format('m-d');
-
                 // 1. Calcul des Frais de service / émission Takada par billet pour ce trajet
                 $routeUnitFee = 0;
-                if ($this->product->productPeriods && $this->product->productPeriods->isNotEmpty()) {
-                    foreach ($this->product->productPeriods as $period) {
-                        $inPeriod = true;
-                        if ($period->start_date && $period->end_date) {
-                            $inPeriod = ($period->start_date <= $period->end_date) 
-                                ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                                : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                        }
-
-                        if ($inPeriod && $period->productPrices) {
-                            $validPrices = $period->productPrices->where('min_pax', '<=', $pax)->where('max_pax', '>=', $pax);
-                            if ($validPrices->isNotEmpty()) {
-                                $routeUnitFee = $validPrices->first()->price;
-                            } else {
-                                $routeUnitFee = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                            }
-                            break;
-                        }
-                    }
+                if ($period = $this->product->periodForDate($rDate ?? now())) {
+                    $validPrices = $period->productPrices->where('min_pax', '<=', $pax)->where('max_pax', '>=', $pax);
+                    $routeUnitFee = $validPrices->isNotEmpty()
+                        ? $validPrices->first()->price
+                        : ($period->productPrices->sortByDesc('max_pax')->first()->price ?? 0);
                 }
 
                 if ($unitFeeDisplay === 0 && $routeUnitFee > 0) {
@@ -587,9 +567,9 @@ class ViewProduct extends Page
                 if (!empty($route['option_id'])) {
                     $opt = $this->product->productOptions->firstWhere('id', (int)$route['option_id']);
                     if ($opt) {
-                        $mod = (float)($opt->price_modifier ?? 0);
-                        if ($opt->billing_type === 'per_pax') {
-                            $totalOptions += $mod * $pax;
+                        $mod = $opt->priceModifierForDate($rDate ?? now()->toDateString(), 'adult', $pax);
+                        if ($opt->billing_type === 'per_pax' || $opt->hasExtraPaxSeasonalModifierForDate($rDate ?? now()->toDateString(), $pax)) {
+                            $totalOptions += $mod * $opt->billableQuantityForDate($rDate ?? now()->toDateString(), $pax);
                         } else {
                             $totalOptions += $mod;
                         }
@@ -622,56 +602,40 @@ class ViewProduct extends Page
         }
 
         $basePricePerUnit = 0;
+        $basePriceRow = null;
+        $basePricePeriod = null;
         $ageBaseTotal = null;
         $ageBaseBreakdown = null;
         $hasDate = !empty($this->serviceDate);
         $isOnDemand = $this->product->is_on_demand ?? false;
 
         if ($hasDate && !$isOnDemand) {
-            $mdStr = \Carbon\Carbon::parse($this->serviceDate)->format('m-d');
             $matchedPrice = null;
-            
-            if ($this->product->productPeriods) {
-                foreach ($this->product->productPeriods as $period) {
-                    $inPeriod = true; 
-                    
-                    if ($period->start_date && $period->end_date) {
-                        $inPeriod = ($period->start_date <= $period->end_date) 
-                            ? ($mdStr >= $period->start_date && $mdStr <= $period->end_date)
-                            : ($mdStr >= $period->start_date || $mdStr <= $period->end_date);
-                    }
-
-                    if ($inPeriod && $period->productPrices) {
-                        $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
-                        if ($validPrices->isNotEmpty()) {
-                            $matchedPrice = $validPrices->first()->price;
-                            if ($this->product->enable_age_selector) {
-                                $ageBaseBreakdown = $this->product->calculateAgeBasedBreakdown(
-                                    $period,
-                                    $qty,
-                                    $this->ageSelectorAdults,
-                                    $this->ageSelectorChildren,
-                                    $this->ageSelectorTeenagers,
-                                );
-                                $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
-                            }
-                        } else {
-                            $matchedPrice = $period->productPrices->sortByDesc('max_pax')->first()->price ?? 0;
-                        }
-                        break;
-                    }
+            if ($period = $this->product->periodForDate($this->serviceDate)) {
+                $basePricePeriod = $period;
+                $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty)
+                    ->reject(fn ($price) => $price->isExtraPaxRate());
+                $basePriceRow = $validPrices->isNotEmpty()
+                    ? $validPrices->first()
+                    : $period->productPrices->reject(fn ($price) => $price->isExtraPaxRate())->sortByDesc('max_pax')->first();
+                $matchedPrice = $basePriceRow?->price ?? 0;
+                if ($this->product->usesAgeSelector()) {
+                    $ageBaseBreakdown = $this->product->calculateAgeBasedBreakdown($period, $qty, $this->ageSelectorAdults, $this->ageSelectorChildren, $this->ageSelectorTeenagers);
+                    $ageBaseTotal = $ageBaseBreakdown['total'] ?? null;
                 }
             }
             $basePricePerUnit = $matchedPrice ?? 0;
         } else {
             $minPrice = null;
+            $minPriceRow = null;
             $minAgeBaseTotal = null;
             if ($this->product->productPeriods) {
                 foreach($this->product->productPeriods as $period) {
                     if ($period->productPrices) {
-                        $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty);
+                    $validPrices = $period->productPrices->where('min_pax', '<=', $qty)->where('max_pax', '>=', $qty)
+                        ->reject(fn ($price) => $price->isExtraPaxRate());
 
-                        if ($this->product->enable_age_selector && $validPrices->isNotEmpty()) {
+                        if ($this->product->usesAgeSelector()) {
                             $candidateAgeBreakdown = $this->product->calculateAgeBasedBreakdown(
                                 $period,
                                 $qty,
@@ -688,8 +652,11 @@ class ViewProduct extends Page
                         }
 
                         foreach($validPrices as $price) {
-                            if ($minPrice === null || $price->price < $minPrice) {
-                                $minPrice = $price->price;
+                            $candidateTotal = $this->product->baseRateTotal($price, $qty, $period);
+                            if ($minPrice === null || $candidateTotal < $minPrice) {
+                                $minPrice = $candidateTotal;
+                                $minPriceRow = $price;
+                                $basePricePeriod = $period;
                             }
                         }
                     }
@@ -700,14 +667,9 @@ class ViewProduct extends Page
                 $ageBaseTotal = $minAgeBaseTotal;
                 $basePricePerUnit = $minAgeBaseTotal / max(1, $qty);
             } else {
-                $basePricePerUnit = $minPrice ?? 0;
+                $basePriceRow = $minPriceRow;
+                $basePricePerUnit = ($minPrice ?? 0) / max(1, $qty);
             }
-        }
-
-        $this->product = Product::with(['productOptions', 'productPeriods.productPrices'])->findOrFail($record);
-
-        if (! $this->isAdmin && ! $this->product->isAvailableForAgency($this->activeAgencyId)) {
-            abort(403, __('Cette prestation n’est pas disponible pour le groupe de votre agence.'));
         }
 
         if ($this->product->usesAgeSelector()) {
@@ -719,37 +681,68 @@ class ViewProduct extends Page
 
         $totalBase = $ageBaseTotal !== null
             ? $ageBaseTotal
-            : ($basePricePerUnit * $qty);
+            : $this->product->baseRateTotal($basePriceRow, $qty, $basePricePeriod);
+        $basePricePerUnit = $totalBase / max(1, $qty);
         
         $optionsPrice = 0;
         $optionsAdultTotal = 0;
         $optionsChildTotal = 0;
         $optionsTeenTotal = 0;
+        $guidingVariantTotal = 0;
+        $guidingOptionalTotal = 0;
+        $guidingVariantNames = [];
         if ($this->product->productOptions) {
             foreach ($this->product->productOptions as $option) {
                 $optData = $this->selectedOptions[$option->id] ?? [];
                 if (!empty($optData['enabled'])) {
-                    $mod = $option->price_modifier ?? 0;
-                    if ($option->billing_type === 'per_pax') {
+                    $pricingQuantity = $this->product->enable_age_selector ? $this->ageSelectorAdults : $qty;
+                    $mod = $option->priceModifierForDate($this->serviceDate, 'adult', $pricingQuantity);
+                    $optionTotal = 0;
+                    if ($option->billing_type === 'per_pax' || $option->hasExtraPaxSeasonalModifierForDate($this->serviceDate, $pricingQuantity)) {
                         if ($this->product->enable_age_selector) {
-                            $adultTotal = $option->priceModifierForAge(false) * $this->ageSelectorAdults;
-                            $childTotal = $option->priceModifierForAge(true) * $this->ageSelectorChildren;
-                            $teenTotal = $option->priceModifierForAgeGroup('teen') * $this->ageSelectorTeenagers;
+                            $billableGroups = $option->billableAgeGroupQuantitiesForDate(
+                                $this->serviceDate,
+                                $qty,
+                                $this->ageSelectorAdults,
+                                $this->ageSelectorChildren,
+                                $this->ageSelectorTeenagers,
+                            );
+                            $adultTotal = $option->priceModifierForDate($this->serviceDate, 'adult', $this->ageSelectorAdults) * $billableGroups['adults'];
+                            $childTotal = $option->priceModifierForDate($this->serviceDate, 'child', $this->ageSelectorChildren) * $billableGroups['children'];
+                            $teenTotal = $option->priceModifierForDate($this->serviceDate, 'teen', $this->ageSelectorTeenagers) * $billableGroups['teenagers'];
                             $optionsAdultTotal += $adultTotal;
                             $optionsChildTotal += $childTotal;
                             $optionsTeenTotal += $teenTotal;
-                            $optionsPrice += $adultTotal + $childTotal + $teenTotal;
+                            $optionTotal = $adultTotal + $childTotal + $teenTotal;
                         } else {
-                            $optionsPrice += $mod * $qty;
+                            $optionTotal = $mod * $option->billableQuantityForDate($this->serviceDate, $qty);
                         }
                     } elseif ($option->billing_type === 'per_booking') {
-                        $optionsPrice += $mod;
+                        $optionTotal = $mod;
                     } elseif ($option->billing_type === 'manual') {
                         $optQty = (int)($optData['quantity'] ?? 1);
-                        $optionsPrice += $mod * $optQty;
+                        $optionTotal = $mod * $optQty;
+                    }
+
+                    $optionsPrice += $optionTotal;
+
+                    if ((int) $this->product->category_id === 4) {
+                        if ($option->is_required || filled($option->group_name)) {
+                            $guidingVariantTotal += $optionTotal;
+                            $guidingVariantNames[] = $option->name;
+                        } else {
+                            $guidingOptionalTotal += $optionTotal;
+                        }
                     }
                 }
             }
+        }
+
+        $guidingPaxLabel = null;
+        if ($basePriceRow) {
+            $guidingPaxLabel = $basePriceRow->min_pax === $basePriceRow->max_pax
+                ? __(':count pax', ['count' => $basePriceRow->min_pax])
+                : __(':min–:max pax', ['min' => $basePriceRow->min_pax, 'max' => $basePriceRow->max_pax]);
         }
 
         return [
@@ -757,6 +750,7 @@ class ViewProduct extends Page
             'has_date' => $hasDate,
             'unit_base' => $ageBaseTotal !== null ? ($ageBaseTotal / max(1, $qty)) : $basePricePerUnit,
             'total_base' => $totalBase,
+            'base_is_global' => $this->product->usesGlobalGuidingRate($basePriceRow),
             'base_adult_unit' => $ageBaseBreakdown['adult_unit'] ?? null,
             'base_child_unit' => $ageBaseBreakdown['child_unit'] ?? null,
             'base_teen_unit' => $ageBaseBreakdown['teen_unit'] ?? null,
@@ -767,6 +761,12 @@ class ViewProduct extends Page
             'options_adult_total' => $optionsAdultTotal,
             'options_child_total' => $optionsChildTotal,
             'options_teen_total' => $optionsTeenTotal,
+            'is_guiding' => (int) $this->product->category_id === 4,
+            'guiding_variant_names' => $guidingVariantNames,
+            'guiding_variant_total' => $guidingVariantTotal,
+            'guiding_optional_total' => $guidingOptionalTotal,
+            'guiding_season_name' => $basePricePeriod?->name,
+            'guiding_pax_label' => $guidingPaxLabel,
             'grand_total' => $totalBase + $optionsPrice,
             'qty' => $qty
         ];
@@ -778,6 +778,21 @@ class ViewProduct extends Page
 
         if (!$agencyId) {
             Notification::make()->title(__('Session Expirée'))->danger()->send();
+            return;
+        }
+
+        $folder = Folder::query()
+            ->whereKey($this->selectedFolderId)
+            ->where('agency_id', $agencyId)
+            ->first();
+
+        if (! $folder) {
+            Notification::make()
+                ->title(__('Dossier introuvable'))
+                ->body(__('Le dossier sélectionné n’est pas accessible à votre agence.'))
+                ->danger()
+                ->send();
+
             return;
         }
 
@@ -833,7 +848,7 @@ class ViewProduct extends Page
             );
 
             $folderItem = FolderItem::create([
-                'folder_id' => $this->selectedFolderId,
+                'folder_id' => $folder->id,
                 'product_id' => $this->product->id,
                 'service_date' => $serviceDate,
                 'quantity' => $quantity,
@@ -844,13 +859,10 @@ class ViewProduct extends Page
                 'total_price' => 0,
             ]);
 
-            $folder = Folder::find($this->selectedFolderId);
-            if ($folder) {
-                \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
-                    function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },
-                    function($k) use ($folderItem) { return $folderItem->{$k}; }
-                );
-            }
+            \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
+                function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },
+                function($k) use ($folderItem) { return $folderItem->{$k}; }
+            );
 
             Notification::make()
                 ->title(__('Demande de trajet ajoutée au dossier !'))
@@ -1003,8 +1015,7 @@ class ViewProduct extends Page
             }
         }
 
-        $folder = Folder::find($this->selectedFolderId);
-        if ($folder && $folder->start_date && $folder->end_date) {
+        if ($folder->start_date && $folder->end_date) {
             $serviceDateObj = Carbon::parse($this->serviceDate)->startOfDay();
             $folderStart = Carbon::parse($folder->start_date)->startOfDay();
             $folderEnd = Carbon::parse($folder->end_date)->startOfDay();
@@ -1035,7 +1046,7 @@ class ViewProduct extends Page
         );
 
         $folderItem = FolderItem::create([
-            'folder_id' => $this->selectedFolderId,
+            'folder_id' => $folder->id,
             'product_id' => $this->product->id,
             'service_date' => $this->serviceDate,
             'quantity' => $this->quantity,
@@ -1049,12 +1060,10 @@ class ViewProduct extends Page
             'total_price' => 0,
         ]);
 
-        if ($folder) {
-            \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
-                function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },
-                function($k) use ($folderItem) { return $folderItem->{$k}; }
-            );
-        }
+        \App\Filament\Resources\Folders\FolderResource::updateItemPrices(
+            function($k, $v) use ($folderItem) { $folderItem->update([$k => $v]); },
+            function($k) use ($folderItem) { return $folderItem->{$k}; }
+        );
 
         Notification::make()
             ->title(__('Demande ajoutée au dossier !'))

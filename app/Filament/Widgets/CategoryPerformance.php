@@ -20,7 +20,12 @@ class CategoryPerformance extends BaseWidget
 
     protected function getTableHeading(): ?string
     {
-        return __('CA & Rentabilité par Catégorie de prestation');
+        return __('Performance par catégorie');
+    }
+
+    protected function getTableDescription(): ?string
+    {
+        return __('Uniquement les catégories présentes dans des dossiers confirmés ou terminés.');
     }
 
     public function table(Table $table): Table
@@ -31,6 +36,16 @@ class CategoryPerformance extends BaseWidget
         return $table
             ->query(
                 Category::query()
+                    ->whereExists(function ($query) use ($startDate, $endDate) {
+                        $query->selectRaw('1')
+                            ->from('folder_items')
+                            ->join('products', 'products.id', '=', 'folder_items.product_id')
+                            ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
+                            ->whereColumn('products.category_id', 'categories.id')
+                            ->whereIn('folders.status', ['confirmed', 'completed'])
+                            ->when($startDate, fn ($query) => $query->whereDate('folders.created_at', '>=', $startDate))
+                            ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate));
+                    })
                     ->addSelect([
                         'items_count' => FolderItem::selectRaw('COUNT(*)')
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
@@ -65,7 +80,7 @@ class CategoryPerformance extends BaseWidget
                     ->weight('bold'),
                     
                 Tables\Columns\TextColumn::make('items_count')
-                ->label(__('Volume (Qté vendue)'))
+                ->label(__('Prestations vendues'))
                     ->badge()
                     ->color('primary')
                     ->sortable(),
@@ -76,15 +91,14 @@ class CategoryPerformance extends BaseWidget
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('marge_brute')
-                ->label(__('Marge Dégagée'))
+                ->label(__('Marge brute'))
                     ->getStateUsing(fn ($record) => $record->total_ca - $record->total_purchase)
                     ->money('JPY')
                     ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
                     ->weight('bold'),
 
-                // 💡 NOUVEAU KPI BONUS : Le taux de marge en pourcentage
                 Tables\Columns\TextColumn::make('taux_marge')
-                ->label(__('Taux de Marge (%)'))
+                ->label(__('Marge (%)'))
                     ->getStateUsing(function ($record) {
                         $marge = $record->total_ca - $record->total_purchase;
                         return $record->total_ca > 0 ? ($marge / $record->total_ca) * 100 : 0;

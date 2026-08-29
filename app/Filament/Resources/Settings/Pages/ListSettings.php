@@ -3,17 +3,23 @@
 namespace App\Filament\Resources\Settings\Pages;
 
 use App\Filament\Resources\Settings\SettingResource;
-use Filament\Actions\CreateAction;
+use App\Models\Setting;
 use Filament\Resources\Pages\ListRecords;
 
 class ListSettings extends ListRecords
 {
     protected static string $resource = SettingResource::class;
 
-    protected function getHeaderActions(): array
+    public function mount(): void
     {
-        return [
-            CreateAction::make(),
-        ];
+        parent::mount();
+
+        $settings = Setting::query()->first();
+
+        $this->redirect(
+            $settings
+                ? SettingResource::getUrl('edit', ['record' => $settings])
+                : SettingResource::getUrl('create'),
+        );
     }
 }

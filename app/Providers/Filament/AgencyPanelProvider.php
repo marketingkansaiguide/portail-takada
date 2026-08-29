@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Models\Setting;
 use App\Filament\Agency\Pages\Catalogue;
 use App\Filament\Agency\Pages\Contact; // 💡 1. IMPORT AJOUTÉ ICI
 use App\Filament\Agency\Resources\AgencyFolderResource;
@@ -22,14 +23,28 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Support\Facades\Storage;
 
 class AgencyPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        try {
+            $settings = Setting::query()->first();
+        } catch (\Throwable) {
+            $settings = null;
+        }
+        $brandLogo = $settings?->site_logo_path
+            ? Storage::disk('public')->url($settings->site_logo_path)
+            : asset('images/logo.svg');
+        $favicon = $settings?->site_favicon_path
+            ? Storage::disk('public')->url($settings->site_favicon_path)
+            : asset('images/logo.svg');
+
         return $panel
             ->id('agency')
             ->path('') // Racine du site
+            ->spa(true, true)
             ->login()
             ->authGuard('agency') // Guard de session isolé pour les agences
             ->databaseNotifications()
@@ -43,8 +58,9 @@ class AgencyPanelProvider extends PanelProvider
             ->topNavigation()
             ->breadcrumbs(false)
             ->brandName('Portail Agences Takada')
-            ->brandLogo(asset('images/logo.svg'))
+            ->brandLogo($brandLogo)
             ->brandLogoHeight('3rem')
+            ->favicon($favicon)
             
             ->discoverResources(in: app_path('Filament/Agency/Resources'), for: 'App\\Filament\\Agency\\Resources')
             
@@ -71,6 +87,10 @@ class AgencyPanelProvider extends PanelProvider
                         Connexion Agence
                        </a>'
                     : ''
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn (): string => view('filament.partials.page-navigation-feedback')->render(),
             )
             
             ->middleware([

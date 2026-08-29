@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Folder;
+use App\Support\AdminAccess;
 use BackedEnum;
 use UnitEnum;
 use Carbon\Carbon;
@@ -35,6 +36,11 @@ class UpcomingCheckins extends Page implements HasTable
     protected static ?int $navigationSort = 3;
 
     protected string $view = 'filament.pages.upcoming-checkins';
+
+    public static function canAccess(): bool
+    {
+        return AdminAccess::allows('operations.checkins');
+    }
 
     public static function getNavigationBadge(): ?string
     {

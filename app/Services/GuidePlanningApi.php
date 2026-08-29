@@ -13,19 +13,23 @@ class GuidePlanningApi
     /** @return array<int, array{id:int,name:string,email:?string,phone:?string,dispatch_address:?string}> */
     public function employees(): array
     {
-        return Cache::remember(self::CACHE_KEY, now()->addMinutes(15), function (): array {
-            $baseUrl = rtrim((string) config('services.guide_planning.base_url'), '/');
-            $apiKey = (string) config('services.guide_planning.api_key');
+        $baseUrl = rtrim((string) config('services.guide_planning.base_url'), '/');
+        $apiKey = (string) config('services.guide_planning.api_key');
 
-            if ($baseUrl === '' || $apiKey === '') {
-                return [];
-            }
+        if ($baseUrl === '' || $apiKey === '') {
+            return [];
+        }
 
+        $endpoint = str_ends_with(mb_strtolower($baseUrl), '/employees')
+            ? $baseUrl
+            : "{$baseUrl}/employees";
+
+        return Cache::remember(self::CACHE_KEY.'.'.sha1($endpoint), now()->addMinutes(15), function () use ($apiKey, $endpoint): array {
             try {
                 $response = Http::acceptJson()
                     ->withHeaders(['X-PM-Api-Key' => $apiKey])
                     ->timeout(10)
-                    ->get("{$baseUrl}/employees");
+                    ->get($endpoint);
 
                 if (! $response->successful() || ! $response->json('success')) {
                     return [];
