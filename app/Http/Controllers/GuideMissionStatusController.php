@@ -32,13 +32,13 @@ class GuideMissionStatusController extends Controller
         $statusName = match ($data['status']) {
             'confirmed' => 'Confirmé',
             'unavailable' => 'Pas de disponibilité',
-            'cancelled' => 'Annulé',
+            'cancelled' => 'Pas de disponibilité',
         };
         $status = ItemStatus::firstOrCreate(['name' => $statusName], ['color' => $data['status'] === 'confirmed' ? 'success' : 'danger']);
         // Cette mise à jour provient de Planning Guides : ne pas redéclencher
         // l'annulation vers WordPress dans l'observer de prestation.
         $item->updateQuietly(['item_status_id' => $status->id]);
-        if ($data['status'] === 'cancelled') {
+        if ($data['status'] !== 'confirmed') {
             $item->folder?->recalculateBillableTotal();
         }
 

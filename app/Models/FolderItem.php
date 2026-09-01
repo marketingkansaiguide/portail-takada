@@ -33,10 +33,13 @@ class FolderItem extends Model
         'guide_synced_at' => 'datetime',
     ];
 
+    /**
+     * Prestations facturables : les annulations et indisponibilités sont exclues.
+     */
     public function scopeNotCancelled(Builder $query): Builder
     {
         return $query->whereDoesntHave('itemStatus', fn (Builder $statusQuery) => $statusQuery
-            ->whereRaw('LOWER(name) LIKE ?', ['%annul%']));
+            ->whereRaw('LOWER(name) LIKE ? OR LOWER(name) LIKE ?', ['%annul%', '%pas de disponibilit%']));
     }
 
     public function isCancelled(): bool
@@ -47,13 +50,13 @@ class FolderItem extends Model
     /** @param array<int, array<string, mixed>> $items */
     public static function sumBillableFormItems(array $items): float
     {
-        $cancelledStatusIds = ItemStatus::query()
-            ->whereRaw('LOWER(name) LIKE ?', ['%annul%'])
+        $nonBillableStatusIds = ItemStatus::query()
+            ->whereRaw('LOWER(name) LIKE ? OR LOWER(name) LIKE ?', ['%annul%', '%pas de disponibilit%'])
             ->pluck('id')
             ->all();
 
         return collect($items)
-            ->reject(fn (array $item): bool => in_array((int) ($item['item_status_id'] ?? 0), $cancelledStatusIds, true))
+            ->reject(fn (array $item): bool => in_array((int) ($item['item_status_id'] ?? 0), $nonBillableStatusIds, true))
             ->sum(fn (array $item): float => (float) ($item['total_price'] ?? 0));
     }
 

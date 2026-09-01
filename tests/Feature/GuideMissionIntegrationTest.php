@@ -184,3 +184,9 @@ it('rejects an unauthenticated guide status callback', function () {
         'status' => 'confirmed',
     ])->assertUnauthorized();
 });
+
+it('excludes unavailable services from billable queries', function () {
+    $query = FolderItem::query()->notCancelled();
+
+    expect($query->getBindings())->toContain('%annul%', '%pas de disponibilit%');
+});
