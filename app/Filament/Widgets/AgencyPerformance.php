@@ -59,6 +59,7 @@ class AgencyPerformance extends BaseWidget
                             ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate)),
 
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(purchase_total_price), 0)')
+                            ->notCancelled()
                             ->whereIn('folder_id', function ($query) use ($startDate, $endDate) {
                                 $query->select('id')->from('folders')
                                     ->whereColumn('agency_id', 'agencies.id')
@@ -68,6 +69,7 @@ class AgencyPerformance extends BaseWidget
                             }),
 
                         'items_count' => FolderItem::selectRaw('count(*)')
+                            ->notCancelled()
                             ->whereIn('folder_id', function ($query) use ($startDate, $endDate) {
                                 $query->select('id')->from('folders')
                                     ->whereColumn('agency_id', 'agencies.id')

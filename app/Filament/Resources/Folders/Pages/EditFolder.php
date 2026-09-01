@@ -83,12 +83,7 @@ class EditFolder extends EditRecord
         $newData = $this->form->getState();
         unset($newData['history_note']);
 
-        $totalItems = 0;
-        if (isset($formState['folderItems']) && is_array($formState['folderItems'])) {
-            foreach ($formState['folderItems'] as $item) {
-                $totalItems += (float) ($item['total_price'] ?? 0);
-            }
-        }
+        $totalItems = \App\Models\FolderItem::sumBillableFormItems($formState['folderItems'] ?? []);
         $fee = (float) ($newData['folder_fee'] ?? 0);
         
         $newData['total_price'] = $totalItems + $fee;

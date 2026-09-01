@@ -1314,7 +1314,7 @@ Repeater::make('transport_routes')
                                 );
 
                                 $record->refresh();
-                                $totalSale = $record->folderItems->sum('total_price') + ($record->folder_fee ?? 0);
+                                $totalSale = $record->billableFolderItems()->sum('total_price') + ($record->folder_fee ?? 0);
                                 $record->update(['total_price' => $totalSale]);
 
                                 \Filament\Notifications\Notification::make()
@@ -1360,7 +1360,7 @@ Repeater::make('transport_routes')
                                                 $item->delete();
                                                 if ($folder) {
                                                     $record = $folder->fresh();
-                                                    $totalSale = $record->folderItems->sum('total_price') + ($record->folder_fee ?? 0);
+                                                    $totalSale = $record->billableFolderItems()->sum('total_price') + ($record->folder_fee ?? 0);
                                                     $record->update(['total_price' => $totalSale]);
                                                 }
                                             }
@@ -1752,7 +1752,7 @@ Repeater::make('transport_routes')
                     ->label(__('Total Estimé'))
                     ->money('JPY')
                     ->getStateUsing(function ($record) {
-                        $itemsTotal = $record->folderItems->sum('total_price');
+                        $itemsTotal = $record->billableFolderItems()->sum('total_price');
                         $fee = (float) ($record->folder_fee ?? 0);
                         
                         // 💡 Le rattrapage intelligent pour les brouillons :

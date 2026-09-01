@@ -220,12 +220,19 @@ class FolderResource extends Resource
 
         $perPaxOptionsTotal = 0;
         $fixedOptionsTotal = 0;
+        $guidePurchaseTotal = 0;
+        $hasGuidePurchasePrice = false;
 
         if (is_array($selectedOptions)) {
             foreach ($selectedOptions as $optData) {
                 if (empty($optData['product_option_id'])) continue;
                 $option = \App\Models\ProductOption::find($optData['product_option_id']);
                 if ($option) {
+                    $purchasePrice = $option->purchasePriceForDate($serviceDate, $itemQuantity);
+                    if ($purchasePrice !== null) {
+                        $guidePurchaseTotal += $purchasePrice;
+                        $hasGuidePurchasePrice = true;
+                    }
                     $pricingQuantity = $ageSelectorData ? $ageSelectorData['adults'] : $itemQuantity;
                     $mod = $option->priceModifierForDate($serviceDate, 'adult', $pricingQuantity);
                     if ($option->billing_type === 'per_pax' || $option->hasExtraPaxSeasonalModifierForDate($serviceDate, $pricingQuantity)) {
@@ -282,6 +289,10 @@ class FolderResource extends Resource
             // Prestation normale (Hotel, Guide, Activité...)
             $set('unit_price', $unitPrice);
             $set('total_price', $fraisFixesBase);
+            if ((int) ($product?->category_id ?? 0) === 4 && $hasGuidePurchasePrice) {
+                $set('purchase_unit_price', $guidePurchaseTotal);
+                $set('purchase_total_price', $guidePurchaseTotal);
+            }
         }
     }
 
@@ -2046,7 +2057,7 @@ Repeater::make('transport_routes')
                     ->label(__('Montant total'))
                     ->money('JPY')
                     ->getStateUsing(function ($record) {
-                        $itemsTotal = $record->folderItems->sum('total_price');
+                        $itemsTotal = $record->billableFolderItems()->sum('total_price');
                         $fee = (float) ($record->folder_fee ?? 0);
                         
                         // 💡 Le rattrapage intelligent pour les brouillons :

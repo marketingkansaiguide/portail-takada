@@ -10,6 +10,54 @@ class GuidePlanningApi
 {
     private const CACHE_KEY = 'guide-planning-api.employees';
 
+    /** @param array<string, mixed> $payload @return array<string, mixed> */
+    public function syncMission(array $payload): array
+    {
+        $apiKey = (string) config('services.guide_planning.api_key');
+        $endpoint = $this->missionsEndpoint();
+
+        if ($endpoint === '' || $apiKey === '') {
+            throw new \RuntimeException('Configuration de l’API Planning Guides manquante.');
+        }
+
+        $response = Http::acceptJson()
+            ->withHeaders(['X-PM-Api-Key' => $apiKey])
+            ->timeout(15)
+            ->post($endpoint, $payload);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException("Planning Guides a répondu HTTP {$response->status()}.");
+        }
+
+        $data = $response->json('data');
+        if (! $response->json('success') || ! is_array($data) || empty($data['id'])) {
+            throw new \UnexpectedValueException('Réponse invalide de Planning Guides.');
+        }
+
+        return $data;
+    }
+
+    public function cancelMission(int $missionId, int $folderItemId): void
+    {
+        $apiKey = (string) config('services.guide_planning.api_key');
+        $endpoint = $this->missionsEndpoint();
+
+        if ($endpoint === '' || $apiKey === '') {
+            throw new \RuntimeException('Configuration de l’API Planning Guides manquante.');
+        }
+
+        $response = Http::acceptJson()
+            ->withHeaders(['X-PM-Api-Key' => $apiKey])
+            ->timeout(15)
+            ->post("{$endpoint}/{$missionId}/cancel", [
+                'ticketing_order_item_id' => $folderItemId,
+            ]);
+
+        if (! $response->successful() || ! $response->json('success')) {
+            throw new \RuntimeException("Planning Guides a répondu HTTP {$response->status()} lors de l’annulation.");
+        }
+    }
+
     /** @return array<int, array{id:int,name:string,email:?string,phone:?string,dispatch_address:?string}> */
     public function employees(): array
     {
@@ -105,5 +153,15 @@ class GuidePlanningApi
             'phone' => filled($employee['phone'] ?? null) ? trim((string) $employee['phone']) : null,
             'dispatch_address' => filled($address) ? trim((string) $address) : null,
         ];
+    }
+
+    private function missionsEndpoint(): string
+    {
+        $baseUrl = rtrim((string) config('services.guide_planning.base_url'), '/');
+        $lowerBaseUrl = mb_strtolower($baseUrl);
+
+        return str_ends_with($lowerBaseUrl, '/missions')
+            ? $baseUrl
+            : (str_ends_with($lowerBaseUrl, '/employees') ? substr($baseUrl, 0, -10).'/missions' : "{$baseUrl}/missions");
     }
 }

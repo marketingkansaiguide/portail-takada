@@ -4,7 +4,9 @@ namespace App\Observers;
 
 use App\Models\Folder;
 use App\Models\FolderHistory;
+use App\Models\FolderItem;
 use App\Models\User;
+use App\Jobs\CancelGuideMission;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 
@@ -90,6 +92,15 @@ class FolderObserver
                 ->success() // Couleur verte
                 ->icon('heroicon-o-check-circle')
                 ->sendToDatabase($notifiables);
+        }
+
+        if ($folder->wasChanged('status') && $folder->status === 'cancelled') {
+            FolderItem::query()
+                ->where('folder_id', $folder->id)
+                ->whereNotNull('guide_mission_id')
+                ->whereHas('product', fn ($query) => $query->where('category_id', 4))
+                ->pluck('id')
+                ->each(fn (int $itemId) => CancelGuideMission::dispatch($itemId)->afterCommit());
         }
         
         // Tu peux rajouter d'autres règles ici ! 

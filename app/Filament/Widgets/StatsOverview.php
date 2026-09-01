@@ -38,7 +38,7 @@ class StatsOverview extends BaseWidget
         $totalCA = $folders->sum('total_price');
         $totalFolders = $folders->count();
         $folderIds = $folders->pluck('id');
-        $totalPurchase = FolderItem::whereIn('folder_id', $folderIds)->sum('purchase_total_price');
+        $totalPurchase = FolderItem::whereIn('folder_id', $folderIds)->notCancelled()->sum('purchase_total_price');
 
         $totalMargin = $totalCA - $totalPurchase;
         $marginRate = $totalCA > 0 ? ($totalMargin / $totalCA) * 100 : 0;

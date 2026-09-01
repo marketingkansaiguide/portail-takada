@@ -43,12 +43,7 @@ class CreateAgencyFolder extends CreateRecord
             ->where('role', User::ROLE_AGENCY)
             ->value('id') ?? $user->id;
 
-        $totalItems = 0;
-        if (isset($data['folderItems']) && is_array($data['folderItems'])) {
-            foreach ($data['folderItems'] as $item) {
-                $totalItems += (float) ($item['total_price'] ?? 0);
-            }
-        }
+        $totalItems = \App\Models\FolderItem::sumBillableFormItems($data['folderItems'] ?? []);
         $data['total_price'] = $totalItems;
 
         return $data;

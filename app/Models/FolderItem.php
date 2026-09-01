@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class FolderItem extends Model
 {
@@ -14,6 +16,7 @@ class FolderItem extends Model
         'folder_id', 'product_id', 'product_option_id', 'supplier_id', 'item_status_id',
         'service_date', 'quantity', 'pax_adults', 'pax_children', 'pax_teenagers', 'purchase_unit_price', 'purchase_total_price', 'unit_price', 'total_price', 'custom_values',
         'selected_options', 'invoice_received_at', 'google_calendar_event_id',
+        'guide_mission_id', 'guide_sync_status', 'guide_sync_error', 'guide_synced_at',
         'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
         'label_exported_at',
     ];
@@ -26,7 +29,33 @@ class FolderItem extends Model
         'invoice_received_at' => 'date',
         'is_internal' => 'boolean',
         'label_exported_at' => 'datetime',
+        'guide_mission_id' => 'integer',
+        'guide_synced_at' => 'datetime',
     ];
+
+    public function scopeNotCancelled(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('itemStatus', fn (Builder $statusQuery) => $statusQuery
+            ->whereRaw('LOWER(name) LIKE ?', ['%annul%']));
+    }
+
+    public function isCancelled(): bool
+    {
+        return str_contains(Str::lower(Str::ascii((string) $this->itemStatus?->name)), 'annul');
+    }
+
+    /** @param array<int, array<string, mixed>> $items */
+    public static function sumBillableFormItems(array $items): float
+    {
+        $cancelledStatusIds = ItemStatus::query()
+            ->whereRaw('LOWER(name) LIKE ?', ['%annul%'])
+            ->pluck('id')
+            ->all();
+
+        return collect($items)
+            ->reject(fn (array $item): bool => in_array((int) ($item['item_status_id'] ?? 0), $cancelledStatusIds, true))
+            ->sum(fn (array $item): float => (float) ($item['total_price'] ?? 0));
+    }
 
     /**
      * Retourne la composition des passagers pour cette prestation.
@@ -634,6 +663,34 @@ class FolderItem extends Model
         });
 
         static::updated(function ($item) {
+            if ($item->wasChanged('item_status_id')
+                && (int) $item->product?->category_id === 4
+                && $item->guide_mission_id
+                && $item->isCancelled()) {
+                try {
+                    \App\Jobs\CancelGuideMission::dispatch($item->id)->afterCommit();
+                } catch (\Throwable $exception) {
+                    Log::channel('guide_integration')->error('Impossible de mettre l’annulation de mission en file.', ['folder_item_id' => $item->id, 'error' => $exception->getMessage()]);
+                }
+            }
+
+            if ($item->wasChanged('item_status_id') && $item->folder) {
+                $item->folder->recalculateBillableTotal();
+            }
+
+            if ($item->wasChanged([
+                'service_date', 'product_id', 'product_option_id', 'quantity',
+                'pax_adults', 'pax_children', 'pax_teenagers', 'custom_values',
+                'purchase_total_price',
+            ]) && in_array($item->folder?->status, ['confirmed', 'completed'], true)
+                && (int) $item->product?->category_id === 4) {
+                try {
+                    \App\Jobs\SyncGuideMission::dispatch($item->id)->afterCommit();
+                } catch (\Throwable $exception) {
+                    Log::channel('guide_integration')->error('Impossible de remettre la mission en file.', ['folder_item_id' => $item->id, 'error' => $exception->getMessage()]);
+                }
+            }
+
             static $processedUpdates = [];
 
             if ($item->wasChanged()) {
@@ -786,6 +843,15 @@ class FolderItem extends Model
             static $processedCreations = [];
             if (isset($processedCreations[$item->id])) return;
             $processedCreations[$item->id] = true;
+
+            if (in_array($item->folder?->status, ['confirmed', 'completed'], true)
+                && (int) $item->product?->category_id === 4) {
+                try {
+                    \App\Jobs\SyncGuideMission::dispatch($item->id)->afterCommit();
+                } catch (\Throwable $exception) {
+                    Log::channel('guide_integration')->error('Impossible de mettre la mission en file.', ['folder_item_id' => $item->id, 'error' => $exception->getMessage()]);
+                }
+            }
 
             try { 
                 $item->syncGoogleCalendar(); 

@@ -60,6 +60,7 @@ Route::get('/pdf/recapitulatif/{folder}', function (Folder $folder) {
     $folder->load([
         'agency',
         'folderItems' => fn ($query) => $query
+            ->notCancelled()
             ->orderByRaw('service_date IS NULL')
             ->orderBy('service_date')
             ->orderBy('id'),

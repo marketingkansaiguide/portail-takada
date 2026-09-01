@@ -9,7 +9,7 @@
         
         <div style="text-align: center; margin-bottom: 25px;">
             <span style="font-size: 40px;">💳</span>
-            <h1 style="color: #b45309; font-size: 20px; margin-top: 10px;"><?php echo e(__('Ouverture des ventes atteinte - Cartes IC')); ?></h1>
+            <h1 style="color: #096a61; font-size: 20px; margin-top: 10px;"><?php echo e(__('Ouverture des ventes atteinte - Cartes IC')); ?></h1>
             <p style="color: #6b7280; font-size: 13px; margin-top: 5px;">
                 <?php echo e(__('Récapitulatif des prestations dont la date d’ouverture des ventes (J-) est atteinte.')); ?>
 
@@ -51,7 +51,7 @@
                                 <?php echo e($item->folder?->lead_traveler_name); ?>
 
                             </td>
-                            <td style="padding: 10px; text-align: center; font-weight: bold; color: #d97706; border-right: 1px solid #f3f4f6;">
+                            <td style="padding: 10px; text-align: center; font-weight: bold; color: #096a61; border-right: 1px solid #f3f4f6;">
                                 <?php echo e($item->quantity); ?> <?php echo e(__('carte(s)')); ?>
 
                             </td>
@@ -71,7 +71,7 @@
 
         <div style="text-align: center; margin-top: 30px;">
             <a href="<?php echo e(route('filament.admin.pages.ic-cards')); ?>" 
-               style="background-color: #f59e0b; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">
+               style="background-color: #096a61; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">
                <?php echo e(__('Accéder à la gestion des Cartes IC')); ?> ↗
             </a>
         </div>

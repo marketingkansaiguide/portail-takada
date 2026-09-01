@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Mail\ContactRequestMail;
 
 class ContactController extends Controller
 {
@@ -30,18 +31,7 @@ class ContactController extends Controller
         ]);
 
         try {
-            Mail::raw("Nouvelle demande de contact / Sur-mesure (Portail B2B)\n\n"
-                . "Nom du contact : {$validated['name']}\n"
-                . "Agence : " . ($validated['agency_name'] ?? 'Non renseignée') . "\n"
-                . "Email : {$validated['email']}\n\n"
-                . "Sujet : {$validated['subject']}\n\n"
-                . "Message :\n{$validated['message']}", 
-                function ($message) use ($validated) {
-                    $message->to('resa@kansai-guide.com')
-                            ->subject('Demande Portail Takada : ' . $validated['subject'])
-                            ->replyTo($validated['email']);
-                }
-            );
+            Mail::to('resa@kansai-guide.com')->send(new ContactRequestMail($validated));
         } catch (\Exception $e) {
             Log::error('Erreur lors de l\'envoi du mail de contact : ' . $e->getMessage());
         }

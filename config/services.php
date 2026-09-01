@@ -38,6 +38,7 @@ return [
     'guide_planning' => [
         'base_url' => env('GUIDE_PLANNING_API_URL'),
         'api_key' => env('GUIDE_PLANNING_API_KEY'),
+        'callback_token' => env('GUIDE_PLANNING_CALLBACK_TOKEN'),
     ],
 
     'google_drive' => [

@@ -21,6 +21,7 @@ use App\Models\Folder;
 use App\Models\FolderMessage;
 use App\Models\Setting;
 use App\Mail\NewChatMessageForAdminMail;
+use App\Mail\ContactRequestMail;
 
 class Contact extends Page implements HasForms
 {
@@ -198,13 +199,7 @@ class Contact extends Page implements HasForms
         } else {
             // Logique de secours pour les visiteurs non connectés
             try {
-                Mail::raw(__('Nouvelle demande B2B (Visiteur non connecté)') . "\n\n"
-                    . __('Nom :') . " {$data['name']}\n" . __('Agence :') . " {$data['agency_name']}\n"
-                    . __('Sujet :') . " {$data['subject']}\n\n" . __('Message :') . "\n{$data['message']}",
-                    function ($message) use ($data) {
-                        $message->to('resa@kansai-guide.com')->subject('Demande Portail : ' . $data['subject'])->replyTo($data['email']);
-                    }
-                );
+                Mail::to('resa@kansai-guide.com')->send(new ContactRequestMail($data));
 
                 Notification::make()->title(__('Message envoyé !'))->success()->send();
                 $this->form->fill(['name' => $data['name'], 'email' => $data['email'], 'agency_name' => $data['agency_name'], 'subject' => '', 'message' => '']);

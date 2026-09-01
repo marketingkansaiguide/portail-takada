@@ -10,6 +10,8 @@ use Filament\Forms\Components\Placeholder;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Jobs\SyncGuideMission;
+use App\Mail\FolderValidatedMail;
 
 class EditAgencyFolder extends EditRecord
 {
@@ -123,6 +125,19 @@ class EditAgencyFolder extends EditRecord
                         'folder_fee' => $folderFee
                     ]);
 
+                    $record->folderItems()
+                        ->whereHas('product', fn ($query) => $query->where('category_id', 4))
+                        ->get()
+                        ->each(function ($item): void {
+                            try {
+                                $item->update(['guide_sync_status' => 'pending', 'guide_sync_error' => null]);
+                                SyncGuideMission::dispatch($item->id)->afterCommit();
+                            } catch (\Throwable $exception) {
+                                $item->update(['guide_sync_status' => 'failed', 'guide_sync_error' => mb_substr($exception->getMessage(), 0, 2000)]);
+                                Log::channel('guide_integration')->error('Impossible de mettre la mission en file.', ['folder_item_id' => $item->id, 'error' => $exception->getMessage()]);
+                            }
+                        });
+
                     try {
                         if (class_exists('\App\Models\FolderTask')) {
                             \App\Models\FolderTask::updateOrCreate([
@@ -160,19 +175,7 @@ class EditAgencyFolder extends EditRecord
                         }
 
                         if ($adminEmails !== []) {
-                            Mail::raw(
-                                "Un nouveau dossier vient d'être validé par l'agence " . ($record->agency->name ?? 'Inconnue') . ".\n\n" .
-                                "Référence : {$record->reference}\n" .
-                                "Nom du dossier : {$record->folder_name}\n" .
-                                "Pax Leader : {$record->lead_traveler_name}\n" .
-                                "Nombre de prestations : " . $record->folderItems()->count() . "\n" .
-                                "Montant Total : " . number_format($record->total_price, 0, '.', ' ') . " ¥\n\n" .
-                                "Accéder au dossier dans l'Admin : " . route('filament.admin.resources.folders.edit', ['record' => $record->id]),
-                                function ($message) use ($adminEmails, $record) {
-                                    $message->to($adminEmails)
-                                            ->subject("🚨 [NOUVEAU DOSSIER VALIDÉ] {$record->reference} - {$record->folder_name}");
-                                }
-                            );
+                            Mail::to($adminEmails)->send(new FolderValidatedMail($record));
                         }
                     } catch (\Exception $e) {
                         Log::error("Erreur envoi mail alerte admin : " . $e->getMessage());
@@ -234,12 +237,7 @@ class EditAgencyFolder extends EditRecord
             ->where('role', User::ROLE_AGENCY)
             ->value('id') ?? $this->record->main_seller_id;
 
-        $totalItems = 0;
-        if (isset($data['folderItems']) && is_array($data['folderItems'])) {
-            foreach ($data['folderItems'] as $item) {
-                $totalItems += (float) ($item['total_price'] ?? 0);
-            }
-        }
+        $totalItems = \App\Models\FolderItem::sumBillableFormItems($data['folderItems'] ?? []);
         
         // 💡 Enregistre les frais de dossier dans la BDD s'ils étaient restés à 0 suite à l'ancien bug
         $folderFee = (float) ($this->record->folder_fee ?? 0);

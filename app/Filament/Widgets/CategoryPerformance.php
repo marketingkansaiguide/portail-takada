@@ -48,6 +48,7 @@ class CategoryPerformance extends BaseWidget
                     })
                     ->addSelect([
                         'items_count' => FolderItem::selectRaw('COUNT(*)')
+                            ->notCancelled()
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')
@@ -56,6 +57,7 @@ class CategoryPerformance extends BaseWidget
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_ca' => FolderItem::selectRaw('COALESCE(SUM(folder_items.total_price), 0)')
+                            ->notCancelled()
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')
@@ -64,6 +66,7 @@ class CategoryPerformance extends BaseWidget
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(folder_items.purchase_total_price), 0)')
+                            ->notCancelled()
                             ->join('products', 'products.id', '=', 'folder_items.product_id')
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('products.category_id', 'categories.id')

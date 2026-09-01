@@ -83,11 +83,26 @@
                             @if(auth('agency')->check())
                                 @php
                                     $minPrice = null;
+                                    $isGuiding = (int) $product->category_id === 4;
+                                    // En guidage, les lignes enfants peuvent être gratuites : elles ne
+                                    // constituent jamais un prix d'appel. On cherche donc une ligne
+                                    // adulte réellement facturable, hors supplément par pax.
+                                    $adultAge = $product->teen_age_limit !== null
+                                        ? (int) $product->teen_age_limit + 1
+                                        : (int) ($product->child_age_limit ?? 11) + 1;
                                     if ($product->productPeriods) {
                                         foreach($product->productPeriods as $period) {
                                             if ($period->productPrices) {
                                                 foreach($period->productPrices as $price) {
                                                     if ($price->isExtraPaxRate()) {
+                                                        continue;
+                                                    }
+
+                                                    if ($isGuiding && (
+                                                        (int) $price->price <= 0 ||
+                                                        (int) $price->min_age > $adultAge ||
+                                                        (int) $price->max_age < $adultAge
+                                                    )) {
                                                         continue;
                                                     }
 

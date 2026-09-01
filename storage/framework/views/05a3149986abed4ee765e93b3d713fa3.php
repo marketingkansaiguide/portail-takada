@@ -59,6 +59,17 @@
             to { transform: rotate(360deg); }
         }
         .animate-spin-custom { animation: spin 1s linear infinite; }
+
+        /* Étapes compactes : la fiche reste volontairement sur une seule colonne. */
+        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.85rem; padding: 1rem; margin-bottom: 1rem; }
+        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem; color: #0f766e; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
+        .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: #14b8a6; flex: 0 0 auto; }
+        .product-variant-group { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
+        .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
+        .product-price-summary { background: #f0fdfa; border-color: #99f6e4; }
+        .product-final-step { border-color: #a7f3d0; background: #f0fdf4; }
+        @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
+
     </style>
 
     <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
@@ -377,7 +388,7 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                     <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center;">
                                             <span style="color: #78350f; font-weight: 500;">
-                                                • Frais de service de l'agence (<?php echo e(number_format($estimate['unit_base'] ?? 0, 0, '.', ' ')); ?> ¥ × <?php echo e($estimate['qty'] ?? 1); ?> trajet<?php echo e(($estimate['qty'] ?? 1) > 1 ? 's' : ''); ?> total)
+                                                • <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($estimate['base_is_global'] ?? false): ?> <?php echo e(__('Forfait global')); ?> <?php else: ?> Frais de service de l'agence (<?php echo e(number_format($estimate['unit_base'] ?? 0, 0, '.', ' ')); ?> ¥ × <?php echo e($estimate['qty'] ?? 1); ?> trajet<?php echo e(($estimate['qty'] ?? 1) > 1 ? 's' : ''); ?> total) <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                             </span>
                                             <span style="font-weight: 600; color: #78350f;">
                                                 <?php echo e(number_format($estimate['total_base'] ?? 0, 0, '.', ' ')); ?> ¥
@@ -411,7 +422,9 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                             </div>
                         <?php else: ?>
                             
-                            <div style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem; margin-bottom: 1.5rem;">
+                            <div class="product-config-section">
+                                <div class="product-config-section-title"><?php echo e(__('Date et participants')); ?></div>
+                                <div class="product-config-two-columns" style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem;">
                                 <div <?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::$currentLoop['key'] = 'calendar-picker'; ?>wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;" 
                                      x-data="{ 
                                         open: false,
@@ -607,6 +620,7 @@ endif;
 unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                     </div>
                                 <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                </div>
                             </div>
 
                             <?php
@@ -619,13 +633,14 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                             ?>
 
                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($requiredGrouped->count() > 0): ?>
-                                <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
+                                <div class="product-config-section">
+                                    <h4 class="product-config-section-title"><?php echo e(__('Déclinaisons')); ?></h4>
                                     <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $requiredGrouped; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $groupName => $groupOptions): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
                                         <?php 
                                             $displayGroupName = ($groupName === 'default_required') ? __('Déclinaison') : $groupName;
                                             $selectedInGroup = $groupOptions->first(fn($o) => !empty($selectedOptions[$o->id]['enabled'])) ?? $groupOptions->first();
                                         ?>
-                                        <div style="margin-bottom: 1rem;">
+                                        <div class="product-variant-group" style="margin-bottom: 0.75rem;">
                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                                 <label style="font-size: 0.85rem; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 0.35rem;">
                                                     <span><?php echo e($displayGroupName); ?></span>
@@ -642,14 +657,20 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                                     style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
                                                     onfocus="this.style.borderColor='#096a61';" onblur="this.style.borderColor='#d1d5db';">
                                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $groupOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $option): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
-                                                    <?php $isSelected = !empty($selectedOptions[$option->id]['enabled']); ?>
+                                                    <?php
+                                                        $isSelected = !empty($selectedOptions[$option->id]['enabled']);
+                                                        $adultQuantity = $product->usesAgeSelector() ? $ageSelectorAdults : $quantity;
+                                                        $childQuantity = $product->usesAgeSelector() ? $ageSelectorChildren : $quantity;
+                                                        $teenQuantity = $product->usesAgeSelector() ? $ageSelectorTeenagers : $quantity;
+                                                        $optionBillingQty = $option->billableQuantityForDate($serviceDate, $adultQuantity, 'adult');
+                                                    ?>
                                                     <option value="<?php echo e($option->id); ?>" <?php echo e($isSelected ? 'selected' : ''); ?>>
                                                         <?php echo e($option->name); ?>
 
                                                         <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->usesAgeSelector() && $option->billing_type === 'per_pax'): ?>
-                                                            (+ <?php echo e(number_format($option->priceModifierForAge(false), 0, '.', ' ')); ?> ¥ adulte@if($product->hasChildSelector()) / <?php echo e(number_format($option->priceModifierForAge(true), 0, '.', ' ')); ?> ¥ enfant@endif@if($product->hasTeenSelector()) / <?php echo e(number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ')); ?> ¥ adolescent@endif)
-                                                        <?php elseif(($option->price_modifier ?? 0) > 0): ?>
-                                                            (+ <?php echo e(number_format($option->price_modifier, 0, '.', ' ')); ?> ¥)
+                                                            (+ <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ')); ?> ¥ adulte@if($product->hasChildSelector()) / <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ')); ?> ¥ enfant@endif@if($product->hasTeenSelector()) / <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ')); ?> ¥ adolescent@endif<?php echo e($optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : ''); ?>)
+                                                        <?php elseif($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity) > 0): ?>
+                                                            (+ <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ')); ?> ¥<?php echo e($optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : ''); ?>)
                                                         <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                                     </option>
                                                 <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::endLoop(); ?><?php endif; ?><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>
@@ -660,10 +681,17 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($optionalOptions->count() > 0): ?>
-                                <div style="border-top: 1px solid #f1f5f9; padding-top: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 0.75rem 0;"><?php echo e(__('Options complémentaires (facultatives) :')); ?></h4>
+                                <div class="product-config-section">
+                                    <h4 class="product-config-section-title"><?php echo e(__('Options complémentaires')); ?></h4>
+                                    <p style="margin: -0.4rem 0 0.85rem; font-size: 0.8rem; color: #64748b;"><?php echo e(__('Facultatives')); ?></p>
                                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                                         <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::openLoop(); ?><?php endif; ?><?php $__currentLoopData = $optionalOptions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $option): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::startLoopIteration(); ?><?php endif; ?>
+                                            <?php
+                                                $adultQuantity = $product->usesAgeSelector() ? $ageSelectorAdults : $quantity;
+                                                $childQuantity = $product->usesAgeSelector() ? $ageSelectorChildren : $quantity;
+                                                $teenQuantity = $product->usesAgeSelector() ? $ageSelectorTeenagers : $quantity;
+                                                $optionBillingQty = $option->billableQuantityForDate($serviceDate, $adultQuantity, 'adult');
+                                            ?>
                                             <div <?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::$currentLoop['key'] = 'option-'.e($option->id).''; ?>wire:key="option-<?php echo e($option->id); ?>" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
                                                 <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                                                     <input type="checkbox" wire:model.live="selectedOptions.<?php echo e($option->id); ?>.enabled" id="opt_<?php echo e($option->id); ?>" style="margin-top: 0.2rem; accent-color: #096a61;">
@@ -672,9 +700,11 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
 
                                                         <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">
                                                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->usesAgeSelector() && $option->billing_type === 'per_pax'): ?>
-                                                                + <?php echo e(number_format($option->priceModifierForAge(false), 0, '.', ' ')); ?> ¥ adulte@if($product->hasChildSelector()) / <?php echo e(number_format($option->priceModifierForAge(true), 0, '.', ' ')); ?> ¥ enfant@endif@if($product->hasTeenSelector()) / <?php echo e(number_format($option->priceModifierForAgeGroup('teen'), 0, '.', ' ')); ?> ¥ adolescent@endif
+                                                                + <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ')); ?> ¥ adulte@if($product->hasChildSelector()) / <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ')); ?> ¥ enfant@endif@if($product->hasTeenSelector()) / <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ')); ?> ¥ adolescent@endif<?php echo e($optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : ''); ?>
+
                                                             <?php else: ?>
-                                                                + <?php echo e(number_format($option->price_modifier ?? 0, 0, '.', ' ')); ?> ¥
+                                                                + <?php echo e(number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ')); ?> ¥<?php echo e($optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : ''); ?>
+
                                                             <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
                                                         </span>
                                                     </label>
@@ -696,6 +726,11 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                 <?php
                                     $globalFields = [];
                                     $paxFields = [];
+                                    $hotelDirectory = \App\Models\Hotel::query()
+                                        ->orderBy('name')
+                                        ->get(['name', 'address', 'google_maps_url'])
+                                        ->map(fn ($hotel) => ['name' => $hotel->name, 'address' => $hotel->address, 'google_maps_url' => $hotel->google_maps_url])
+                                        ->all();
                                     foreach($product->custom_field_definitions as $def) {
                                         if ($def['is_per_passenger'] ?? false) {
                                             $paxFields[] = $def;
@@ -706,8 +741,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                     $qty = intval($quantity) > 0 ? intval($quantity) : 1;
                                 ?>
 
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.5rem;">
-                                    <h4 style="font-size: 0.85rem; font-weight: 600; color: #096a61; margin: 0 0 0.75rem 0; text-transform: uppercase; letter-spacing: 0.05em;">Informations requises</h4>
+                                <div class="product-config-section product-required-fields">
+                                    <h4 class="product-config-section-title"><?php echo e(__('Informations requises')); ?></h4>
                                     
                                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         
@@ -718,8 +753,10 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                                         $key = !empty($def['key']) ? $def['key'] : \Illuminate\Support\Str::slug($def['name'] ?? 'custom', '_');
                                                         $isRequired = $def['is_required'] ?? false;
                                                         $modelKey = "customValues.{$key}";
+                                                        $hotelAddressModelKey = "customValues.{$key}_address";
+                                                        $hotelMapsModelKey = "customValues.{$key}_google_maps_url";
                                                     ?>
-                                                    <div <?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::$currentLoop['key'] = 'global-field-'.e($key).''; ?>wire:key="global-field-<?php echo e($key); ?>" style="grid-column: span <?php echo e(in_array($def['type'], ['textarea', 'file']) ? '2' : '1'); ?>; display: flex; flex-direction: column; gap: 0.25rem;">
+                                                    <div <?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::$currentLoop['key'] = 'global-field-'.e($key).''; ?>wire:key="global-field-<?php echo e($key); ?>" style="grid-column: span <?php echo e(in_array($def['type'], ['textarea', 'file', 'client_hotel']) ? '2' : '1'); ?>; display: flex; flex-direction: column; gap: 0.25rem;">
                                                         <label style="font-size: 0.85rem; font-weight: 600; color: #374151;">
                                                             <?php echo e($def['name']); ?> <?php echo $isRequired ? '<span style="color:#dc2626;">*</span>' : ''; ?>
 
@@ -738,6 +775,49 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                                             <input type="date" wire:model="<?php echo e($modelKey); ?>" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
                                                         <?php elseif($def['type'] === 'number'): ?>
                                                             <input type="number" wire:model="<?php echo e($modelKey); ?>" placeholder="<?php echo e($def['placeholder'] ?? ''); ?>" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                        <?php elseif($def['type'] === 'client_hotel'): ?>
+                                                            <div x-data="{
+                                                                manualHotel: false,
+                                                                open: false,
+                                                                query: '',
+                                                                selected: <?php if ((object) ($modelKey) instanceof \Livewire\WireDirective) : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($modelKey->value()); ?>')<?php echo e($modelKey->hasModifier('live') ? '.live' : ''); ?><?php else : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($modelKey); ?>')<?php endif; ?>.live,
+                                                                address: <?php if ((object) ($hotelAddressModelKey) instanceof \Livewire\WireDirective) : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($hotelAddressModelKey->value()); ?>')<?php echo e($hotelAddressModelKey->hasModifier('live') ? '.live' : ''); ?><?php else : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($hotelAddressModelKey); ?>')<?php endif; ?>.live,
+                                                                mapsUrl: <?php if ((object) ($hotelMapsModelKey) instanceof \Livewire\WireDirective) : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($hotelMapsModelKey->value()); ?>')<?php echo e($hotelMapsModelKey->hasModifier('live') ? '.live' : ''); ?><?php else : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($hotelMapsModelKey); ?>')<?php endif; ?>.live,
+                                                                hotels: <?php echo \Illuminate\Support\Js::from($hotelDirectory)->toHtml() ?>,
+                                                                get results() {
+                                                                    const needle = (this.query || '').toLocaleLowerCase();
+                                                                    return this.hotels.filter(hotel => hotel.name.toLocaleLowerCase().includes(needle)).slice(0, 12);
+                                                                },
+                                                                choose(hotel) { this.selected = hotel.name; this.address = hotel.address || ''; this.mapsUrl = hotel.google_maps_url || ''; this.query = hotel.name; this.open = false; }
+                                                            }" x-init="query = selected || ''; const savedHotel = hotels.find(hotel => hotel.name === selected); if (savedHotel) { address = address || savedHotel.address || ''; mapsUrl = mapsUrl || savedHotel.google_maps_url || ''; }" style="display:flex; flex-direction:column; gap:0.5rem;">
+                                                                <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''">
+                                                                    <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 <?php echo e(__('Rechercher dans la base d’hébergements')); ?></label>
+                                                                    <div style="position:relative;">
+                                                                        <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="<?php echo e(__('Tapez le nom d’un hébergement…')); ?>" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                        <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:calc(100% - 1px); left:0; right:0; max-height:15rem; overflow-y:auto; border:1px solid #cbd5e1; border-radius:0 0 0.5rem 0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
+                                                                        <template x-for="hotel in results" :key="hotel.name">
+                                                                            <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
+                                                                                <span x-text="hotel.name" style="display:block; color:#1e293b; font-size:.85rem; font-weight:700;"></span>
+                                                                                <span x-show="hotel.address" x-text="hotel.address" style="display:block; margin-top:.12rem; color:#64748b; font-size:.75rem;"></span>
+                                                                            </button>
+                                                                        </template>
+                                                                        <p x-show="results.length === 0" style="margin:0; padding:.75rem; color:#64748b; font-size:.8rem;"><?php echo e(__('Aucun hébergement correspondant')); ?></p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 <?php echo e(__('Vérifier sur Google Maps')); ?></a>
+                                                                    <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid #99f6e4; border-radius:.45rem; background:#f0fdfa; color:#0f766e; font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ <?php echo e(__('L’hébergement n’est pas dans la liste ? Saisie manuelle')); ?></button>
+                                                                </div>
+                                                                <div x-show="manualHotel" style="display:none;">
+                                                                    <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;"><?php echo e(__('Nom de l’hébergement')); ?></label>
+                                                                    <input type="text" x-model="selected" placeholder="<?php echo e($def['placeholder'] ?? __('Saisissez le nom de l’hébergement…')); ?>" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                    <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;"><?php echo e(__('Adresse de l’hébergement')); ?></label>
+                                                                    <textarea x-model="address" rows="2" placeholder="<?php echo e(__('Adresse complète (optionnel)')); ?>" style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none; font-family:inherit;"></textarea>
+                                                                    <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;"><?php echo e(__('Lien Google Maps')); ?> <span style="font-weight:500; color:#64748b;">(<?php echo e(__('optionnel')); ?>)</span></label>
+                                                                    <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none;">
+                                                                    <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 <?php echo e(__('Vérifier sur Google Maps')); ?></a>
+                                                                    <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;"><?php echo e(__('Revenir à la recherche dans la base')); ?></button>
+                                                                </div>
+                                                            </div>
                                                         <?php elseif($def['type'] === 'toggle'): ?>
                                                             <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                                 <input type="checkbox" wire:model="<?php echo e($modelKey); ?>" id="check_global_<?php echo e($key); ?>" style="width:18px; height:18px; accent-color:#096a61;">
@@ -857,6 +937,39 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                                                         <input type="date" wire:model="<?php echo e($modelKey); ?>" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
                                                                     <?php elseif($def['type'] === 'number'): ?>
                                                                         <input type="number" wire:model="<?php echo e($modelKey); ?>" placeholder="<?php echo e($def['placeholder'] ?? ''); ?>" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    <?php elseif($def['type'] === 'client_hotel'): ?>
+                                                                        <div x-data="{
+                                                                            manualHotel: false,
+                                                                            open: false,
+                                                                            query: '',
+                                                                            selected: <?php if ((object) ($modelKey) instanceof \Livewire\WireDirective) : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($modelKey->value()); ?>')<?php echo e($modelKey->hasModifier('live') ? '.live' : ''); ?><?php else : ?>window.Livewire.find('<?php echo e($__livewire->getId()); ?>').entangle('<?php echo e($modelKey); ?>')<?php endif; ?>.live,
+                                                                            hotels: <?php echo \Illuminate\Support\Js::from($hotelDirectory)->toHtml() ?>,
+                                                                            get results() {
+                                                                                const needle = (this.query || '').toLocaleLowerCase();
+                                                                                return this.hotels.filter(hotel => hotel.name.toLocaleLowerCase().includes(needle)).slice(0, 12);
+                                                                            },
+                                                                            choose(hotel) { this.selected = hotel.name; this.query = hotel.name; this.open = false; }
+                                                                        }" x-init="query = selected || ''" style="display:flex; flex-direction:column; gap:0.5rem;">
+                                                                            <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''" style="position:relative;">
+                                                                                <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 <?php echo e(__('Rechercher dans la base d’hébergements')); ?></label>
+                                                                                <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="<?php echo e(__('Tapez le nom d’un hébergement…')); ?>" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                                <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:100%; left:0; right:0; max-height:15rem; overflow-y:auto; margin-top:0.25rem; border:1px solid #cbd5e1; border-radius:0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
+                                                                                    <template x-for="hotel in results" :key="hotel.name">
+                                                                                        <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
+                                                                                            <span x-text="hotel.name" style="display:block; color:#1e293b; font-size:.85rem; font-weight:700;"></span>
+                                                                                            <span x-show="hotel.address" x-text="hotel.address" style="display:block; margin-top:.12rem; color:#64748b; font-size:.75rem;"></span>
+                                                                                        </button>
+                                                                                    </template>
+                                                                                    <p x-show="results.length === 0" style="margin:0; padding:.75rem; color:#64748b; font-size:.8rem;"><?php echo e(__('Aucun hébergement correspondant')); ?></p>
+                                                                                </div>
+                                                                                <button type="button" x-on:click="manualHotel = true" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;"><?php echo e(__('L’hébergement n’est pas dans la liste ? Saisie manuelle')); ?></button>
+                                                                            </div>
+                                                                            <div x-show="manualHotel" style="display:none;">
+                                                                                <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;"><?php echo e(__('Nom de l’hébergement')); ?></label>
+                                                                                <input type="text" x-model="selected" placeholder="<?php echo e($def['placeholder'] ?? __('Saisissez le nom de l’hébergement…')); ?>" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                                <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;"><?php echo e(__('Revenir à la recherche dans la base')); ?></button>
+                                                                            </div>
+                                                                        </div>
                                                                     <?php elseif($def['type'] === 'toggle'): ?>
                                                                         <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
                                                                             <input type="checkbox" wire:model="<?php echo e($modelKey); ?>" id="check_pax_<?php echo e($key); ?>_<?php echo e($i); ?>" style="width:14px; height:14px; accent-color:#096a61;">
@@ -935,8 +1048,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                         <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
                         
-                        <div style="border-top: 1px solid #f1f5f9; padding-top: 1.5rem; margin-bottom: 1.5rem;">
-                            <h4 style="font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem 0;"><?php echo e(__('Récapitulatif du tarif :')); ?></h4>
+                        <div class="product-config-section product-price-summary">
+                            <h4 class="product-config-section-title"><?php echo e($product->category_id === 4 ? __('Détail du tarif guidage') : __('Récapitulatif du tarif')); ?></h4>
                             <?php
                                 $estimate = $this->getEstimatedPrice();
                             ?>
@@ -947,9 +1060,47 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;"><?php echo e(__('Cette prestation nécessite une cotation personnalisée.')); ?></p>
                                 </div>
                             <?php else: ?>
-                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.5rem; display: flex; flex-direction: column; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);">
+                                <div style="background: rgba(255,255,255,.78); border: 1px solid #ccfbf1; border-radius: 0.7rem; padding: 1rem; display: flex; flex-direction: column;">
                                     
-                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->usesAgeSelector() && $estimate['base_adult_total'] !== null): ?>
+                                    <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(($estimate['is_guiding'] ?? false) && ($estimate['has_date'] ?? false)): ?>
+                                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.65rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;"><?php echo e(__('Type de prestation')); ?></span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155; text-align: right;"><?php echo e(filled($estimate['guiding_variant_names'] ?? []) ? implode(' · ', $estimate['guiding_variant_names']) : __('Aucune déclinaison sélectionnée')); ?></span>
+                                        </div>
+                                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                <?php echo e(__('Tarif de la saison')); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(filled($estimate['guiding_season_name'] ?? null)): ?> <span style="font-weight: 500;">(<?php echo e($estimate['guiding_season_name']); ?>)</span><?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            </span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;"><?php echo e(number_format($estimate['guiding_variant_total'] ?? 0, 0, '.', ' ')); ?> ¥</span>
+                                        </div>
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($estimate['base_adult_total'] !== null): ?>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                    <?php echo e(__('Tarif adultes')); ?> (<?php echo e($ageSelectorAdults); ?> <?php echo e(__('adulte(s)')); ?>)<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(filled($estimate['guiding_pax_label'] ?? null)): ?> <span style="font-weight: 500;">· <?php echo e($estimate['guiding_pax_label']); ?></span><?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;"><?php echo e(number_format($estimate['base_adult_total'], 0, '.', ' ')); ?> ¥</span>
+                                            </div>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->hasChildSelector() && $ageSelectorChildren > 0): ?>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;"><?php echo e(__('Tarif enfants')); ?> (<?php echo e($ageSelectorChildren); ?> <?php echo e(__('enfant(s)')); ?>)</span>
+                                                    <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;"><?php echo e(($estimate['base_child_total'] ?? 0) == 0 ? __('Gratuit selon la grille tarifaire') : number_format($estimate['base_child_total'], 0, '.', ' ') . ' ¥'); ?></span>
+                                                </div>
+                                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                            <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->hasTeenSelector() && $ageSelectorTeenagers > 0): ?>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                    <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;"><?php echo e(__('Tarif adolescents')); ?> (<?php echo e($ageSelectorTeenagers); ?> <?php echo e(__('adolescent(s)')); ?>)</span>
+                                                    <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;"><?php echo e(($estimate['base_teen_total'] ?? 0) == 0 ? __('Gratuit selon la grille tarifaire') : number_format($estimate['base_teen_total'], 0, '.', ' ') . ' ¥'); ?></span>
+                                                </div>
+                                            <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                        <?php else: ?>
+                                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+                                                <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
+                                                    <?php echo e(__('Tarif lié au nombre de pax')); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(filled($estimate['guiding_pax_label'] ?? null)): ?> <span style="font-weight: 500;">(<?php echo e($estimate['guiding_pax_label']); ?>)</span><?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                                </span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155; white-space: nowrap;"><?php echo e(number_format($estimate['total_base'], 0, '.', ' ')); ?> ¥</span>
+                                            </div>
+                                        <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
+                                    <?php elseif($product->usesAgeSelector() && $estimate['base_adult_total'] !== null): ?>
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
                                                 <?php echo e(__('Tarif adulte')); ?> (<?php echo e($ageSelectorAdults); ?> × <?php echo e(number_format($estimate['base_adult_unit'], 0, '.', ' ')); ?> ¥)
@@ -981,7 +1132,10 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                                     <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
                                     <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
-                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($estimate['total_options'] > 0): ?>
+                                        <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if(($estimate['is_guiding'] ?? false) && ($estimate['guiding_optional_total'] ?? 0) > 0): ?>
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;"><?php echo e(__('Options complémentaires')); ?></span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ <?php echo e(number_format($estimate['guiding_optional_total'], 0, '.', ' ')); ?> ¥</span>
+                                        <?php elseif(!($estimate['is_guiding'] ?? false) && $estimate['total_options'] > 0): ?>
                                             <?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if BLOCK]><![endif]--><?php endif; ?><?php if($product->usesAgeSelector()): ?>
                                                 <div style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; font-weight:600; color:#64748b;">
                                                     <span><?php echo e(__('Options adultes')); ?></span>
@@ -1024,7 +1178,8 @@ unset($__errorArgs, $__bag); ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendB
                         <?php endif; ?><?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?><!--[if ENDBLOCK]><![endif]--><?php endif; ?>
 
                         
-                        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="product-config-section product-final-step" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                            <h4 class="product-config-section-title" style="margin-bottom: 0;"><?php echo e(__('Ajouter au dossier')); ?></h4>
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Dossier de destination</label>

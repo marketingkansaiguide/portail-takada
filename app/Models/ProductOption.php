@@ -11,6 +11,8 @@ class ProductOption extends Model
         'group_name',
         'name',
         'code',
+        'guide_start_time',
+        'guide_end_time',
         'price_modifier',
         'adult_price_modifier',
         'child_price_modifier',
@@ -99,6 +101,40 @@ class ProductOption extends Model
         return $seasonPrice?->{$column} !== null
             ? (float) $seasonPrice->{$column}
             : ($seasonPrice?->price_modifier !== null ? (float) $seasonPrice->price_modifier : $fallback);
+    }
+
+    public function purchasePriceForDate(string|null $date, ?int $quantity = null): ?float
+    {
+        $product = $this->relationLoaded('product') ? $this->product : $this->product()->with('productPeriods.productPrices')->first();
+        if ((int) ($product?->category_id ?? 0) !== 4 || blank($date)) {
+            return null;
+        }
+        $period = $product->periodForDate($date);
+        if (! $period) {
+            return null;
+        }
+
+        $seasonalPrices = $this->relationLoaded('seasonalPrices')
+            ? $this->seasonalPrices->where('product_period_id', $period->id)
+            : $this->seasonalPrices()->where('product_period_id', $period->id)->get();
+        $regularPrices = $period->productPrices
+            ->reject(fn (ProductPrice $price): bool => $price->isExtraPaxRate());
+        $basePrice = $quantity !== null
+            ? ($regularPrices
+                ->where('min_pax', '<=', $quantity)
+                ->where('max_pax', '>=', $quantity)
+                ->first() ?? $regularPrices->sortByDesc('max_pax')->first())
+            : $regularPrices->first();
+        $seasonPrice = $basePrice
+            ? $seasonalPrices->firstWhere('product_price_id', $basePrice->id)
+            : null;
+        $seasonPrice ??= $seasonalPrices->first(fn (ProductOptionSeasonPrice $price): bool => $price->product_price_id === null);
+
+        // Une déclinaison peut ne pas avoir de coût propre pour cette saison.
+        // Dans ce cas, le coût du tarif saisonnier de base est le coût de guidage.
+        return $seasonPrice?->purchase_price_modifier !== null
+            ? (float) $seasonPrice->purchase_price_modifier
+            : ($basePrice?->purchase_price !== null ? (float) $basePrice->purchase_price : null);
     }
 
     /**

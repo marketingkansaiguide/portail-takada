@@ -7,6 +7,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\FileUpload;
@@ -39,6 +40,13 @@ class ProductForm
                                 ->label(__('Nom du produit / Prestation'))
                                 ->placeholder(__('Ex: Location de Kimono à Kyoto / Billet Shinkansen'))
                                 ->required()
+                                ->columnSpanFull(),
+
+                            TextInput::make('guide_city')
+                                ->label(__('Ville de la visite guidée'))
+                                ->helperText(__('Obligatoire pour créer automatiquement une mission Planning Guides.'))
+                                ->visible(fn (Get $get): bool => (int) $get('category_id') === 4)
+                                ->required(fn (Get $get): bool => (int) $get('category_id') === 4)
                                 ->columnSpanFull(),
 
                             Textarea::make('description')
@@ -157,6 +165,22 @@ class ProductForm
                                         ->placeholder(__('Ex: 2 000 ¥'))
                                         ->required()
                                         ->columnSpan(['default' => 12, 'md' => 3]),
+
+                                    TimePicker::make('guide_start_time')
+                                        ->label(__('Début guidage'))
+                                        ->helperText(__('Visible uniquement pour les produits de guidage.'))
+                                        ->seconds(false)
+                                        ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->required(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->columnSpan(['default' => 6, 'md' => 2]),
+
+                                    TimePicker::make('guide_end_time')
+                                        ->label(__('Fin guidage'))
+                                        ->helperText(__('Visible uniquement pour les produits de guidage.'))
+                                        ->seconds(false)
+                                        ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->required(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->columnSpan(['default' => 6, 'md' => 2]),
 
                                     TextInput::make('price_modifier')
                                         ->label(__('Supplément (¥)'))

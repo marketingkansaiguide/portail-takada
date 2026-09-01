@@ -46,6 +46,7 @@ class FolderPerformance extends BaseWidget
                     ->when($endDate, fn ($query) => $query->whereDate('created_at', '<=', $endDate))
                     ->addSelect([
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(purchase_total_price), 0)')
+                            ->notCancelled()
                             ->whereColumn('folder_id', 'folders.id'),
                     ])
             )

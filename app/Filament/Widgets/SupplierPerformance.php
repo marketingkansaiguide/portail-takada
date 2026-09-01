@@ -47,6 +47,7 @@ class SupplierPerformance extends BaseWidget
                     })
                     ->addSelect([
                         'folders_count' => FolderItem::selectRaw('COUNT(DISTINCT folder_items.folder_id)')
+                            ->notCancelled()
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.supplier_id', 'suppliers.id')
                             ->whereIn('folders.status', ['confirmed', 'completed'])
@@ -54,6 +55,7 @@ class SupplierPerformance extends BaseWidget
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_ca' => FolderItem::selectRaw('COALESCE(SUM(folder_items.total_price), 0)')
+                            ->notCancelled()
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.supplier_id', 'suppliers.id')
                             ->whereIn('folders.status', ['confirmed', 'completed'])
@@ -61,6 +63,7 @@ class SupplierPerformance extends BaseWidget
                             ->when($endDate, fn ($query) => $query->whereDate('folders.created_at', '<=', $endDate)),
 
                         'total_purchase' => FolderItem::selectRaw('COALESCE(SUM(folder_items.purchase_total_price), 0)')
+                            ->notCancelled()
                             ->join('folders', 'folders.id', '=', 'folder_items.folder_id')
                             ->whereColumn('folder_items.supplier_id', 'suppliers.id')
                             ->whereIn('folders.status', ['confirmed', 'completed'])

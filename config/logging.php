@@ -73,6 +73,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'guide_integration' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/guide-integration.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

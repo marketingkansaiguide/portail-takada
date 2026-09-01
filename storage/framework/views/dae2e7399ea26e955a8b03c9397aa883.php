@@ -9,7 +9,7 @@
             <td align="center">
                 <table width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
                     <tr>
-                        <td style="background-color: #d97706; padding: 40px 30px; text-align: center;">
+                        <td style="background-color: #096a61; padding: 40px 30px; text-align: center;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.5px;"><?php echo e(__('Nouvelle Réponse Agence')); ?></h1>
                         </td>
                     </tr>
@@ -18,7 +18,7 @@
                             <p style="margin-top: 0; font-size: 17px;"><?php echo e(__('Bonjour l’équipe,')); ?></p>
                             <p><?php echo e(__('Une agence partenaire vient de publier une réponse ou un nouveau message dans le dossier suivant :')); ?></p>
                             
-                            <div style="background-color: #fffbeb; border-left: 4px solid #d97706; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                            <div style="background-color: #f7faf9; border-left: 4px solid #096a61; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
                                 <p style="margin: 0; font-size: 18px; color: #111827; font-weight: 700;"><?php echo e($folder->folder_name); ?></p>
                                 <p style="margin: 6px 0 0 0; font-size: 14px; color: #6b7280; font-weight: 500;">👤 <?php echo e(__('Pax principal :')); ?> <?php echo e($folder->lead_traveler_name); ?></p>
                             </div>
@@ -26,7 +26,7 @@
                             <p style="margin-bottom: 30px;"><?php echo e(__('Vous pouvez consulter la demande et y répondre directement depuis le panneau d’administration.')); ?></p>
 
                             <div style="text-align: center; margin: 35px 0;">
-                                <a href="<?php echo e(url('/admin/folders/' . $folder->id . '/edit')); ?>" style="background-color: #d97706; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block;"><?php echo e(__('Ouvrir le dossier (Admin)')); ?></a>
+                                <a href="<?php echo e(url('/admin/folders/' . $folder->id . '/edit')); ?>" style="background-color: #096a61; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block;"><?php echo e(__('Ouvrir le dossier (Admin)')); ?></a>
                             </div>
 
                         </td>

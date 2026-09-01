@@ -73,6 +73,19 @@ class Folder extends Model
         return $this->hasMany(FolderItem::class)->where('is_internal', false);
     }
 
+    /** Prestations qui restent facturables après exclusion des annulations. */
+    public function billableFolderItems(): HasMany
+    {
+        return $this->folderItems()->notCancelled();
+    }
+
+    public function recalculateBillableTotal(): void
+    {
+        $this->forceFill([
+            'total_price' => (float) $this->billableFolderItems()->sum('total_price') + (float) $this->folder_fee,
+        ])->saveQuietly();
+    }
+
     /**
      * Prestations internes confidentielles pour l'équipe Admin (is_internal = true)
      */
