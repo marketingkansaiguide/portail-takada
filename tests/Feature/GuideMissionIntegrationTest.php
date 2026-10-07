@@ -189,4 +189,6 @@ it('excludes unavailable services from billable queries', function () {
     $query = FolderItem::query()->notCancelled();
 
     expect($query->getBindings())->toContain('%annul%', '%pas de disponibilit%');
+    // Sans parenthèses, le OR échappe à la jointure du whereDoesntHave et exclut toutes les prestations.
+    expect($query->toSql())->toContain('(LOWER(name) LIKE ? OR LOWER(name) LIKE ?)');
 });

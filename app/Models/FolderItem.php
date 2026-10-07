@@ -39,7 +39,7 @@ class FolderItem extends Model
     public function scopeNotCancelled(Builder $query): Builder
     {
         return $query->whereDoesntHave('itemStatus', fn (Builder $statusQuery) => $statusQuery
-            ->whereRaw('LOWER(name) LIKE ? OR LOWER(name) LIKE ?', ['%annul%', '%pas de disponibilit%']));
+            ->whereRaw('(LOWER(name) LIKE ? OR LOWER(name) LIKE ?)', ['%annul%', '%pas de disponibilit%']));
     }
 
     public function isCancelled(): bool
