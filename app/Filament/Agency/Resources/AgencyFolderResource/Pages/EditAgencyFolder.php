@@ -237,7 +237,9 @@ class EditAgencyFolder extends EditRecord
             ->where('role', User::ROLE_AGENCY)
             ->value('id') ?? $this->record->main_seller_id;
 
-        $totalItems = \App\Models\FolderItem::sumBillableFormItems($data['folderItems'] ?? []);
+        // Les prestations ne font pas partie des données du formulaire (répéteur non déshydraté) :
+        // le total part des prestations enregistrées, sinon il retomberait aux seuls frais de dossier.
+        $totalItems = (float) $this->record->billableFolderItems()->sum('total_price');
         
         // 💡 Enregistre les frais de dossier dans la BDD s'ils étaient restés à 0 suite à l'ancien bug
         $folderFee = (float) ($this->record->folder_fee ?? 0);

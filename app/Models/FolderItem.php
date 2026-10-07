@@ -51,7 +51,7 @@ class FolderItem extends Model
     public static function sumBillableFormItems(array $items): float
     {
         $nonBillableStatusIds = ItemStatus::query()
-            ->whereRaw('LOWER(name) LIKE ? OR LOWER(name) LIKE ?', ['%annul%', '%pas de disponibilit%'])
+            ->whereRaw('(LOWER(name) LIKE ? OR LOWER(name) LIKE ?)', ['%annul%', '%pas de disponibilit%'])
             ->pluck('id')
             ->all();
 
@@ -616,6 +616,13 @@ class FolderItem extends Model
                 try {
                     $service->events->delete($calendarId, $this->google_calendar_event_id);
                     Log::info("CALENDAR : Événement principal supprimé.");
+                } catch (\Google\Service\Exception $e) {
+                    // 404 / 410 : l'événement n'existe déjà plus, ce n'est pas une erreur.
+                    if (in_array($e->getCode(), [404, 410], true)) {
+                        Log::info("CALENDAR : Événement principal déjà supprimé.");
+                    } else {
+                        Log::warning("CALENDAR Erreur suppression ID officiel : " . $e->getMessage());
+                    }
                 } catch (\Exception $e) {
                     Log::warning("CALENDAR Erreur suppression ID officiel : " . $e->getMessage());
                 }
@@ -677,7 +684,8 @@ class FolderItem extends Model
                 }
             }
 
-            if ($item->wasChanged('item_status_id') && $item->folder) {
+            // Le total du dossier dépend du statut, du prix et de la visibilité de chaque prestation.
+            if ($item->wasChanged(['item_status_id', 'total_price', 'is_internal']) && $item->folder) {
                 $item->folder->recalculateBillableTotal();
             }
 
@@ -847,6 +855,8 @@ class FolderItem extends Model
             if (isset($processedCreations[$item->id])) return;
             $processedCreations[$item->id] = true;
 
+            $item->folder?->recalculateBillableTotal();
+
             if (in_array($item->folder?->status, ['confirmed', 'completed'], true)
                 && (int) $item->product?->category_id === 4) {
                 try {
@@ -878,6 +888,8 @@ class FolderItem extends Model
         });
 
         static::deleted(function ($item) {
+            $item->folder?->recalculateBillableTotal();
+
             try { 
                 $item->deleteGoogleCalendarEvent(); 
             } catch (\Exception $e) {

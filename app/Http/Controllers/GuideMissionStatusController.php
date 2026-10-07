@@ -38,9 +38,9 @@ class GuideMissionStatusController extends Controller
         // Cette mise à jour provient de Planning Guides : ne pas redéclencher
         // l'annulation vers WordPress dans l'observer de prestation.
         $item->updateQuietly(['item_status_id' => $status->id]);
-        if ($data['status'] !== 'confirmed') {
-            $item->folder?->recalculateBillableTotal();
-        }
+        // Une mission confirmée après une indisponibilité redevient facturable :
+        // le total doit être recalculé dans tous les cas.
+        $item->folder?->recalculateBillableTotal();
 
         Log::channel('guide_integration')->info('Statut de mission reçu.', [
             'folder_id' => $item->folder_id,

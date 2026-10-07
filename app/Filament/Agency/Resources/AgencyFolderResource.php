@@ -283,7 +283,7 @@ class AgencyFolderResource extends Resource
                             ->deletable(fn (?Model $record, Get $get) => $record === null || $record->status === 'draft' || $get('status') === 'draft')
                             ->reorderable(false)
                             ->itemLabel(function (array $state) {
-                                $name = trim(($state['first_name'] ?? '') . ' ' . ($state['last_name'] ?? ''));
+                                $name = e(trim(($state['first_name'] ?? '') . ' ' . ($state['last_name'] ?? '')));
                                 if (!empty($name)) {
                                     return new HtmlString("<span style='color:var(--tk-accent); font-weight:600;'>👤 {$name}</span>");
                                 }
@@ -303,12 +303,14 @@ class AgencyFolderResource extends Resource
                                         $diet = $get('dietary_restrictions') ?? $pax?->dietary_restrictions;
                                         $mobility = $get('mobility_concerns') ?? $pax?->mobility_concerns;
 
-                                        $name = trim($firstName . ' ' . $lastName);
+                                        // Données saisies par l'agence : échappées avant d'être injectées dans du HTML.
+                                        $name = e(trim($firstName . ' ' . $lastName));
+                                        $nat = e($nat);
                                         $age = $birthDate ? \Carbon\Carbon::parse($birthDate)->age . ' ans' : '';
 
                                         $warns = [];
-                                        if (!empty($diet)) $warns[] = "🚫 Allergies: {$diet}";
-                                        if (!empty($mobility)) $warns[] = "♿ PMR: {$mobility}";
+                                        if (!empty($diet)) $warns[] = '🚫 Allergies: ' . e($diet);
+                                        if (!empty($mobility)) $warns[] = '♿ PMR: ' . e($mobility);
                                         $warnHtml = '';
                                         if (count($warns) > 0) {
                                             $warnHtml = "<div style='margin-top:0.5rem; font-size:0.8rem; color:#dc2626; font-weight:600;'>" . implode('<br>', $warns) . "</div>";

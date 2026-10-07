@@ -1139,7 +1139,8 @@
                                           ?? \App\Models\Setting::first()?->cancellation_policy 
                                           ?? '';
                             $hasPolicyToDisplay = $isSpecific || !empty($generalPolicy);
-                            $policyContent = $isSpecific ? $product->cancellation_specifics : $generalPolicy;
+                            // Conditions spécifiques : texte brut (Textarea) à échapper ; conditions générales : HTML de l'éditeur riche.
+                            $policyContent = $isSpecific ? e($product->cancellation_specifics) : $generalPolicy;
                         @endphp
 
                         @if($hasPolicyToDisplay)

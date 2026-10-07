@@ -139,14 +139,11 @@ Route::get('/pdf/fax/{folderItem}', function (\App\Models\FolderItem $folderItem
 |--------------------------------------------------------------------------
 */
 Route::get('/storage/{path}', function (string $path) {
+    // Uniquement le disque public : le disque « local » est privé (envois temporaires
+    // Livewire, fichiers internes) et ne doit jamais être servi sans authentification.
     $publicDisk = Storage::disk('public');
     if ($publicDisk->exists($path)) {
         return response()->file($publicDisk->path($path));
-    }
-    
-    $localDisk = Storage::disk('local');
-    if ($localDisk->exists($path)) {
-        return response()->file($localDisk->path($path));
     }
 
     abort(404, "L'image n'existe pas physiquement sur votre disque dur.");

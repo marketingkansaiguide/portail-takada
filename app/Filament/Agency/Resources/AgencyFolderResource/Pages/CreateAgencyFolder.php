@@ -43,8 +43,10 @@ class CreateAgencyFolder extends CreateRecord
             ->where('role', User::ROLE_AGENCY)
             ->value('id') ?? $user->id;
 
-        $totalItems = \App\Models\FolderItem::sumBillableFormItems($data['folderItems'] ?? []);
-        $data['total_price'] = $totalItems;
+        // Les frais viennent du groupe client de l'agence, jamais du champ caché envoyé par le navigateur.
+        $data['folder_fee'] = (float) ($user->agency?->clientGroup?->folder_fee ?? 0);
+        // Un nouveau dossier n'a pas encore de prestation : son total correspond aux frais de dossier.
+        $data['total_price'] = $data['folder_fee'];
 
         return $data;
     }
