@@ -8,7 +8,7 @@
         <div style="display: flex; flex-direction: column; gap: 1rem; border-bottom: 2px solid #f3f4f6; padding-bottom: 1.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
                 <div>
-                    <h1 style="font-size: 2rem; font-weight: 800; color: var(--tk-accent); margin: 0;">{{ __('Explorez le Japon') }}</h1>
+                    <h1 style="font-size: 2rem; font-weight: 800; color: #1e293b; margin: 0;">{{ __('Explorez le Japon') }}</h1>
                     <p style="color: #64748b; font-size: 1rem; margin-top: 0.25rem;">{{ __('Découvrez nos activités exclusives pour vos groupes et voyageurs.') }}</p>
                     @if($categoryId)
                         <a href="{{ route('filament.agency.pages.catalogue') }}" style="display: inline-flex; margin-top: 0.65rem; color: var(--tk-accent); font-size: 0.85rem; font-weight: 700; text-decoration: none;">← {{ __('Voir toutes les catégories') }}</a>

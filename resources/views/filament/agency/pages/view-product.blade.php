@@ -56,7 +56,7 @@
         .product-variant-group { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
         .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
         .product-price-summary { background: var(--tk-accent-soft); border-color: var(--tk-accent-border); }
-        .product-final-step { border-color: #a7f3d0; background: #f0fdf4; }
+        .product-final-step { border-color: var(--tk-accent-border); background: var(--tk-accent-soft); }
         /* Mode sombre */
         .dark .calendar-cell-available { background: var(--gray-800); border-color: var(--gray-700); }
         .dark .calendar-cell-available:hover { background: var(--tk-accent-soft); }
@@ -68,7 +68,7 @@
         .dark .product-config-section-title { color: var(--tk-accent); }
         .dark .product-variant-group, .dark .product-required-fields { background: var(--gray-800); border-color: var(--gray-700); }
         .dark .product-price-summary { background: var(--tk-accent-soft); border-color: var(--gray-600); }
-        .dark .product-final-step { background: #052e16; border-color: #166534; }
+        .dark .product-final-step { background: var(--gray-900); border-color: var(--gray-700); }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
     </style>
@@ -142,7 +142,7 @@
 
                     {{-- DESCRIPTIF DU PRODUIT --}}
                     <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--tk-accent); margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <h2 style="font-size: 1.4rem; font-weight: 700; color: #1e293b; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
                             {{ __('Présentation de la prestation') }}
                         </h2>
