@@ -77,7 +77,12 @@
         .product-card-lg { padding: clamp(1.25rem, 5vw, 2.5rem); }
         .product-card-side { padding: clamp(1rem, 4vw, 1.75rem); }
         @media (min-width: 1280px) {
-            .product-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 2.5rem; }
+            /* Colonnes presque égales : la réservation garde de la place et reste courte */
+            .product-layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+            .product-gallery { height: auto; aspect-ratio: 4 / 3; max-height: 60vh; }
+            /* La colonne de gauche accompagne le défilement quand elle tient dans l'écran (classe posée par le script ci-dessous) */
+            .product-layout-main.is-sticky { position: sticky; top: 5rem; }
+            .product-layout-side > div { position: static !important; }
         }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
@@ -86,7 +91,15 @@
     <div class="product-layout" style="font-family: system-ui, sans-serif;">
         
         {{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
-        <div class="product-layout-main">
+        <div class="product-layout-main"
+             x-data="{ sticky: false }"
+             x-init="
+                const update = () => { sticky = window.innerWidth >= 1280 && $el.offsetHeight < window.innerHeight - 110 };
+                update();
+                new ResizeObserver(update).observe($el);
+                window.addEventListener('resize', update);
+             "
+             x-bind:class="{ 'is-sticky': sticky }">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
                 
                 <div wire:ignore style="display: flex; flex-direction: column; gap: 2rem;">
