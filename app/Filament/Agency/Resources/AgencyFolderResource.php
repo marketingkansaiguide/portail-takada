@@ -1399,7 +1399,7 @@ Repeater::make('transport_routes')
                                             'info' => '#2563eb',
                                             default => '#d97706',
                                         };
-                                        $statusBadge = "<span style='background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
+                                        $statusBadge = "<span style='display:inline-block; white-space:nowrap; background:{$statusColor}15; color:{$statusColor}; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:bold; letter-spacing:0.05em; border:1px solid {$statusColor}30;'>📌 {$statusName}</span>";
 
                                         if ($item->product && $item->product->product_type === 'transport') {
                                             $routesHtml = '';
@@ -1472,7 +1472,7 @@ Repeater::make('transport_routes')
 
                                             return new HtmlString("
                                                 <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
-                                                    <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                                    <div style='display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:space-between; align-items:flex-start;'>
                                                         <div>
                                                             <div style='font-size:1.1rem; font-weight:800; color:#0f172a;'>🚄 {$productName}</div>
                                                             <div style='font-size:0.85rem; color:#64748b; font-weight:500;'>Réservation Billet sur devis</div>
@@ -1561,7 +1561,7 @@ Repeater::make('transport_routes')
 
                                         return new HtmlString("
                                             <div style='display:flex; flex-direction:column; gap:0.5rem; font-family:system-ui, sans-serif;'>
-                                                <div style='display:flex; justify-content:space-between; align-items:flex-start;'>
+                                                <div style='display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:space-between; align-items:flex-start;'>
                                                     <div>
                                                         <div style='font-size:1.1rem; font-weight:800; color:#0f172a; margin-bottom:0.25rem;'>{$productName}</div>
                                                         <div style='font-size:0.85rem; color:#64748b; font-weight:500; display:flex; gap:1rem;'>
@@ -1724,19 +1724,24 @@ Repeater::make('transport_routes')
                     ->label(__('Dossier / Réf.'))
                     ->description(fn (Folder $record): string => __('Réf: :reference', ['reference' => $record->reference]))
                     ->searchable(['folder_name', 'reference'])
+                    ->wrap()
                     ->sortable(),
 
+                // Sur mobile, seuls le dossier et son statut restent affichés (le total est dans la fiche).
                 Tables\Columns\TextColumn::make('lead_traveler_name')
                     ->label(__('Pax Leader'))
+                    ->visibleFrom('md')
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('mainSeller.name')
                     ->label(__('Vendeur'))
+                    ->visibleFrom('lg')
                     ->searchable()
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('start_date')
                     ->label(__('Arrivée'))
+                    ->visibleFrom('sm')
                     ->date('d/m/Y')
                     ->sortable(),
 
@@ -1762,6 +1767,7 @@ Repeater::make('transport_routes')
 
                 Tables\Columns\TextColumn::make('total_price')
                     ->label(__('Total Estimé'))
+                    ->visibleFrom('sm')
                     ->money('JPY')
                     ->getStateUsing(function ($record) {
                         $itemsTotal = $record->billableFolderItems()->sum('total_price');

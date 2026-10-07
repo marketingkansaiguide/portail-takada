@@ -136,14 +136,17 @@ class AgencyUserResource extends Resource
                     ->sortable()
                     ->weight('bold'),
                     
+                // Sur mobile, le nom suffit ; l'e-mail et la date apparaissent sur les écrans plus larges.
                 TextColumn::make('email')
                     ->label(__('Adresse E-mail'))
-                    ->searchable(),
-                    
+                    ->searchable()
+                    ->visibleFrom('sm'),
+
                 TextColumn::make('created_at')
                     ->label(__('Date de création'))
                     ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->visibleFrom('md'),
             ])
             ->filters([
                 //

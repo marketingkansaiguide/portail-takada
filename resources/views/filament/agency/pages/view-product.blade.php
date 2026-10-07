@@ -69,14 +69,24 @@
         .dark .product-variant-group, .dark .product-required-fields { background: var(--gray-800); border-color: var(--gray-700); }
         .dark .product-price-summary { background: var(--tk-accent-soft); border-color: var(--gray-600); }
         .dark .product-final-step { background: var(--gray-900); border-color: var(--gray-700); }
+        /* Mise en page : une colonne sur mobile / tablette, contenu + réservation côte à côte sur grand écran */
+        .product-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+        .product-layout-main, .product-layout-side { min-width: 0; }
+        .product-title { font-size: clamp(1.75rem, 6vw, 2.5rem); line-height: 1.15; overflow-wrap: anywhere; }
+        .product-gallery { height: clamp(240px, 62vw, 540px); }
+        .product-card-lg { padding: clamp(1.25rem, 5vw, 2.5rem); }
+        .product-card-side { padding: clamp(1rem, 4vw, 1.75rem); }
+        @media (min-width: 1280px) {
+            .product-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 2.5rem; }
+        }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
     </style>
 
-    <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 2.5rem; font-family: system-ui, sans-serif;">
+    <div class="product-layout" style="font-family: system-ui, sans-serif;">
         
         {{-- COLONNE GAUCHE : VISUELS ET DESCRIPTION --}}
-        <div style="grid-column: span 12 / span 12;" class="xl:col-span-8">
+        <div class="product-layout-main">
             <div style="display: flex; flex-direction: column; gap: 2rem;">
                 
                 <div wire:ignore style="display: flex; flex-direction: column; gap: 2rem;">
@@ -87,7 +97,7 @@
                                 <span style="background: #fee2e2; color: #991b1b; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">{{ __('Tarif Négocié / Privé') }}</span>
                             @endif
                         </div>
-                        <h1 style="font-size: 2.5rem; font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
+                        <h1 class="product-title" style="font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
                         
                     </div>
 
@@ -121,7 +131,7 @@
 
                     @if(count($images) > 0)
                         <div x-data="{ mainImage: '{{ $images[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div style="border-radius: 1.25rem; overflow: hidden; height: 540px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
+                            <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
                                 <img :src="mainImage" src="{{ $images[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
                             </div>
                             @if(count($images) > 1)
@@ -135,13 +145,13 @@
                             @endif
                         </div>
                     @else
-                        <div style="border-radius: 1.25rem; overflow: hidden; height: 540px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 500;">
+                        <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 500;">
                             {{ __('Aucun visuel disponible') }}
                         </div>
                     @endif
 
                     {{-- DESCRIPTIF DU PRODUIT --}}
-                    <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div class="product-card-lg" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <h2 style="font-size: 1.4rem; font-weight: 700; color: #1e293b; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
                             {{ __('Présentation de la prestation') }}
@@ -154,12 +164,12 @@
         </div>
 
         {{-- COLONNE DROITE : FORMULAIRE ET CONFIGURATION --}}
-        <div style="grid-column: span 12 / span 12;" class="xl:col-span-4">
+        <div class="product-layout-side">
             <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
                 
                 {{-- BLOC 1 : PANNEAU AGENCE PARTEANIRE --}}
                 @if($this->activeAgencyId)
-                    <div style="background: white; border-radius: 1.25rem; padding: 1.75rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
+                    <div class="product-card-side" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         
                         {{-- CAS PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())

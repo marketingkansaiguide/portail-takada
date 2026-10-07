@@ -42,6 +42,17 @@
         .fc-send:hover { background-color: var(--primary-700); transform: translateY(-1px); }
         .fc-danger { color: var(--fc-danger); }
         .fc-accent { color: var(--fc-accent); }
+        @media (max-width: 480px) {
+            .fc-header { flex-direction: column; align-items: flex-start !important; gap: 0.2rem; }
+            .fc-thread { padding: 1rem !important; gap: 1rem !important; }
+            .fc-thread > div > div { max-width: 92% !important; }
+            .fc-composer { padding: 0.75rem !important; }
+            .fc-composer > div > div:first-child { gap: 0.4rem !important; }
+            .fc-attach { padding: 0.25rem !important; }
+            .fc-input { padding: 0.65rem 0.9rem !important; }
+            .fc-send { padding: 0.65rem 0.9rem !important; }
+            .fc-composer [style*="padding-left: 3rem"] { padding-left: 0 !important; }
+        }
     </style>
 
     
@@ -76,7 +87,7 @@
                     
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; padding: 0 0.25rem;">
                         @if($isTakadaStaff)
-                            <span style="background: var(--primary-600); color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{{ __('Équipe Takada') }}</span>
+                            <span style="background: var(--primary-600); color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;">{{ __('Équipe Takada') }}</span>
                             <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $msg->user->name ?? 'Staff' }}</span>
                         @else
                             <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $isMe ? 'Vous' : ($msg->user->name ?? 'Agence') }}</span>
