@@ -190,12 +190,12 @@ Route::get('/pdf/labels', function (Illuminate\Http\Request $request) {
     $ids = array_filter(explode(',', $rawIds));
     
     $folders = Folder::whereIn('id', $ids)
-        ->where('status', 'confirmed')
+        ->whereIn('status', ['confirmed', 'completed'])
         ->orderByRaw('COALESCE(first_hotel_check_in, start_date) ASC')
         ->get();
 
     if ($folders->isEmpty()) {
-        abort(404, 'Aucun dossier confirmé trouvé pour cette sélection.');
+        abort(404, 'Aucun dossier trouvé pour cette sélection.');
     }
 
     abort_unless($folders->every(fn (Folder $folder) => $user->can('view', $folder)), 403);
