@@ -964,6 +964,7 @@ class FolderItem extends Model
             'departure_time' => __('Heure de départ'),
             'arrival_time' => __('Heure d’arrivée'),
             'train_number' => __('N° de train / bus'),
+            'specific_requests' => __('Demandes spécifiques/indication complémentaire'),
             'option_id' => __('Classe'),
             'pax_count' => __('Nombre de passagers'),
             'supplier_id' => __('Fournisseur'),

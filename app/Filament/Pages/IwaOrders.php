@@ -208,11 +208,15 @@ class IwaOrders extends Page implements HasTable
                             $date = !empty($r['departure_date']) ? Carbon::parse($r['departure_date'])->format('d/m/Y') : '---';
             $time = !empty($r['departure_time']) ? ' ' . __('à') . ' ' . e($r['departure_time']) : '';
                             $trainNum = !empty($r['train_number']) ? ' (' . e($r['train_number']) . ')' : '';
+                            $requests = filled($r['specific_requests'] ?? null)
+                                ? '<div style="white-space: pre-wrap;">' . e(__('Demandes spécifiques/indication complémentaire')) . ' : ' . e($r['specific_requests']) . '</div>'
+                                : '';
                             
                             $routesHtml[] = "
                                 <div style='margin-bottom: 4px; padding: 4px; background-color: #f8fafc; border-radius: 4px; border: 1px solid #e2e8f0;'>
                                     <strong style='color: #0f172a;'>{$dep} ➔ {$arr}</strong>{$trainNum}<br>
                                     <span style='font-size: 0.8rem; color: #64748b;'>📅 {$date}{$time}</span>
+                                    {$requests}
                                 </div>
                             ";
                         }

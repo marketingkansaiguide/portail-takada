@@ -1788,6 +1788,12 @@ Repeater::make('transport_routes')
                 ->required(),
         ])->columns(6),
 
+        Textarea::make('specific_requests')
+            ->label(__('Demandes spécifiques/indication complémentaire'))
+            ->rows(3)
+            ->maxLength(5000)
+            ->columnSpanFull(),
+
         Group::make()->schema([
             Select::make('supplier_id')
                 ->label(__('Fournisseur pour ce trajet'))

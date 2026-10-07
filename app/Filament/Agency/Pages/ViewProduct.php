@@ -137,6 +137,7 @@ class ViewProduct extends Page
                         'departure_date' => now()->format('Y-m-d'),
                         'departure_time' => '',
                         'train_number' => '',
+                        'specific_requests' => '',
                         'option_id' => null,
                         'pax_count' => 1,
                     ]
@@ -172,6 +173,7 @@ class ViewProduct extends Page
             'departure_date' => now()->format('Y-m-d'),
             'departure_time' => '',
             'train_number' => '',
+            'specific_requests' => '',
             'option_id' => null,
             'pax_count' => 1,
         ];
@@ -805,6 +807,7 @@ class ViewProduct extends Page
                 'customValues.transport_routes.*.departure_date' => 'required|date',
                 'customValues.transport_routes.*.pax_count' => 'required|integer|min:1',
                 'customValues.transport_routes.*.option_id' => 'required',
+                'customValues.transport_routes.*.specific_requests' => 'nullable|string|max:5000',
             ];
 
             $messages = [

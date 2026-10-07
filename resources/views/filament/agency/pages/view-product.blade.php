@@ -328,6 +328,14 @@
                                                         <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
                                                     </div>
 
+                                                    <div style="grid-column: 1 / -1;">
+                                                        <label for="route-specific-requests-{{ $index }}" style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">{{ __('Demandes spécifiques/indication complémentaire') }}</label>
+                                                        <textarea id="route-specific-requests-{{ $index }}" wire:model="customValues.transport_routes.{{ $index }}.specific_requests" rows="3" maxlength="5000" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;"></textarea>
+                                                        @error("customValues.transport_routes.{$index}.specific_requests")
+                                                            <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                                                        @enderror
+                                                    </div>
+
                                                 </div>
                                             </div>
                                         @endforeach

@@ -590,6 +590,12 @@ Repeater::make('transport_routes')
                             ->label(__('N° Train / Bus (Optionnel)'))
                             ->placeholder(__('Ex: Hikari 502 / Voiture 3')),
         ])->columns(3),
+
+        Textarea::make('specific_requests')
+            ->label(__('Demandes spécifiques/indication complémentaire'))
+            ->rows(3)
+            ->maxLength(5000)
+            ->columnSpanFull(),
     ]),
                                         // 💡 Affichage du Prix Estimé pour les Transports (Frais fixes + Devis)
                                         Placeholder::make('transport_estimate')
@@ -1423,9 +1429,13 @@ Repeater::make('transport_routes')
                                                     }
 
                                                     $num = $idx + 1;
+                                                    $requests = filled($r['specific_requests'] ?? null)
+                                                        ? '<div style="white-space: pre-wrap; margin-left: 0.8rem;">' . e(__('Demandes spécifiques/indication complémentaire')) . ' : ' . e($r['specific_requests']) . '</div>'
+                                                        : '';
                                                     $routeLines[] = "<div style='margin-bottom: 0.6rem;'>
                                                         <span style='font-weight:700;'>• Trajet {$num} : {$dep} ➔ {$arr}</span><br>
                                                         <span style='margin-left: 0.8rem; font-size: 0.8rem; opacity: 0.85;'>📅 {$rDate}{$timeDisplay}{$trainNum} | 👥 {$rPax}{$optName}</span>
+                                                        {$requests}
                                                     </div>";
                                                 }
                                                 $routesHtml = "
