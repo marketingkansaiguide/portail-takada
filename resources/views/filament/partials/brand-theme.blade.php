@@ -94,6 +94,36 @@
         flex: none;
     }
 
+    /* Variante discrète (portail agences) : icône seule, comme les autres boutons de la barre */
+    .tk-theme-toggle.tk-theme-toggle--subtle,
+    .dark .tk-theme-toggle.tk-theme-toggle--subtle {
+        padding: 0.5rem;
+        background-color: transparent;
+        color: var(--gray-400);
+        box-shadow: none;
+    }
+
+    .tk-theme-toggle.tk-theme-toggle--subtle:hover {
+        transform: none;
+        box-shadow: none;
+        color: var(--gray-500);
+        background-color: var(--gray-100);
+    }
+
+    .dark .tk-theme-toggle.tk-theme-toggle--subtle:hover {
+        color: var(--gray-300);
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .tk-theme-toggle--subtle .tk-theme-toggle-label {
+        display: none;
+    }
+
+    .tk-theme-toggle--subtle svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
     @media (max-width: 640px) {
         .tk-theme-toggle-label {
             display: none;
