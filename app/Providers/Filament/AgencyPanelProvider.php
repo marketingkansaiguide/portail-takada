@@ -8,6 +8,7 @@ use App\Filament\Agency\Pages\Contact; // 💡 1. IMPORT AJOUTÉ ICI
 use App\Filament\Agency\Resources\AgencyFolderResource;
 use App\Filament\Agency\Resources\AgencyUserResource;
 use App\Http\Middleware\FilamentAgencyB2BAccess;
+use App\Support\TakadaBrand;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Pages;
@@ -41,7 +42,7 @@ class AgencyPanelProvider extends PanelProvider
             ? Storage::disk('public')->url($settings->site_favicon_path)
             : asset('images/logo.svg');
 
-        return $panel
+        return TakadaBrand::apply($panel)
             ->id('agency')
             ->path('') // Racine du site
             ->spa(true, true)
@@ -50,9 +51,8 @@ class AgencyPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->colors([
-                'primary' => Color::hex('#096a61'),
+                // Vert pâle du fond du logo sur les supports marine
                 'secondary' => Color::hex('#dde8b9'),
-                'gray' => Color::Slate,
             ])
             ->topNavigation()
             ->breadcrumbs(false)

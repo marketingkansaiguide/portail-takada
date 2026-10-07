@@ -223,7 +223,7 @@ class HistoriesRelationManager extends RelationManager
                 ->map(function ($group, string $context): string {
                     $heading = $context === ''
                         ? ''
-                        : '<div style="margin: 0.65rem 0 0.45rem; font-size: 0.82rem; font-weight: 700; color: #0f766e;">' . e($context) . '</div>';
+                        : '<div style="margin: 0.65rem 0 0.45rem; font-size: 0.82rem; font-weight: 700; color: var(--tk-accent);">' . e($context) . '</div>';
 
                     $changesHtml = $group->map(function (array $change): string {
                         $label = e((string) $change['label']);

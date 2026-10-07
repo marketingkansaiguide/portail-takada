@@ -389,8 +389,8 @@ class FolderResource extends Resource
 
             $html .= '<div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem;">'
                 . '<div style="min-width: 0; display: flex; align-items: center; gap: 0.65rem;">'
-                . '<svg style="width: 1.25rem; height: 1.25rem; color: #0f766e; flex-shrink: 0;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>'
-                . '<div style="min-width: 0;"><a href="' . e($url) . '" target="_blank" style="display: block; color: #0f766e; font-size: 0.875rem; font-weight: 700; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' . e($name) . '</a>'
+                . '<svg style="width: 1.25rem; height: 1.25rem; color: var(--tk-accent); flex-shrink: 0;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>'
+                . '<div style="min-width: 0;"><a href="' . e($url) . '" target="_blank" style="display: block; color: var(--tk-accent); font-size: 0.875rem; font-weight: 700; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' . e($name) . '</a>'
                 . '<span style="display: block; margin-top: 0.15rem; color: #64748b; font-size: 0.75rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' . $meta . '</span></div></div>'
                 . '<a href="' . e($url) . '" download title="' . e(__('Télécharger')) . '" style="flex-shrink: 0; color: #475569; padding: 0.25rem;"><svg style="width: 1.2rem; height: 1.2rem;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg></a></div>';
         }
@@ -977,11 +977,11 @@ class FolderResource extends Resource
                                 $statusColor = $statusModel?->color ?? 'gray';
 
                                 $hexColor = match ($statusColor) {
-                                    'success' => '#22c55e', 
-                                    'warning' => '#f59e0b', 
-                                    'danger' => '#ef4444',  
-                                    'info' => '#3b82f6',    
-                                    default => '#94a3b8',   
+                                    'success' => '#15803d', 
+                                    'warning' => '#b45309', 
+                                    'danger' => '#dc2626',  
+                                    'info' => '#2563eb',    
+                                    default => '#64748b',   
                                 };
 
                                 $mainText = "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity . $supplierText;

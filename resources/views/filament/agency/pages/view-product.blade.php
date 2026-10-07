@@ -6,8 +6,8 @@
 
         .calendar-cell { min-height: 60px; border-radius: 0.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0.25rem 0; border: 1px solid transparent; transition: all 0.15s ease-in-out; overflow: hidden; }
         .calendar-cell-available { background: #ffffff; border-color: #e2e8f0; cursor: pointer; }
-        .calendar-cell-available:hover { border-color: #096a61; background: #f0fdfa; }
-        .calendar-cell-selected { background: #096a61 !important; border-color: #096a61 !important; box-shadow: 0 4px 6px -1px rgba(9, 106, 97, 0.4); }
+        .calendar-cell-available:hover { border-color: var(--primary-600); background: var(--tk-accent-soft); }
+        .calendar-cell-selected { background: var(--primary-600) !important; border-color: var(--primary-600) !important; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 40%, transparent); }
         .calendar-cell-disabled { background: #f8fafc; border-color: transparent; cursor: not-allowed; opacity: 0.4; }
         .calendar-day-number { font-weight: 700; font-size: 1rem; line-height: 1.1; }
         .calendar-price-text { font-size: 0.65rem; font-weight: 700; line-height: 1.1; margin-top: 0.2rem; white-space: nowrap; }
@@ -33,14 +33,14 @@
             gap: 0.35rem;
         }
         .pax-tab-item:hover {
-            border-color: #096a61;
+            border-color: var(--primary-600);
             background: #f8fafc;
-            color: #096a61;
+            color: var(--tk-accent);
         }
         .pax-tab-item-active {
-            border-color: #096a61 !important;
-            background: #f0fdfa !important;
-            color: #096a61 !important;
+            border-color: var(--primary-600) !important;
+            background: var(--tk-accent-soft) !important;
+            color: var(--tk-accent) !important;
         }
 
         @keyframes spin {
@@ -51,23 +51,23 @@
 
         /* Étapes compactes : la fiche reste volontairement sur une seule colonne. */
         .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.85rem; padding: 1rem; margin-bottom: 1rem; }
-        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem; color: #0f766e; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
-        .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: #14b8a6; flex: 0 0 auto; }
+        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem; color: var(--tk-accent); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
+        .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--primary-600); flex: 0 0 auto; }
         .product-variant-group { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
         .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
-        .product-price-summary { background: #f0fdfa; border-color: #99f6e4; }
+        .product-price-summary { background: var(--tk-accent-soft); border-color: var(--tk-accent-border); }
         .product-final-step { border-color: #a7f3d0; background: #f0fdf4; }
         /* Mode sombre */
-        .dark .calendar-cell-available { background: #1e293b; border-color: #334155; }
-        .dark .calendar-cell-available:hover { background: #134e4a; }
-        .dark .calendar-cell-disabled { background: #0f172a; }
-        .dark .pax-tab-item { background: #1e293b; border-color: #475569; color: #cbd5e1; }
-        .dark .pax-tab-item:hover { background: #0f172a; color: #5eead4; }
-        .dark .pax-tab-item-active { background: #134e4a !important; color: #5eead4 !important; border-color: #14b8a6 !important; }
-        .dark .product-config-section { background: #111827; border-color: #334155; }
-        .dark .product-config-section-title { color: #5eead4; }
-        .dark .product-variant-group, .dark .product-required-fields { background: #1e293b; border-color: #334155; }
-        .dark .product-price-summary { background: #134e4a; border-color: #0f766e; }
+        .dark .calendar-cell-available { background: var(--gray-800); border-color: var(--gray-700); }
+        .dark .calendar-cell-available:hover { background: var(--tk-accent-soft); }
+        .dark .calendar-cell-disabled { background: var(--gray-950); }
+        .dark .pax-tab-item { background: var(--gray-800); border-color: var(--gray-600); color: var(--gray-300); }
+        .dark .pax-tab-item:hover { background: var(--gray-950); color: var(--tk-accent); }
+        .dark .pax-tab-item-active { background: var(--tk-accent-soft) !important; color: var(--tk-accent) !important; border-color: var(--tk-accent) !important; }
+        .dark .product-config-section { background: var(--gray-900); border-color: var(--gray-700); }
+        .dark .product-config-section-title { color: var(--tk-accent); }
+        .dark .product-variant-group, .dark .product-required-fields { background: var(--gray-800); border-color: var(--gray-700); }
+        .dark .product-price-summary { background: var(--tk-accent-soft); border-color: var(--gray-600); }
         .dark .product-final-step { background: #052e16; border-color: #166534; }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
@@ -142,7 +142,7 @@
 
                     {{-- DESCRIPTIF DU PRODUIT --}}
                     <div style="background: white; padding: 2.5rem; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <h2 style="font-size: 1.4rem; font-weight: 700; color: #096a61; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <h2 style="font-size: 1.4rem; font-weight: 700; color: var(--tk-accent); margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
                             {{ __('Présentation de la prestation') }}
                         </h2>
@@ -234,7 +234,7 @@
                                                             <template x-for="st in filtered" :key="st.name">
                                                                 <div @click="select(st)" 
                                                                      style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
-                                                                     onmouseover="this.style.background='#f0fdfa'" 
+                                                                     onmouseover="this.style.background='var(--tk-accent-soft)'" 
                                                                      onmouseout="this.style.background='#ffffff'">
                                                                     <span x-text="st.label"></span>
                                                                 </div>
@@ -290,7 +290,7 @@
                                                             <template x-for="st in filtered" :key="st.name">
                                                                 <div @click="select(st)" 
                                                                      style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
-                                                                     onmouseover="this.style.background='#f0fdfa'" 
+                                                                     onmouseover="this.style.background='var(--tk-accent-soft)'" 
                                                                      onmouseout="this.style.background='#ffffff'">
                                                                     <span x-text="st.label"></span>
                                                                 </div>
@@ -378,10 +378,10 @@
 
                                         @if(($estimate['total_options'] ?? 0) > 0)
                                             <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                <span style="color: #096a61; font-weight: 600;">
+                                                <span style="color: var(--tk-accent); font-weight: 600;">
                                                     • {{ __('Suppléments classes / options') }}
                                                 </span>
-                                                <span style="font-weight: 600; color: #096a61;">
+                                                <span style="font-weight: 600; color: var(--tk-accent);">
                                                     + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
                                                 </span>
                                             </div>
@@ -479,7 +479,7 @@
                                                     <button type="button" @click="prevMonth()" style="padding: 0.5rem; border-radius: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
                                                         <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                                                     </button>
-                                                    <div x-text="currentMonthName" style="font-weight: 700; font-size: 1.1rem; color: #096a61; text-transform: capitalize;"></div>
+                                                    <div x-text="currentMonthName" style="font-weight: 700; font-size: 1.1rem; color: var(--tk-accent); text-transform: capitalize;"></div>
                                                     <button type="button" @click="nextMonth()" style="padding: 0.5rem; border-radius: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
                                                         <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                                                     </button>
@@ -502,10 +502,10 @@
                                                             <template x-if="day && day.info.available">
                                                                 <div style="text-align: center; width: 100%;">
                                                                     <template x-if="!day.info.is_on_demand && day.info.price">
-                                                                        <span class="calendar-price-text" x-text="day.info.price + ' ¥'" :style="selectedDate === day.dateStr ? 'color: #ccfbf1;' : 'color: #096a61;'"></span>
+                                                                        <span class="calendar-price-text" x-text="day.info.price + ' ¥'" :style="selectedDate === day.dateStr ? 'color: var(--primary-100);' : 'color: var(--tk-accent);'"></span>
                                                                     </template>
                                                                     <template x-if="!day.info.is_on_demand && !day.info.price">
-                                                                        <span class="calendar-price-text" :style="selectedDate === day.dateStr ? 'color: #ccfbf1;' : 'color: #096a61;'">-</span>
+                                                                        <span class="calendar-price-text" :style="selectedDate === day.dateStr ? 'color: var(--primary-100);' : 'color: var(--tk-accent);'">-</span>
                                                                     </template>
                                                                     <template x-if="day.info.is_on_demand">
                                                                         <span class="calendar-price-text" :style="selectedDate === day.dateStr ? 'color: #ffedd5;' : 'color: #d97706;'">Devis</span>
@@ -521,29 +521,29 @@
                                 </div>
                                 
                                 @if($product->usesAgeSelector())
-                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 0.65rem; padding: 0.75rem;">
+                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: var(--tk-accent-soft); border: 1px solid var(--tk-accent-border); border-radius: 0.65rem; padding: 0.75rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
-                                            <label style="font-size: 0.85rem; font-weight: 700; color: #115e59;">{{ __('Répartition des participants') }}</label>
-                                            <span style="font-size: 0.75rem; color: #0f766e;">@if($product->hasChildSelector()){{ __('Enfant jusqu’à') }} {{ $product->child_age_limit ?? 11 }} {{ __('ans inclus') }}@endif@if($product->hasChildSelector() && $product->hasTeenSelector()) · @endif@if($product->hasTeenSelector()){{ __('Adolescent de :min à :max ans', ['min' => ($product->child_age_limit ?? 11) + 1, 'max' => $product->teen_age_limit]) }}@endif</span>
+                                            <label style="font-size: 0.85rem; font-weight: 700; color: var(--tk-accent);">{{ __('Répartition des participants') }}</label>
+                                            <span style="font-size: 0.75rem; color: var(--tk-accent);">@if($product->hasChildSelector()){{ __('Enfant jusqu’à') }} {{ $product->child_age_limit ?? 11 }} {{ __('ans inclus') }}@endif@if($product->hasChildSelector() && $product->hasTeenSelector()) · @endif@if($product->hasTeenSelector()){{ __('Adolescent de :min à :max ans', ['min' => ($product->child_age_limit ?? 11) + 1, 'max' => $product->teen_age_limit]) }}@endif</span>
                                         </div>
                                         <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem;">
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adultes') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>
                                             @if($product->hasChildSelector())<div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Enfants') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>@endif
                                             @if($product->hasTeenSelector())
                                                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                     <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adolescents') }}</label>
-                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid #99f6e4; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                                 </div>
                                             @endif
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Total Pax') }}</label>
-                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: #0f766e;">
+                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: var(--tk-accent);">
                                             </div>
                                         </div>
                                         @error('ageSelectorAdults') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
@@ -585,7 +585,7 @@
                                                     <span style="color: #dc2626; font-size: 0.85rem;">*</span>
                                                 </label>
                                                 @if($selectedInGroup && ($selectedInGroup->price_modifier ?? 0) > 0)
-                                                    <span style="font-size: 0.8rem; color: #096a61; font-weight: 700;">
+                                                    <span style="font-size: 0.8rem; color: var(--tk-accent); font-weight: 700;">
                                                         + {{ number_format($selectedInGroup->price_modifier, 0, '.', ' ') }} ¥
                                                     </span>
                                                 @endif
@@ -593,7 +593,7 @@
 
                                             <select wire:change="selectGroupVariant('{{ addslashes($groupName) }}', $event.target.value)" 
                                                     style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
-                                                    onfocus="this.style.borderColor='#096a61';" onblur="this.style.borderColor='#d1d5db';">
+                                                    onfocus="this.style.borderColor='var(--primary-600)';" onblur="this.style.borderColor='#d1d5db';">
                                                 @foreach($groupOptions as $option)
                                                     @php
                                                         $isSelected = !empty($selectedOptions[$option->id]['enabled']);
@@ -631,10 +631,10 @@
                                             @endphp
                                             <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
                                                 <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-                                                    <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: #096a61;">
+                                                    <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: var(--primary-600);">
                                                     <label for="opt_{{ $option->id }}" style="font-size: 0.85rem; font-weight: 600; color: #374151; cursor: pointer; flex-grow: 1;">
                                                         {{ $option->name }}
-                                                        <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">
+                                                        <span style="display: block; font-size: 0.8rem; color: var(--tk-accent); font-weight: 700; margin-top: 0.1rem;">
                                                             @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
                                                                 + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
                                                             @else
@@ -738,7 +738,7 @@
                                                                         </div>
                                                                     </div>
                                                                     <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
-                                                                    <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid #99f6e4; border-radius:.45rem; background:#f0fdfa; color:#0f766e; font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ {{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
+                                                                    <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid var(--tk-accent-border); border-radius:.45rem; background:var(--tk-accent-soft); color:var(--tk-accent); font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ {{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
                                                                 </div>
                                                                 <div x-show="manualHotel" style="display:none;">
                                                                     <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
@@ -748,12 +748,12 @@
                                                                     <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Lien Google Maps') }} <span style="font-weight:500; color:#64748b;">({{ __('optionnel') }})</span></label>
                                                                     <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none;">
                                                                     <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
-                                                                    <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
+                                                                    <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
                                                                 </div>
                                                             </div>
                                                         @elseif($def['type'] === 'toggle')
                                                             <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
-                                                                <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:#096a61;">
+                                                                <input type="checkbox" wire:model="{{ $modelKey }}" id="check_global_{{ $key }}" style="width:18px; height:18px; accent-color:var(--primary-600);">
                                                                 <label for="check_global_{{ $key }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
                                                             </div>
                                                         @elseif($def['type'] === 'file')
@@ -764,18 +764,18 @@
                                                                  style="position: relative; margin-top: 0.25rem;">
 
                                                                 <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
-                                                                       onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                       onmouseover="this.style.borderColor='var(--primary-600)'; this.style.background='var(--tk-accent-soft)';"
                                                                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
 
                                                                     <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
-                                                                        <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <svg style="width: 28px; height: 28px; color: var(--tk-accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                                                         </svg>
                                                                         <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez un fichier ici</span>
                                                                         <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
                                                                     </div>
 
-                                                                    <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                    <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: var(--tk-accent); font-size: 0.85rem; font-weight: 600;">
                                                                         <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
                                                                             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                                             <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -880,17 +880,17 @@
                                                                                     </template>
                                                                                     <p x-show="results.length === 0" style="margin:0; padding:.75rem; color:#64748b; font-size:.8rem;">{{ __('Aucun hébergement correspondant') }}</p>
                                                                                 </div>
-                                                                                <button type="button" x-on:click="manualHotel = true" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
+                                                                                <button type="button" x-on:click="manualHotel = true" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
                                                                             </div>
                                                                             <div x-show="manualHotel" style="display:none;">
                                                                                 <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
                                                                                 <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
-                                                                                <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:#096a61; font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
+                                                                                <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
                                                                             </div>
                                                                         </div>
                                                                     @elseif($def['type'] === 'toggle')
                                                                         <div style="display:flex; align-items:center; gap:0.5rem; margin-top:0.25rem;">
-                                                                            <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:#096a61;">
+                                                                            <input type="checkbox" wire:model="{{ $modelKey }}" id="check_pax_{{ $key }}_{{ $i }}" style="width:14px; height:14px; accent-color:var(--primary-600);">
                                                                             <label for="check_pax_{{ $key }}_{{ $i }}" style="font-size:0.85rem; color:#4b5563;">Oui, je confirme</label>
                                                                         </div>
                                                                     @elseif($def['type'] === 'file')
@@ -901,18 +901,18 @@
                                                                              style="position: relative; margin-top: 0.25rem;">
 
                                                                             <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
-                                                                                   onmouseover="this.style.borderColor='#096a61'; this.style.background='#f0fdfa';"
+                                                                                   onmouseover="this.style.borderColor='var(--primary-600)'; this.style.background='var(--tk-accent-soft)';"
                                                                                    onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
 
                                                                                 <div x-show="!isUploading && !isUploaded" style="display: flex; flex-direction: column; align-items: center; gap: 0.35rem; text-align: center;">
-                                                                                    <svg style="width: 28px; height: 28px; color: #096a61;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                    <svg style="width: 28px; height: 28px; color: var(--tk-accent);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                                                                     </svg>
                                                                                     <span style="font-size: 0.85rem; font-weight: 600; color: #334155;">Cliquez ou glissez le document du Pax {{ $i + 1 }}</span>
                                                                                     <span style="font-size: 0.75rem; color: #94a3b8;">PDF, JPG, PNG (Max. 10 Mo)</span>
                                                                                 </div>
 
-                                                                                <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: #096a61; font-size: 0.85rem; font-weight: 600;">
+                                                                                <div x-show="isUploading" style="display: flex; align-items: center; gap: 0.5rem; color: var(--tk-accent); font-size: 0.85rem; font-weight: 600;">
                                                                                     <svg class="animate-spin-custom" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24">
                                                                                         <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                                                         <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -964,7 +964,7 @@
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">{{ __('Cette prestation nécessite une cotation personnalisée.') }}</p>
                                 </div>
                             @else
-                                <div style="background: rgba(255,255,255,.78); border: 1px solid #ccfbf1; border-radius: 0.7rem; padding: 1rem; display: flex; flex-direction: column;">
+                                <div style="background: rgba(255,255,255,.78); border: 1px solid var(--tk-accent-border); border-radius: 0.7rem; padding: 1rem; display: flex; flex-direction: column;">
                                     
                                     @if(($estimate['is_guiding'] ?? false) && ($estimate['has_date'] ?? false))
                                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.65rem;">
@@ -1061,7 +1061,7 @@
                                     
                                     <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                                         <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
-                                        <span style="font-size: 2.25rem; font-weight: 600; color: #096a61; line-height: 1; letter-spacing: -0.02em;">
+                                        <span style="font-size: 2.25rem; font-weight: 600; color: var(--tk-accent); line-height: 1; letter-spacing: -0.02em;">
                                             {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
                                         </span>
                                     </div>
@@ -1102,7 +1102,7 @@
                                 @error('selectedFolderId') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                             </div>
 
-                            <button type="button" wire:click="addToFolder" style="width: 100%; background: #00ca99; color: white; border: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 202, 153, 0.2); transition: background 0.2s;" onmouseover="this.style.background='#00b388'" onmouseout="this.style.background='#00ca99'">
+                            <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='#00b388'" onmouseout="this.style.background='var(--primary-600)'">
                                 Ajouter cette prestation au dossier
                             </button>
                         </div>
@@ -1110,7 +1110,7 @@
                         @if($product->days_before_opening || $product->days_before_request_deadline || $product->is_lottery)
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
                                 @if($product->days_before_opening)
-                                    <div style="background: #f0fdfa; border-left: 3px solid #0d9488; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #115e59; font-size: 0.8rem; line-height: 1.35;">
+                                    <div style="background: var(--tk-accent-soft); border-left: 3px solid var(--primary-600); padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: var(--tk-accent); font-size: 0.8rem; line-height: 1.35;">
                                         <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z" /></svg>
                                         <span><strong>{{ __('Ouverture des réservations') }}</strong><br>{{ __('À partir de J-:days', ['days' => $product->days_before_opening]) }}</span>
                                     </div>
@@ -1187,7 +1187,7 @@
                         <h3 style="font-size: 1.3rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">{{ __('Tarifs et Réservations Pro') }}</h3>
                         <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.75rem 0;">{{ __('Les grilles tarifaires japonaises (saisonnières/enfants) ainsi que les modules de devis direct sont réservés aux agences de voyages partenaires.') }}</p>
                         
-                        <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: #096a61; color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px rgba(9, 106, 97, 0.2); transition: background 0.2s;" onmouseover="this.style.background='#07534c'" onmouseout="this.style.background='#096a61'">
+                        <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: var(--primary-600); color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
                             {{ __('S’identifier sur le portail') }}
                         </a>
                     </div>

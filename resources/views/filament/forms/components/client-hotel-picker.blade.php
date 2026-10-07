@@ -41,7 +41,7 @@
             </div>
         </div>
         <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
-        <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid #99f6e4; border-radius:.45rem; background:#f0fdfa; color:#0f766e; font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ {{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
+        <button type="button" x-on:click="manualHotel = true" style="margin-top:.65rem; padding:.55rem .7rem; border:1px solid var(--tk-accent-border); border-radius:.45rem; background:var(--tk-accent-soft); color:var(--tk-accent); font-size:.8rem; font-weight:800; text-align:left; cursor:pointer;">✏️ {{ __('L’hébergement n’est pas dans la liste ? Saisie manuelle') }}</button>
     </div>
 
     <div x-show="manualHotel" style="display:none;">
@@ -52,6 +52,6 @@
         <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Lien Google Maps') }} <span style="font-weight:500; color:#64748b;">({{ __('optionnel') }})</span></label>
         <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none;">
         <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
-        <button type="button" x-on:click="manualHotel = false" style="margin-top:.65rem; padding:0; border:0; background:transparent; color:#096a61; font-size:.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
+        <button type="button" x-on:click="manualHotel = false" style="margin-top:.65rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
     </div>
 </div>

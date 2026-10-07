@@ -1,24 +1,24 @@
 <div class="fc-chat" style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; border-radius: 0.75rem; overflow: hidden;">
-    {{-- Couleurs du chat : variables claires par défaut, variante sombre pour le panel admin. --}}
+    {{-- Couleurs du chat : reprises des palettes du panel (thème clair « papier », thème foncé « marine »). --}}
     <style>
         .fc-chat {
-            --fc-bg: #ffffff; --fc-thread: #f8fafc; --fc-header: #f9fafb; --fc-border: #e5e7eb;
-            --fc-text: #374151; --fc-muted: #6b7280; --fc-empty-icon: #cbd5e1;
-            --fc-staff-bg: #ffffff; --fc-staff-text: #1f2937; --fc-staff-border: #e2e8f0;
-            --fc-accent: #096a61; --fc-danger: #dc2626;
+            --fc-bg: #ffffff; --fc-thread: var(--gray-50); --fc-header: var(--gray-50); --fc-border: var(--gray-200);
+            --fc-text: var(--gray-700); --fc-muted: var(--gray-500); --fc-empty-icon: var(--gray-300);
+            --fc-staff-bg: #ffffff; --fc-staff-text: var(--gray-800); --fc-staff-border: var(--gray-200);
+            --fc-accent: var(--tk-accent); --fc-danger: #dc2626;
             --fc-action-bg: #fef2f2; --fc-action-border: #f87171;
-            --fc-input-bg: #f8fafc; --fc-input-focus-bg: #ffffff; --fc-input-text: #1e293b; --fc-input-border: #e2e8f0;
-            --fc-attach-bg: #f8fafc; --fc-attachment-sep: #f1f5f9;
+            --fc-input-bg: var(--gray-50); --fc-input-focus-bg: #ffffff; --fc-input-text: var(--gray-800); --fc-input-border: var(--gray-200);
+            --fc-attach-bg: var(--gray-50); --fc-attachment-sep: var(--gray-100);
             background: var(--fc-bg); border: 1px solid var(--fc-border);
         }
         .dark .fc-chat {
-            --fc-bg: #111827; --fc-thread: #0b1220; --fc-header: #1f2937; --fc-border: #374151;
-            --fc-text: #f1f5f9; --fc-muted: #94a3b8; --fc-empty-icon: #475569;
-            --fc-staff-bg: #1f2937; --fc-staff-text: #f1f5f9; --fc-staff-border: #374151;
-            --fc-accent: #2dd4bf; --fc-danger: #fca5a5;
+            --fc-bg: var(--gray-900); --fc-thread: var(--gray-950); --fc-header: var(--gray-800); --fc-border: var(--gray-700);
+            --fc-text: #f8fafc; --fc-muted: var(--gray-400); --fc-empty-icon: var(--gray-600);
+            --fc-staff-bg: var(--gray-800); --fc-staff-text: #f8fafc; --fc-staff-border: var(--gray-700);
+            --fc-danger: #fca5a5;
             --fc-action-bg: #4c0519; --fc-action-border: #be123c;
-            --fc-input-bg: #1f2937; --fc-input-focus-bg: #111827; --fc-input-text: #f1f5f9; --fc-input-border: #475569;
-            --fc-attach-bg: #111827; --fc-attachment-sep: #374151;
+            --fc-input-bg: var(--gray-800); --fc-input-focus-bg: var(--gray-900); --fc-input-text: #f8fafc; --fc-input-border: var(--gray-600);
+            --fc-attach-bg: var(--gray-900); --fc-attachment-sep: var(--gray-700);
         }
         .fc-header { background-color: var(--fc-header); border-bottom: 1px solid var(--fc-border); color: var(--fc-text); }
         .fc-thread { background-color: var(--fc-thread); }
@@ -26,7 +26,7 @@
         .fc-muted { color: var(--fc-muted); }
         .fc-empty-icon { color: var(--fc-empty-icon); }
         .fc-bubble-staff { background-color: var(--fc-staff-bg); color: var(--fc-staff-text); border: 1px solid var(--fc-staff-border); }
-        .fc-bubble-client { background-color: #096a61; color: #ffffff; --fc-attachment-sep: rgba(255, 255, 255, 0.2); }
+        .fc-bubble-client { background-color: var(--primary-600); color: #ffffff; --fc-attachment-sep: rgba(255, 255, 255, 0.2); }
         .fc-attachment { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
         .fc-attachment:hover { opacity: 0.8; }
         .fc-bubble-staff .fc-attachment { background-color: var(--fc-attach-bg); color: var(--fc-accent); border: 1px solid var(--fc-staff-border); }
@@ -38,8 +38,8 @@
         .fc-input { background-color: var(--fc-input-bg); color: var(--fc-input-text); border: 1px solid var(--fc-input-border); }
         .fc-input::placeholder { color: var(--fc-muted); }
         .fc-input:focus { border-color: var(--fc-accent); background-color: var(--fc-input-focus-bg); }
-        .fc-send { background-color: #096a61; color: #ffffff; }
-        .fc-send:hover { background-color: #07534c; transform: translateY(-1px); }
+        .fc-send { background-color: var(--primary-600); color: #ffffff; }
+        .fc-send:hover { background-color: var(--primary-700); transform: translateY(-1px); }
         .fc-danger { color: var(--fc-danger); }
         .fc-accent { color: var(--fc-accent); }
     </style>
@@ -76,7 +76,7 @@
                     
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; padding: 0 0.25rem;">
                         @if($isTakadaStaff)
-                            <span style="background: #096a61; color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{{ __('Équipe Takada') }}</span>
+                            <span style="background: var(--primary-600); color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{{ __('Équipe Takada') }}</span>
                             <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $msg->user->name ?? 'Staff' }}</span>
                         @else
                             <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $isMe ? 'Vous' : ($msg->user->name ?? 'Agence') }}</span>
@@ -157,7 +157,7 @@
                 <button 
                     type="button" 
                     wire:click="sendMessage"
-                    class="fc-send" style="flex: 0 0 auto; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px rgba(9, 106, 97, 0.2); display: flex; align-items: center; gap: 0.5rem;"
+                    class="fc-send" style="flex: 0 0 auto; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px color-mix(in srgb, var(--primary-600) 20%, transparent); display: flex; align-items: center; gap: 0.5rem;"
                     wire:loading.attr="disabled"
                 >
                 <span wire:loading.remove wire:target="sendMessage, attachment">{{ __('Envoyer') }}</span>

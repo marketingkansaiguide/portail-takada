@@ -31,7 +31,7 @@
         [style*="color: #9ca3af"], [style*="color:#9ca3af"],
         [style*="color: gray"], [style*="color:gray"]
     ) {
-        color: #cbd5e1 !important;
+        color: var(--gray-300) !important;
     }
 
     /* Ambre / orange foncé */
@@ -66,13 +66,13 @@
         color: #fca5a5 !important;
     }
 
-    /* Teal / émeraude */
+    /* Teal historique (ancienne couleur du portail) */
     .dark :is(
         [style*="color: #115e59"], [style*="color:#115e59"],
         [style*="color: #0f766e"], [style*="color:#0f766e"],
         [style*="color: #096a61"], [style*="color:#096a61"]
     ):not([style*="background-color: #096a61"]):not([style*="background-color: #0f766e"]) {
-        color: #5eead4 !important;
+        color: var(--tk-accent) !important;
     }
 
     .dark :is(
@@ -118,7 +118,7 @@
         [style*="background: rgb(255, 255, 255)"],
         [style*="background-color: rgb(255, 255, 255)"]
     ) {
-        background-color: #1e293b !important;
+        background-color: var(--gray-800) !important;
     }
 
     .dark :is(
@@ -127,7 +127,7 @@
         [style*="background: #e2e8f0"], [style*="background:#e2e8f0"],
         [style*="background-color: #e2e8f0"], [style*="background-color:#e2e8f0"]
     ) {
-        background-color: #334155 !important;
+        background-color: var(--gray-700) !important;
     }
 
     /* Fond ambre clair */
@@ -152,7 +152,7 @@
         background-color: #4c0519 !important;
     }
 
-    /* Fond teal / vert clair */
+    /* Fond vert clair (succès) */
     .dark :is(
         [style*="background: #f0fdfa"], [style*="background:#f0fdfa"],
         [style*="background-color: #f0fdfa"], [style*="background-color:#f0fdfa"],
@@ -162,7 +162,7 @@
         [style*="background-color: #f0fdf4"], [style*="background-color:#f0fdf4"],
         [style*="background: rgb(240, 253, 250)"], [style*="background-color: rgb(240, 253, 250)"]
     ) {
-        background-color: #134e4a !important;
+        background-color: #0f3d2a !important;
     }
 
     /* Fond bleu clair */
@@ -192,6 +192,6 @@
         [style*="border-color: #e2e8f0"], [style*="border-color: #cbd5e1"],
         [style*="border-color: rgb(203, 213, 225)"]
     ) {
-        border-color: #475569 !important;
+        border-color: var(--gray-600) !important;
     }
 </style>

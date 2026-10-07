@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Models\Setting;
 use App\Http\Middleware\SetLocale;
+use App\Support\TakadaBrand;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -41,7 +42,7 @@ class AdminPanelProvider extends PanelProvider
             ? Storage::disk('public')->url($settings->site_favicon_path)
             : asset('images/logo.svg');
 
-        return $panel
+        return TakadaBrand::apply($panel)
             ->default()
             ->id('admin')
             ->path('admin')
@@ -75,9 +76,6 @@ class AdminPanelProvider extends PanelProvider
                     ->icon('heroicon-m-language'),
             ])
             
-            ->colors([
-                'primary' => Color::Amber,
-            ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => view('filament.partials.admin-dark-mode-overrides')->render(),

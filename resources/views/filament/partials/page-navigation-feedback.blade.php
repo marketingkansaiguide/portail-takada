@@ -23,7 +23,7 @@
         width: 38%;
         height: 100%;
         border-radius: 0 999px 999px 0;
-        background: #0f766e;
+        background: var(--primary-600);
         box-shadow: 0 0 12px rgb(13 148 136 / 55%);
         content: '';
         transform: translateX(-120%);

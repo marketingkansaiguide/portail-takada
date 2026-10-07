@@ -285,7 +285,7 @@ class AgencyFolderResource extends Resource
                             ->itemLabel(function (array $state) {
                                 $name = trim(($state['first_name'] ?? '') . ' ' . ($state['last_name'] ?? ''));
                                 if (!empty($name)) {
-                                    return new HtmlString("<span style='color:#096a61; font-weight:600;'>👤 {$name}</span>");
+                                    return new HtmlString("<span style='color:var(--tk-accent); font-weight:600;'>👤 {$name}</span>");
                                 }
                                 return new HtmlString("<span style='color:#4b5563; font-weight:600;'>👤 Passager (à renseigner)</span>");
                             })
@@ -315,7 +315,7 @@ class AgencyFolderResource extends Resource
                                         }
 
                                         return new HtmlString("
-                                            <div style='padding:0.75rem 1rem; border-left:4px solid #096a61; background:#f9fafb; border-radius:0 0.5rem 0.5rem 0;'>
+                                            <div style='padding:0.75rem 1rem; border-left:4px solid var(--primary-600); background:#f9fafb; border-radius:0 0.5rem 0.5rem 0;'>
                                                 <div style='font-weight:bold; color:#111827; font-size:1.05rem;'>👤 {$name} <span style='font-weight:normal; color:#6b7280; font-size:0.9rem;'>({$age}) - {$nat}</span></div>
                                                 {$warnHtml}
                                             </div>
@@ -1374,7 +1374,7 @@ Repeater::make('transport_routes')
                                     }),
                             ])
                             ->itemLabel(function (array $state) {
-                                return new HtmlString("<span style='color:#096a61; font-weight:600;'>" . e(__('Prestation enregistrée')) . "</span>");
+                                return new HtmlString("<span style='color:var(--tk-accent); font-weight:600;'>" . e(__('Prestation enregistrée')) . "</span>");
                             })
                             ->schema([
                                 Placeholder::make('condensed_item')
@@ -1481,7 +1481,7 @@ Repeater::make('transport_routes')
                                                     {$priceDetailsHtml}
                                                     <div style='display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed #cbd5e1;'>
                                                         {$prixSidenote}
-                                                        <span style='font-size:1.1rem; font-weight:800; color:#096a61;'>" . number_format($item->total_price, 0, '.', ' ') . " ¥</span>
+                                                        <span style='font-size:1.1rem; font-weight:800; color:var(--tk-accent);'>" . number_format($item->total_price, 0, '.', ' ') . " ¥</span>
                                                     </div>
                                                 </div>
                                             ");
@@ -1579,7 +1579,7 @@ Repeater::make('transport_routes')
                                                         Base : " . number_format($baseTotalPrice, 0, '.', ' ') . " ¥ <br>
                                                         Options : " . number_format($optionsTotal, 0, '.', ' ') . " ¥
                                                     </div>
-                                                    <div style='font-size:1.25rem; font-weight:800; color:#096a61;'>
+                                                    <div style='font-size:1.25rem; font-weight:800; color:var(--tk-accent);'>
                                                         " . number_format($grandTotal, 0, '.', ' ') . " ¥
                                                     </div>
                                                 </div>
