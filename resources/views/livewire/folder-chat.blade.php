@@ -1,11 +1,56 @@
-<div style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden;">
+<div class="fc-chat" style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; border-radius: 0.75rem; overflow: hidden;">
+    {{-- Couleurs du chat : variables claires par défaut, variante sombre pour le panel admin. --}}
+    <style>
+        .fc-chat {
+            --fc-bg: #ffffff; --fc-thread: #f8fafc; --fc-header: #f9fafb; --fc-border: #e5e7eb;
+            --fc-text: #374151; --fc-muted: #6b7280; --fc-empty-icon: #cbd5e1;
+            --fc-staff-bg: #ffffff; --fc-staff-text: #1f2937; --fc-staff-border: #e2e8f0;
+            --fc-accent: #096a61; --fc-danger: #dc2626;
+            --fc-action-bg: #fef2f2; --fc-action-border: #f87171;
+            --fc-input-bg: #f8fafc; --fc-input-focus-bg: #ffffff; --fc-input-text: #1e293b; --fc-input-border: #e2e8f0;
+            --fc-attach-bg: #f8fafc; --fc-attachment-sep: #f1f5f9;
+            background: var(--fc-bg); border: 1px solid var(--fc-border);
+        }
+        .dark .fc-chat {
+            --fc-bg: #111827; --fc-thread: #0b1220; --fc-header: #1f2937; --fc-border: #374151;
+            --fc-text: #f1f5f9; --fc-muted: #94a3b8; --fc-empty-icon: #475569;
+            --fc-staff-bg: #1f2937; --fc-staff-text: #f1f5f9; --fc-staff-border: #374151;
+            --fc-accent: #2dd4bf; --fc-danger: #fca5a5;
+            --fc-action-bg: #4c0519; --fc-action-border: #be123c;
+            --fc-input-bg: #1f2937; --fc-input-focus-bg: #111827; --fc-input-text: #f1f5f9; --fc-input-border: #475569;
+            --fc-attach-bg: #111827; --fc-attachment-sep: #374151;
+        }
+        .fc-header { background-color: var(--fc-header); border-bottom: 1px solid var(--fc-border); color: var(--fc-text); }
+        .fc-thread { background-color: var(--fc-thread); }
+        .fc-name { color: var(--fc-text); }
+        .fc-muted { color: var(--fc-muted); }
+        .fc-empty-icon { color: var(--fc-empty-icon); }
+        .fc-bubble-staff { background-color: var(--fc-staff-bg); color: var(--fc-staff-text); border: 1px solid var(--fc-staff-border); }
+        .fc-bubble-client { background-color: #096a61; color: #ffffff; --fc-attachment-sep: rgba(255, 255, 255, 0.2); }
+        .fc-attachment { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
+        .fc-attachment:hover { opacity: 0.8; }
+        .fc-bubble-staff .fc-attachment { background-color: var(--fc-attach-bg); color: var(--fc-accent); border: 1px solid var(--fc-staff-border); }
+        .fc-bubble-client .fc-attachment { background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
+        .fc-action { background-color: var(--fc-action-bg); color: var(--fc-danger); border: 1px solid var(--fc-action-border); }
+        .fc-composer { border-top: 1px solid var(--fc-border); background-color: var(--fc-bg); }
+        .fc-attach { color: var(--fc-muted); }
+        .fc-attach:hover { color: var(--fc-accent); }
+        .fc-input { background-color: var(--fc-input-bg); color: var(--fc-input-text); border: 1px solid var(--fc-input-border); }
+        .fc-input::placeholder { color: var(--fc-muted); }
+        .fc-input:focus { border-color: var(--fc-accent); background-color: var(--fc-input-focus-bg); }
+        .fc-send { background-color: #096a61; color: #ffffff; }
+        .fc-send:hover { background-color: #07534c; transform: translateY(-1px); }
+        .fc-danger { color: var(--fc-danger); }
+        .fc-accent { color: var(--fc-accent); }
+    </style>
+
     
-    <div style="padding: 1rem; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; display: flex; align-items: center; justify-content: space-between;">
+    <div class="fc-header" style="padding: 1rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
         <span>💬 {{ __('Discussion du dossier') }}</span>
-        <span style="font-size: 0.75rem; font-weight: normal; color: #6b7280;">{{ __('Échange direct avec l’équipe Takada') }}</span>
+        <span class="fc-muted" style="font-size: 0.75rem; font-weight: normal;">{{ __('Échange direct avec l’équipe Takada') }}</span>
     </div>
 
-    <div id="chat-container" style="flex-grow: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; background-color: #f8fafc;">
+    <div id="chat-container" class="fc-thread" style="flex-grow: 1; overflow-y: auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
         @forelse($messages as $msg)
             @php 
                 // 💡 Détermination robuste de l'utilisateur actif pour l'affichage visuel
@@ -32,17 +77,17 @@
                     <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; padding: 0 0.25rem;">
                         @if($isTakadaStaff)
                             <span style="background: #096a61; color: white; font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;">{{ __('Équipe Takada') }}</span>
-                            <span style="font-size: 0.75rem; font-weight: 600; color: #374151;">{{ $msg->user->name ?? 'Staff' }}</span>
+                            <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $msg->user->name ?? 'Staff' }}</span>
                         @else
-                            <span style="font-size: 0.75rem; font-weight: 600; color: #374151;">{{ $isMe ? 'Vous' : ($msg->user->name ?? 'Agence') }}</span>
+                            <span class="fc-name" style="font-size: 0.75rem; font-weight: 600;">{{ $isMe ? 'Vous' : ($msg->user->name ?? 'Agence') }}</span>
                         @endif
-                        <span style="font-size: 0.65rem; color: #9ca3af;">• {{ $msg->created_at->format('d/m/Y H:i') }}</span>
+                        <span class="fc-muted" style="font-size: 0.65rem;">• {{ $msg->created_at->format('d/m/Y H:i') }}</span>
                     </div>
 
-                    <div style="padding: 0.85rem 1.15rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'background-color: #ffffff; color: #1f2937; border-top-left-radius: 0; border: 1px solid #e2e8f0;' : 'background-color: #096a61; color: #ffffff; border-top-right-radius: 0;' }}">
+                    <div class="{{ $isTakadaStaff ? 'fc-bubble-staff' : 'fc-bubble-client' }}" style="padding: 0.85rem 1.15rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'border-top-left-radius: 0;' : 'border-top-right-radius: 0;' }}">
                         
                         @if($msg->is_action_required ?? false)
-                            <div style="display: inline-block; background-color: #fef2f2; color: #dc2626; border: 1px solid #f87171; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 99px; margin-bottom: 0.5rem;">
+                            <div class="fc-action" style="display: inline-block; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 99px; margin-bottom: 0.5rem;">
                                 ⚠️ ACTION REQUISE
                             </div>
                         @endif
@@ -52,8 +97,8 @@
                         @endif
                         
                         @if(!empty($msg->attachment_path))
-                            <div style="margin-top: {{ !empty($msg->message) ? '0.75rem' : '0' }}; border-top: {{ !empty($msg->message) ? ($isTakadaStaff ? '1px solid #f1f5f9' : '1px solid rgba(255,255,255,0.2)') : 'none' }}; padding-top: {{ !empty($msg->message) ? '0.75rem' : '0' }};">
-                                <a href="{{ app(\App\Services\FolderDriveStorage::class)->isDrivePath($msg->attachment_path) ? route('folders.drive-file', ['folder' => $folder, 'fileId' => app(\App\Services\FolderDriveStorage::class)->fileId($msg->attachment_path)]) : Storage::disk('public')->url($msg->attachment_path) }}" download target="_blank" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; {{ $isTakadaStaff ? 'background-color: #f8fafc; color: #096a61; border: 1px solid #e2e8f0;' : 'background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);' }}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                            <div style="margin-top: {{ !empty($msg->message) ? '0.75rem' : '0' }}; border-top: {{ !empty($msg->message) ? '1px solid var(--fc-attachment-sep)' : 'none' }}; padding-top: {{ !empty($msg->message) ? '0.75rem' : '0' }};">
+                                <a href="{{ app(\App\Services\FolderDriveStorage::class)->isDrivePath($msg->attachment_path) ? route('folders.drive-file', ['folder' => $folder, 'fileId' => app(\App\Services\FolderDriveStorage::class)->fileId($msg->attachment_path)]) : Storage::disk('public')->url($msg->attachment_path) }}" download target="_blank" class="fc-attachment">
                                     <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
@@ -66,17 +111,17 @@
                 </div>
             </div>
         @empty
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #9ca3af; text-align: center;">
-                <svg style="width: 48px; height: 48px; margin-bottom: 1rem; color: #cbd5e1;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <div class="fc-muted" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center;">
+                <svg class="fc-empty-icon" style="width: 48px; height: 48px; margin-bottom: 1rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span style="font-size: 0.95rem; font-weight: 500; color: #64748b;">{{ __('Aucun message pour le moment.') }}</span>
+                <span class="fc-muted" style="font-size: 0.95rem; font-weight: 500;">{{ __('Aucun message pour le moment.') }}</span>
                 <span style="font-size: 0.8rem; margin-top: 0.25rem;">{{ __('Posez-nous une question sur ce dossier !') }}</span>
             </div>
         @endforelse
     </div>
 
-    <div style="padding: 1rem; border-top: 1px solid #e5e7eb; background-color: #ffffff;">
+    <div class="fc-composer" style="padding: 1rem;">
         
         @php
             // 💡 Détermination très stricte : on vérifie que nous sommes bel et bien sur le portail administrateur
@@ -93,7 +138,7 @@
         <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%; box-sizing: border-box;">
             
             <div style="display: flex; gap: 0.75rem; align-items: center;">
-                <label style="cursor: pointer; padding: 0.5rem; color: #94a3b8; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" onmouseover="this.style.color='#096a61'" onmouseout="this.style.color='#94a3b8'" title="Joindre un fichier">
+                <label class="fc-attach" style="cursor: pointer; padding: 0.5rem; display: flex; align-items: center; justify-content: center; transition: color 0.2s;" title="Joindre un fichier">
                     <svg style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
@@ -105,17 +150,14 @@
                     wire:model="newMessage" 
                     wire:keydown.enter.prevent="sendMessage"
                 placeholder="{{ __('Écrivez votre message...') }}"
-                    style="flex: 1 1 auto; min-width: 0; padding: 0.75rem 1.25rem; border: 1px solid #e2e8f0; border-radius: 99px; font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02); box-sizing: border-box; background-color: #f8fafc; color: #1e293b; transition: all 0.2s;"
-                    onfocus="this.style.borderColor='#096a61'; this.style.backgroundColor='#ffffff';"
-                    onblur="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#f8fafc';"
+                    class="fc-input"
+                    style="flex: 1 1 auto; min-width: 0; padding: 0.75rem 1.25rem; border-radius: 99px; font-size: 0.9rem; outline: none; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02); box-sizing: border-box; transition: all 0.2s;"
                 >
                 
                 <button 
                     type="button" 
                     wire:click="sendMessage"
-                    style="flex: 0 0 auto; background-color: #096a61; color: white; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px rgba(9, 106, 97, 0.2); display: flex; align-items: center; gap: 0.5rem;"
-                    onmouseover="this.style.backgroundColor='#07534c'; this.style.transform='translateY(-1px)';"
-                    onmouseout="this.style.backgroundColor='#096a61'; this.style.transform='translateY(0)';"
+                    class="fc-send" style="flex: 0 0 auto; padding: 0.75rem 1.5rem; border-radius: 99px; font-size: 0.9rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; box-sizing: border-box; box-shadow: 0 2px 4px rgba(9, 106, 97, 0.2); display: flex; align-items: center; gap: 0.5rem;"
                     wire:loading.attr="disabled"
                 >
                 <span wire:loading.remove wire:target="sendMessage, attachment">{{ __('Envoyer') }}</span>
@@ -127,22 +169,22 @@
             @if($isAdminSide && in_array(auth()->user()->role ?? '', ['super_admin', 'admin']))
                 <div style="display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
                     <input type="checkbox" wire:model="isActionRequired" id="actionRequired" style="cursor: pointer;">
-                    <label for="actionRequired" style="font-size: 0.8rem; color: #dc2626; font-weight: 600; cursor: pointer;">
+                    <label for="actionRequired" class="fc-danger" style="font-size: 0.8rem; font-weight: 600; cursor: pointer;">
                     {{ __('Marquer ce message comme nécessitant une action (Action Requise)') }}
                     </label>
                 </div>
             @endif
             
             @if($attachment)
-                <div style="font-size: 0.8rem; color: #096a61; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
+                <div class="fc-accent" style="font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; padding-left: 3rem;">
                     <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                 {{ __('Fichier prêt :') }} {{ $attachment->getClientOriginalName() }}
                 </div>
             @endif
-            @error('attachment') <span style="font-size: 0.8rem; color: #ef4444; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
-            @error('newMessage') <span style="font-size: 0.8rem; color: #ef4444; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
+            @error('attachment') <span class="fc-danger" style="font-size: 0.8rem; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
+            @error('newMessage') <span class="fc-danger" style="font-size: 0.8rem; display:block; padding-left: 3rem;">{{ $message }}</span> @enderror
         </div>
     </div>
 </div>

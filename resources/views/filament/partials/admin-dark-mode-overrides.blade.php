@@ -3,117 +3,156 @@
      * Les écrans administratifs historiques contiennent des couleurs définies
      * directement dans leurs attributs style. Ces règles les adaptent au mode
      * sombre sans modifier le portail agence, dont le mode sombre est désactivé.
+     * Ce fichier n'est chargé que par le panel admin : la portée « .dark »
+     * couvre donc aussi les modales et les panneaux latéraux.
+     * Chaque couleur est listée avec et sans espace après les deux-points.
      */
-    .dark .fi-main [style*="color: #111827"],
-    .dark .fi-main [style*="color:#111827"],
-    .dark .fi-main [style*="color: #1e293b"],
-    .dark .fi-main [style*="color:#1e293b"],
-    .dark .fi-main [style*="color: #0f172a"],
-    .dark .fi-main [style*="color:#0f172a"],
-    .dark .fi-main [style*="color: #334155"],
-    .dark .fi-main [style*="color:#334155"],
-    .dark .fi-main [style*="color: #374151"],
-    .dark .fi-main [style*="color:#374151"],
-    .dark .fi-main [style*="color: #475569"],
-    .dark .fi-main [style*="color:#475569"],
-    .dark .fi-main [style*="color: #4b5563"],
-    .dark .fi-main [style*="color:#4b5563"] {
+
+    /* Textes foncés -> texte clair */
+    .dark :is(
+        [style*="color: #111827"], [style*="color:#111827"],
+        [style*="color: #1f2937"], [style*="color:#1f2937"],
+        [style*="color: #1e293b"], [style*="color:#1e293b"],
+        [style*="color: #0f172a"], [style*="color:#0f172a"],
+        [style*="color: #334155"], [style*="color:#334155"],
+        [style*="color: #374151"], [style*="color:#374151"],
+        [style*="color: #475569"], [style*="color:#475569"],
+        [style*="color: #4b5563"], [style*="color:#4b5563"]
+    ) {
         color: #f1f5f9 !important;
     }
 
-    .dark .fi-main [style*="color: #64748b"],
-    .dark .fi-main [style*="color:#64748b"],
-    .dark .fi-main [style*="color: #6b7280"],
-    .dark .fi-main [style*="color:#6b7280"],
-    .dark .fi-main [style*="color: #94a3b8"],
-    .dark .fi-main [style*="color:#94a3b8"],
-    .dark .fi-main [style*="color: #9ca3af"],
-    .dark .fi-main [style*="color:#9ca3af"] {
+    /* Textes secondaires -> gris clair */
+    .dark :is(
+        [style*="color: #64748b"], [style*="color:#64748b"],
+        [style*="color: #6b7280"], [style*="color:#6b7280"],
+        [style*="color: #94a3b8"], [style*="color:#94a3b8"],
+        [style*="color: #9ca3af"], [style*="color:#9ca3af"],
+        [style*="color: gray"], [style*="color:gray"]
+    ) {
         color: #cbd5e1 !important;
     }
 
-    .dark .fi-main [style*="color: #92400e"],
-    .dark .fi-main [style*="color:#92400e"],
-    .dark .fi-main [style*="color: #78350f"],
-    .dark .fi-main [style*="color:#78350f"] {
+    /* Ambre / orange foncé */
+    .dark :is(
+        [style*="color: #92400e"], [style*="color:#92400e"],
+        [style*="color: #78350f"], [style*="color:#78350f"],
+        [style*="color: #a16207"], [style*="color:#a16207"],
+        [style*="color: #b45309"], [style*="color:#b45309"],
+        [style*="color: #d97706"], [style*="color:#d97706"]
+    ) {
         color: #fde68a !important;
     }
 
-    .dark .fi-main [style*="color: #991b1b"],
-    .dark .fi-main [style*="color:#991b1b"],
-    .dark .fi-main [style*="color: #9f1239"],
-    .dark .fi-main [style*="color:#9f1239"] {
-        color: #fecdd3 !important;
+    /* Rouges */
+    .dark :is(
+        [style*="color: #991b1b"], [style*="color:#991b1b"],
+        [style*="color: #9f1239"], [style*="color:#9f1239"],
+        [style*="color: #b91c1c"], [style*="color:#b91c1c"],
+        [style*="color: #dc2626"], [style*="color:#dc2626"],
+        [style*="color: #ef4444"], [style*="color:#ef4444"],
+        [style*="color:red"], [style*="color: red"]
+    ) {
+        color: #fca5a5 !important;
     }
 
-    .dark .fi-main [style*="color: #115e59"],
-    .dark .fi-main [style*="color:#115e59"] {
-        color: #99f6e4 !important;
+    /* Teal / émeraude */
+    .dark :is(
+        [style*="color: #115e59"], [style*="color:#115e59"],
+        [style*="color: #0f766e"], [style*="color:#0f766e"],
+        [style*="color: #096a61"], [style*="color:#096a61"]
+    ):not([style*="background-color: #096a61"]):not([style*="background-color: #0f766e"]) {
+        color: #5eead4 !important;
     }
 
-    .dark .fi-main [style*="color: #166534"],
-    .dark .fi-main [style*="color:#166534"],
-    .dark .fi-main [style*="color: #15803d"],
-    .dark .fi-main [style*="color:#15803d"] {
-        color: #bbf7d0 !important;
+    .dark :is(
+        [style*="color: #166534"], [style*="color:#166534"],
+        [style*="color: #15803d"], [style*="color:#15803d"],
+        [style*="color: #16a34a"], [style*="color:#16a34a"],
+        [style*="color: #047857"], [style*="color:#047857"],
+        [style*="color: #059669"], [style*="color:#059669"]
+    ) {
+        color: #86efac !important;
     }
 
-    .dark .fi-main [style*="color: #1e3a8a"],
-    .dark .fi-main [style*="color:#1e3a8a"],
-    .dark .fi-main [style*="color: #1d4ed8"],
-    .dark .fi-main [style*="color:#1d4ed8"],
-    .dark .fi-main [style*="color: #2563eb"],
-    .dark .fi-main [style*="color:#2563eb"] {
+    /* Bleus */
+    .dark :is(
+        [style*="color: #1e3a8a"], [style*="color:#1e3a8a"],
+        [style*="color: #1d4ed8"], [style*="color:#1d4ed8"],
+        [style*="color: #2563eb"], [style*="color:#2563eb"]
+    ) {
         color: #93c5fd !important;
     }
 
-    .dark .fi-main [style*="background: #ffffff"],
-    .dark .fi-main [style*="background:#ffffff"],
-    .dark .fi-main [style*="background-color: #ffffff"],
-    .dark .fi-main [style*="background-color:#ffffff"],
-    .dark .fi-main [style*="background: white"],
-    .dark .fi-main [style*="background:white"],
-    .dark .fi-main [style*="background-color: #f8fafc"],
-    .dark .fi-main [style*="background-color:#f8fafc"],
-    .dark .fi-main [style*="background: #f8fafc"],
-    .dark .fi-main [style*="background:#f8fafc"],
-    .dark .fi-main [style*="background-color: #f1f5f9"],
-    .dark .fi-main [style*="background-color:#f1f5f9"],
-    .dark .fi-main [style*="background: #f1f5f9"],
-    .dark .fi-main [style*="background:#f1f5f9"] {
+    /* Fonds blancs / gris très clairs -> ardoise */
+    .dark :is(
+        [style*="background: #ffffff"], [style*="background:#ffffff"],
+        [style*="background-color: #ffffff"], [style*="background-color:#ffffff"],
+        [style*="background: #fff;"], [style*="background:#fff;"],
+        [style$="background: #fff"], [style$="background:#fff"],
+        [style*="background: white"], [style*="background:white"],
+        [style*="background-color: white"], [style*="background-color:white"],
+        [style*="background: #f8fafc"], [style*="background:#f8fafc"],
+        [style*="background-color: #f8fafc"], [style*="background-color:#f8fafc"],
+        [style*="background: #f1f5f9"], [style*="background:#f1f5f9"],
+        [style*="background-color: #f1f5f9"], [style*="background-color:#f1f5f9"],
+        [style*="background: #f9fafb"], [style*="background:#f9fafb"],
+        [style*="background-color: #f9fafb"], [style*="background-color:#f9fafb"],
+        [style*="background: #f3f4f6"], [style*="background:#f3f4f6"],
+        [style*="background-color: #f3f4f6"], [style*="background-color:#f3f4f6"],
+        [style*="background-color: #fafafa"], [style*="background-color:#fafafa"],
+        [style*="background: rgba(255,255,255,.35)"]
+    ) {
         background-color: #1e293b !important;
     }
 
-    .dark .fi-main [style*="background: #fef3c7"],
-    .dark .fi-main [style*="background:#fef3c7"],
-    .dark .fi-main [style*="background-color: #fef3c7"],
-    .dark .fi-main [style*="background-color:#fef3c7"],
-    .dark .fi-main [style*="background: #fffbeb"],
-    .dark .fi-main [style*="background:#fffbeb"] {
+    .dark :is(
+        [style*="background: #e5e7eb"], [style*="background:#e5e7eb"],
+        [style*="background-color: #e5e7eb"], [style*="background-color:#e5e7eb"]
+    ) {
+        background-color: #334155 !important;
+    }
+
+    /* Fond ambre clair */
+    .dark :is(
+        [style*="background: #fef3c7"], [style*="background:#fef3c7"],
+        [style*="background-color: #fef3c7"], [style*="background-color:#fef3c7"],
+        [style*="background: #fffbeb"], [style*="background:#fffbeb"],
+        [style*="background-color: #fffbeb"], [style*="background-color:#fffbeb"]
+    ) {
         background-color: #451a03 !important;
     }
 
-    .dark .fi-main [style*="background: #fef2f2"],
-    .dark .fi-main [style*="background:#fef2f2"],
-    .dark .fi-main [style*="background: #fee2e2"],
-    .dark .fi-main [style*="background:#fee2e2"] {
+    /* Fond rouge clair */
+    .dark :is(
+        [style*="background: #fef2f2"], [style*="background:#fef2f2"],
+        [style*="background-color: #fef2f2"], [style*="background-color:#fef2f2"],
+        [style*="background: #fee2e2"], [style*="background:#fee2e2"],
+        [style*="background-color: #fee2e2"], [style*="background-color:#fee2e2"]
+    ) {
         background-color: #4c0519 !important;
     }
 
-    .dark .fi-main [style*="background: #f0fdfa"],
-    .dark .fi-main [style*="background:#f0fdfa"] {
+    /* Fond teal / vert clair */
+    .dark :is(
+        [style*="background: #f0fdfa"], [style*="background:#f0fdfa"],
+        [style*="background-color: #f0fdfa"], [style*="background-color:#f0fdfa"],
+        [style*="background: #ecfdf5"], [style*="background:#ecfdf5"],
+        [style*="background-color: #ecfdf5"], [style*="background-color:#ecfdf5"]
+    ) {
         background-color: #134e4a !important;
     }
 
-    .dark .fi-main input[style],
-    .dark .fi-main select[style],
-    .dark .fi-main textarea[style] {
-        border-color: #64748b !important;
-    }
-
-    .dark .fi-main [style*="border: 1px solid #cbd5e1"],
-    .dark .fi-main [style*="border: 1px solid #d1d5db"],
-    .dark .fi-main [style*="border: 1px solid #e2e8f0"] {
-        border-color: #64748b !important;
+    /* Bordures claires -> visibles sur fond sombre */
+    .dark :is(input, select, textarea)[style],
+    .dark :is(
+        [style*="solid #cbd5e1"], [style*="solid #d1d5db"],
+        [style*="solid #e2e8f0"], [style*="solid #e5e7eb"],
+        [style*="solid #f1f5f9"], [style*="solid #f3f4f6"],
+        [style*="solid #99f6e4"], [style*="solid #a7f3d0"],
+        [style*="solid #fde68a"], [style*="solid #fecaca"],
+        [style*="solid #dbeafe"]
+    ) {
+        border-color: #475569 !important;
     }
 </style>
