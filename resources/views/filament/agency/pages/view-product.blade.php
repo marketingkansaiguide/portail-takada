@@ -2,7 +2,7 @@
     <style>
         .gallery-thumb { flex-shrink: 0; width: 84px; height: 112px; border-radius: 0.75rem; overflow: hidden; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.2s ease-in-out; }
         .gallery-thumb:hover { opacity: 1; }
-        .gallery-thumb.active { border-color: #d97706; opacity: 1; transform: scale(1.05); }
+        .gallery-thumb.active { border-color: var(--primary-600); opacity: 1; transform: scale(1.05); }
 
         .calendar-cell { min-height: 60px; border-radius: 0.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0.25rem 0; border: 1px solid transparent; transition: all 0.15s ease-in-out; overflow: hidden; }
         .calendar-cell-available { background: #ffffff; border-color: #e2e8f0; cursor: pointer; }
@@ -74,7 +74,7 @@
         .product-layout-main, .product-layout-side { min-width: 0; }
         .product-title { font-size: clamp(1.75rem, 6vw, 2.5rem); line-height: 1.15; overflow-wrap: anywhere; }
         .product-gallery { height: clamp(240px, 62vw, 540px); }
-        .product-card-lg { padding: clamp(1.25rem, 5vw, 2.5rem); }
+        .product-card-lg { padding: clamp(1.1rem, 4vw, 1.75rem); }
         .product-card-side { padding: clamp(0.85rem, 3vw, 1.25rem); }
         @media (min-width: 1280px) {
             /* Colonnes presque égales : la réservation garde de la place et reste courte */
@@ -83,6 +83,26 @@
             /* La colonne de gauche accompagne le défilement quand elle tient dans l'écran (classe posée par le script ci-dessous) */
             .product-layout-main.is-sticky { position: sticky; top: 5rem; }
             .product-layout-side > div { position: static !important; }
+        }
+        /* Étapes numérotées dans le bloc de réservation */
+        .product-card-side { counter-reset: booking-step; }
+        .product-card-side .product-config-section-title::before {
+            counter-increment: booking-step; content: counter(booking-step);
+            width: 1.15rem; height: 1.15rem; display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; font-weight: 800; letter-spacing: 0; color: #ffffff; background: var(--primary-600);
+        }
+        .product-final-step .fi-btn { white-space: nowrap; }
+        /* Barre de réservation fixe sur mobile / tablette */
+        .product-mobile-bar { display: none; }
+        @media (max-width: 1279px) {
+            .product-layout { padding-bottom: 4.5rem; }
+            .product-mobile-bar {
+                display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+                position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+                padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom));
+                background: #ffffff; border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.06);
+            }
+            .dark .product-mobile-bar { background: var(--gray-900); border-color: var(--gray-700); }
         }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
@@ -104,10 +124,10 @@
                 
                 <div wire:ignore style="display: flex; flex-direction: column; gap: 2rem;">
                     <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; color: #d97706; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; color: var(--tk-accent); font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em;">
                             <span>{{ $product->category->name ?? 'Prestation Japonaise' }}</span>
                             @if(isset($product->is_public) && !$product->is_public)
-                                <span style="background: #fee2e2; color: #991b1b; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem; margin-left: 0.5rem;">{{ __('Tarif Négocié / Privé') }}</span>
+                                <span style="background: #fee2e2; color: #991b1b; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.25rem;">{{ __('Tarif Négocié / Privé') }}</span>
                             @endif
                         </div>
                         <h1 class="product-title" style="font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
@@ -158,18 +178,19 @@
                             @endif
                         </div>
                     @else
-                        <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-weight: 500;">
+                        <div class="product-gallery-empty" style="border-radius: 1rem; background: #f1f5f9; display: flex; align-items: center; justify-content: center; gap: 0.6rem; color: #94a3b8; font-weight: 500; font-size: 0.85rem; padding: 1.75rem 1rem;">
+                            <svg style="width: 1.4rem; height: 1.4rem; flex: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg>
                             {{ __('Aucun visuel disponible') }}
                         </div>
                     @endif
 
                     {{-- DESCRIPTIF DU PRODUIT --}}
                     <div class="product-card-lg" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                        <h2 style="font-size: 1.4rem; font-weight: 700; color: #1e293b; margin-top:0; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="width: 12px; height: 12px; background: #d97706; border-radius: 50%;"></span>
+                        <h2 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-top:0; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="width: 8px; height: 8px; background: var(--primary-600); border-radius: 50%; flex: none;"></span>
                             {{ __('Présentation de la prestation') }}
                         </h2>
-                        <div style="color: #475569; line-height: 1.8; font-size: 1.05rem; white-space: pre-line;">{!! nl2br(e($product->description)) !!}</div>
+                        <div style="color: #475569; line-height: 1.7; font-size: 0.95rem; white-space: pre-line;">{{ $product->description }}</div>
                     </div>
 
                 </div>
@@ -183,6 +204,32 @@
                 {{-- BLOC 1 : PANNEAU AGENCE PARTEANIRE --}}
                 @if($this->activeAgencyId)
                     <div class="product-card-side" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
+                        {{-- Contraintes de réservation : affichées avant le formulaire pour être lues avant de le remplir --}}
+                        @if($product->days_before_opening || $product->days_before_request_deadline || $product->is_lottery)
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
+                                @if($product->days_before_opening)
+                                    <div style="background: var(--tk-accent-soft); border-left: 3px solid var(--primary-600); padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: var(--tk-accent); font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z" /></svg>
+                                        <span><strong>{{ __('Ouverture des réservations') }}</strong><br>{{ __('À partir de J-:days', ['days' => $product->days_before_opening]) }}</span>
+                                    </div>
+                                @endif
+
+                                @if($product->days_before_request_deadline)
+                                    <div style="background: #fff7ed; border-left: 3px solid #ea580c; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9a3412; font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.5a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" /></svg>
+                                        <span><strong>{{ __('Date limite de demande :') }}</strong><br>{{ __('Jusqu’à J-:days', ['days' => $product->days_before_request_deadline]) }}</span>
+                                    </div>
+                                @endif
+
+                                @if($product->is_lottery)
+                                    <div style="background: #fef2f2; border-left: 3px solid #e11d48; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9f1239; font-size: 0.8rem; line-height: 1.35;">
+                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                        <span><strong>{{ __('Disponibilité limitée') }}</strong><br>{{ __('Sous réserve de confirmation') }}</span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
                         
                         {{-- CAS PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())
@@ -1053,7 +1100,7 @@
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
                                                 {{ __('Prestation') }} {{ $estimate['has_date'] ? '('.$estimate['qty'].' '.__('pax').')' : '('.__('À partir de').')' }}
                                             </span>
-                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['total_base'], 0, '.', ' ') }} ¥</span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ ($estimate['has_date'] || $estimate['total_base'] > 0) ? number_format($estimate['total_base'], 0, '.', ' ') . ' ¥' : '—' }}</span>
                                         </div>
                                     @endif
 
@@ -1085,7 +1132,7 @@
                                     <div style="display: flex; justify-content: space-between; align-items: flex-end;">
                                         <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.04em;">Total</span>
                                         <span style="font-size: 1.6rem; font-weight: 700; color: var(--tk-accent); line-height: 1; letter-spacing: -0.02em;">
-                                            {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
+                                            {{ ($estimate['has_date'] || $estimate['grand_total'] > 0) ? number_format($estimate['grand_total'], 0, '.', ' ') . ' ¥' : '—' }}
                                         </span>
                                     </div>
                                     
@@ -1130,30 +1177,25 @@
                             </button>
                         </div>
 
-                        @if($product->days_before_opening || $product->days_before_request_deadline || $product->is_lottery)
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
-                                @if($product->days_before_opening)
-                                    <div style="background: var(--tk-accent-soft); border-left: 3px solid var(--primary-600); padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: var(--tk-accent); font-size: 0.8rem; line-height: 1.35;">
-                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2v12a2 2 0 002 2z" /></svg>
-                                        <span><strong>{{ __('Ouverture des réservations') }}</strong><br>{{ __('À partir de J-:days', ['days' => $product->days_before_opening]) }}</span>
-                                    </div>
-                                @endif
-
-                                @if($product->days_before_request_deadline)
-                                    <div style="background: #fff7ed; border-left: 3px solid #ea580c; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9a3412; font-size: 0.8rem; line-height: 1.35;">
-                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.5a2 2 0 00-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" /></svg>
-                                        <span><strong>{{ __('Date limite de demande :') }}</strong><br>{{ __('Jusqu’à J-:days', ['days' => $product->days_before_request_deadline]) }}</span>
-                                    </div>
-                                @endif
-
-                                @if($product->is_lottery)
-                                    <div style="background: #fef2f2; border-left: 3px solid #e11d48; padding: 0.65rem; border-radius: 0 0.5rem 0.5rem 0; display: flex; align-items: flex-start; gap: 0.5rem; color: #9f1239; font-size: 0.8rem; line-height: 1.35;">
-                                        <svg style="width: 20px; height: 20px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                                        <span><strong>{{ __('Disponibilité limitée') }}</strong><br>{{ __('Sous réserve de confirmation') }}</span>
-                                    </div>
-                                @endif
+                        {{-- Barre de réservation fixe (mobile / tablette) : total estimé et accès direct à l'étape finale --}}
+                        @php $barEstimate = $this->getEstimatedPrice(); @endphp
+                        <div class="product-mobile-bar">
+                            <div style="display: flex; flex-direction: column; line-height: 1.15; min-width: 0;">
+                                <span style="font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">{{ __('Total estimé') }}</span>
+                                <span style="font-size: 1.15rem; font-weight: 800; color: var(--tk-accent); white-space: nowrap;">
+                                    @if($barEstimate['is_on_demand'] ?? false)
+                                        {{ __('Sur devis') }}
+                                    @else
+                                        {{ (($barEstimate['has_date'] ?? false) || ($barEstimate['grand_total'] ?? 0) > 0) ? number_format($barEstimate['grand_total'] ?? 0, 0, '.', ' ') . ' ¥' : '—' }}
+                                    @endif
+                                </span>
                             </div>
-                        @endif
+                            <button type="button"
+                                    onclick="document.querySelector('.product-final-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
+                                    style="flex: none; background: var(--primary-600); color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+                                {{ __('Ajouter au dossier') }}
+                            </button>
+                        </div>
 
                         {{-- CONDITIONS D'ANNULATION --}}
                         @php
