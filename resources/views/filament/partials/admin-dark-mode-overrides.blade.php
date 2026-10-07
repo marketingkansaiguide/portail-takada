@@ -2,9 +2,10 @@
     /*
      * Les écrans administratifs historiques contiennent des couleurs définies
      * directement dans leurs attributs style. Ces règles les adaptent au mode
-     * sombre sans modifier le portail agence, dont le mode sombre est désactivé.
-     * Ce fichier n'est chargé que par le panel admin : la portée « .dark »
-     * couvre donc aussi les modales et les panneaux latéraux.
+     * sombre. Ce fichier est chargé par les panels admin et agence ; la portée
+     * « .dark » couvre aussi les modales et les panneaux latéraux.
+     * Les survols JavaScript réécrivent les styles au format rgb(...), d'où les
+     * variantes rgb de certaines couleurs.
      * Chaque couleur est listée avec et sans espace après les deux-points.
      */
 
@@ -44,6 +45,15 @@
         color: #fde68a !important;
     }
 
+    /* Orange */
+    .dark :is(
+        [style*="color: #c2410c"], [style*="color:#c2410c"],
+        [style*="color: #9a3412"], [style*="color:#9a3412"],
+        [style*="color: #ea580c"], [style*="color:#ea580c"]
+    ) {
+        color: #fdba74 !important;
+    }
+
     /* Rouges */
     .dark :is(
         [style*="color: #991b1b"], [style*="color:#991b1b"],
@@ -79,7 +89,9 @@
     .dark :is(
         [style*="color: #1e3a8a"], [style*="color:#1e3a8a"],
         [style*="color: #1d4ed8"], [style*="color:#1d4ed8"],
-        [style*="color: #2563eb"], [style*="color:#2563eb"]
+        [style*="color: #2563eb"], [style*="color:#2563eb"],
+        [style*="color: #0284c7"], [style*="color:#0284c7"],
+        [style*="color: #0369a1"], [style*="color:#0369a1"]
     ) {
         color: #93c5fd !important;
     }
@@ -101,14 +113,19 @@
         [style*="background: #f3f4f6"], [style*="background:#f3f4f6"],
         [style*="background-color: #f3f4f6"], [style*="background-color:#f3f4f6"],
         [style*="background-color: #fafafa"], [style*="background-color:#fafafa"],
-        [style*="background: rgba(255,255,255,.35)"]
+        [style*="background: rgba(255,255,255,.35)"],
+        [style*="background: rgba(255,255,255,.78)"],
+        [style*="background: rgb(255, 255, 255)"],
+        [style*="background-color: rgb(255, 255, 255)"]
     ) {
         background-color: #1e293b !important;
     }
 
     .dark :is(
         [style*="background: #e5e7eb"], [style*="background:#e5e7eb"],
-        [style*="background-color: #e5e7eb"], [style*="background-color:#e5e7eb"]
+        [style*="background-color: #e5e7eb"], [style*="background-color:#e5e7eb"],
+        [style*="background: #e2e8f0"], [style*="background:#e2e8f0"],
+        [style*="background-color: #e2e8f0"], [style*="background-color:#e2e8f0"]
     ) {
         background-color: #334155 !important;
     }
@@ -118,7 +135,9 @@
         [style*="background: #fef3c7"], [style*="background:#fef3c7"],
         [style*="background-color: #fef3c7"], [style*="background-color:#fef3c7"],
         [style*="background: #fffbeb"], [style*="background:#fffbeb"],
-        [style*="background-color: #fffbeb"], [style*="background-color:#fffbeb"]
+        [style*="background-color: #fffbeb"], [style*="background-color:#fffbeb"],
+        [style*="background: #fff7ed"], [style*="background:#fff7ed"],
+        [style*="background-color: #fff7ed"], [style*="background-color:#fff7ed"]
     ) {
         background-color: #451a03 !important;
     }
@@ -138,9 +157,22 @@
         [style*="background: #f0fdfa"], [style*="background:#f0fdfa"],
         [style*="background-color: #f0fdfa"], [style*="background-color:#f0fdfa"],
         [style*="background: #ecfdf5"], [style*="background:#ecfdf5"],
-        [style*="background-color: #ecfdf5"], [style*="background-color:#ecfdf5"]
+        [style*="background-color: #ecfdf5"], [style*="background-color:#ecfdf5"],
+        [style*="background: #f0fdf4"], [style*="background:#f0fdf4"],
+        [style*="background-color: #f0fdf4"], [style*="background-color:#f0fdf4"],
+        [style*="background: rgb(240, 253, 250)"], [style*="background-color: rgb(240, 253, 250)"]
     ) {
         background-color: #134e4a !important;
+    }
+
+    /* Fond bleu clair */
+    .dark :is(
+        [style*="background: #f0f9ff"], [style*="background:#f0f9ff"],
+        [style*="background: #e0f2fe"], [style*="background:#e0f2fe"],
+        [style*="background: #eff6ff"], [style*="background:#eff6ff"],
+        [style*="background-color: #eff6ff"], [style*="background-color:#eff6ff"]
+    ) {
+        background-color: #0c2d48 !important;
     }
 
     /* Bordures claires -> visibles sur fond sombre */
@@ -151,7 +183,14 @@
         [style*="solid #f1f5f9"], [style*="solid #f3f4f6"],
         [style*="solid #99f6e4"], [style*="solid #a7f3d0"],
         [style*="solid #fde68a"], [style*="solid #fecaca"],
-        [style*="solid #dbeafe"]
+        [style*="solid #dbeafe"], [style*="dashed #cbd5e1"],
+        [style*="dashed #e2e8f0"], [style*="solid #ffedd5"],
+        [style*="solid #fed7aa"], [style*="solid #bae6fd"],
+        [style*="solid #e0f2fe"], [style*="solid #bfdbfe"],
+        [style*="solid #bbf7d0"], [style*="solid #86efac"],
+        [style*="solid #ccfbf1"], [style*="solid #fef3c7"],
+        [style*="border-color: #e2e8f0"], [style*="border-color: #cbd5e1"],
+        [style*="border-color: rgb(203, 213, 225)"]
     ) {
         border-color: #475569 !important;
     }

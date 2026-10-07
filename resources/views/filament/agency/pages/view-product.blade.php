@@ -57,6 +57,18 @@
         .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
         .product-price-summary { background: #f0fdfa; border-color: #99f6e4; }
         .product-final-step { border-color: #a7f3d0; background: #f0fdf4; }
+        /* Mode sombre */
+        .dark .calendar-cell-available { background: #1e293b; border-color: #334155; }
+        .dark .calendar-cell-available:hover { background: #134e4a; }
+        .dark .calendar-cell-disabled { background: #0f172a; }
+        .dark .pax-tab-item { background: #1e293b; border-color: #475569; color: #cbd5e1; }
+        .dark .pax-tab-item:hover { background: #0f172a; color: #5eead4; }
+        .dark .pax-tab-item-active { background: #134e4a !important; color: #5eead4 !important; border-color: #14b8a6 !important; }
+        .dark .product-config-section { background: #111827; border-color: #334155; }
+        .dark .product-config-section-title { color: #5eead4; }
+        .dark .product-variant-group, .dark .product-required-fields { background: #1e293b; border-color: #334155; }
+        .dark .product-price-summary { background: #134e4a; border-color: #0f766e; }
+        .dark .product-final-step { background: #052e16; border-color: #166534; }
         @media (max-width: 640px) { .product-config-two-columns { grid-template-columns: 1fr !important; } .product-config-two-columns > * { grid-column: span 1 !important; } }
 
     </style>
@@ -593,7 +605,7 @@
                                                     <option value="{{ $option->id }}" {{ $isSelected ? 'selected' : '' }}>
                                                         {{ $option->name }}
                                                         @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ adolescent@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }})
+                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }})
                                                         @elseif($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity) > 0)
                                                             (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }})
                                                         @endif
@@ -624,7 +636,7 @@
                                                         {{ $option->name }}
                                                         <span style="display: block; font-size: 0.8rem; color: #096a61; font-weight: 700; margin-top: 0.1rem;">
                                                             @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                                + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ adulte@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ enfant@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ adolescent@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
+                                                                + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
                                                             @else
                                                                 + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }}
                                                             @endif

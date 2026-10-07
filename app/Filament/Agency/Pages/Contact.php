@@ -91,7 +91,9 @@ class Contact extends Page implements HasForms
                                 return Folder::where('agency_id', $user->agency_id)
                                     ->whereNotIn('status', ['cancelled', 'completed'])
                                     ->orderBy('created_at', 'desc')
-                                    ->pluck('folder_name', 'id');
+                                    ->get(['id', 'folder_name', 'reference'])
+                                    // Un dossier sans nom ferait planter le Select (libellé null) : on retombe sur la référence.
+                                    ->mapWithKeys(fn (Folder $folder) => [$folder->id => $folder->folder_name ?: $folder->reference]);
                             })
                             ->searchable()
                             ->preload()

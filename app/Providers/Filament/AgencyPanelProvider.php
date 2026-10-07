@@ -49,7 +49,6 @@ class AgencyPanelProvider extends PanelProvider
             ->authGuard('agency') // Guard de session isolé pour les agences
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
-            ->darkMode(false) // DÉSACTIVATION DU MODE SOMBRE : Retire le bouton de sélection d'affichage du front-office
             ->colors([
                 'primary' => Color::hex('#096a61'),
                 'secondary' => Color::hex('#dde8b9'),
@@ -87,6 +86,10 @@ class AgencyPanelProvider extends PanelProvider
                         Connexion Agence
                        </a>'
                     : ''
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => view('filament.partials.admin-dark-mode-overrides')->render(),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_START,
