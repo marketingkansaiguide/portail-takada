@@ -50,10 +50,10 @@
         .animate-spin-custom { animation: spin 1s linear infinite; }
 
         /* Étapes compactes : la fiche reste volontairement sur une seule colonne. */
-        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.85rem; padding: 1rem; margin-bottom: 1rem; }
-        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.85rem; color: var(--tk-accent); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
+        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.85rem 1rem; margin-bottom: 0.75rem; }
+        .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.6rem; color: var(--tk-accent); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
         .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--primary-600); flex: 0 0 auto; }
-        .product-variant-group { padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
+        .product-variant-group { padding: 0; border: 0; background: transparent; }
         .product-required-fields { background: #f8fafc; border-color: #cbd5e1; }
         .product-price-summary { background: var(--tk-accent-soft); border-color: var(--tk-accent-border); }
         .product-final-step { border-color: var(--tk-accent-border); background: var(--tk-accent-soft); }
@@ -66,7 +66,7 @@
         .dark .pax-tab-item-active { background: var(--tk-accent-soft) !important; color: var(--tk-accent) !important; border-color: var(--tk-accent) !important; }
         .dark .product-config-section { background: var(--gray-900); border-color: var(--gray-700); }
         .dark .product-config-section-title { color: var(--tk-accent); }
-        .dark .product-variant-group, .dark .product-required-fields { background: var(--gray-800); border-color: var(--gray-700); }
+        .dark .product-required-fields { background: var(--gray-800); border-color: var(--gray-700); }
         .dark .product-price-summary { background: var(--tk-accent-soft); border-color: var(--gray-600); }
         .dark .product-final-step { background: var(--gray-900); border-color: var(--gray-700); }
         /* Mise en page : une colonne sur mobile / tablette, contenu + réservation côte à côte sur grand écran */
@@ -75,7 +75,7 @@
         .product-title { font-size: clamp(1.75rem, 6vw, 2.5rem); line-height: 1.15; overflow-wrap: anywhere; }
         .product-gallery { height: clamp(240px, 62vw, 540px); }
         .product-card-lg { padding: clamp(1.25rem, 5vw, 2.5rem); }
-        .product-card-side { padding: clamp(1rem, 4vw, 1.75rem); }
+        .product-card-side { padding: clamp(0.85rem, 3vw, 1.25rem); }
         @media (min-width: 1280px) {
             /* Colonnes presque égales : la réservation garde de la place et reste courte */
             .product-layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
@@ -178,7 +178,7 @@
 
         {{-- COLONNE DROITE : FORMULAIRE ET CONFIGURATION --}}
         <div class="product-layout-side">
-            <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
                 
                 {{-- BLOC 1 : PANNEAU AGENCE PARTEANIRE --}}
                 @if($this->activeAgencyId)
@@ -427,8 +427,8 @@
                             {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
                             <div class="product-config-section">
                                 <div class="product-config-section-title">{{ __('Date et participants') }}</div>
-                                <div class="product-config-two-columns" style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 1rem;">
-                                <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;" 
+                                <div class="product-config-two-columns" style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 0.75rem;">
+                                <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;{{ $product->usesAgeSelector() ? ' grid-column: 1 / -1;' : '' }}" 
                                      x-data="{ 
                                         open: false,
                                         currentDate: new Date(),
@@ -544,7 +544,7 @@
                                 </div>
                                 
                                 @if($product->usesAgeSelector())
-                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: var(--tk-accent-soft); border: 1px solid var(--tk-accent-border); border-radius: 0.65rem; padding: 0.75rem;">
+                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: var(--tk-accent-soft); border: 1px solid var(--tk-accent-border); border-radius: 0.6rem; padding: 0.6rem 0.75rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
                                             <label style="font-size: 0.85rem; font-weight: 700; color: var(--tk-accent);">{{ __('Répartition des participants') }}</label>
                                             <span style="font-size: 0.75rem; color: var(--tk-accent);">@if($product->hasChildSelector()){{ __('Enfant jusqu’à') }} {{ $product->child_age_limit ?? 11 }} {{ __('ans inclus') }}@endif@if($product->hasChildSelector() && $product->hasTeenSelector()) · @endif@if($product->hasTeenSelector()){{ __('Adolescent de :min à :max ans', ['min' => ($product->child_age_limit ?? 11) + 1, 'max' => $product->teen_age_limit]) }}@endif</span>
@@ -552,21 +552,21 @@
                                         <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem;">
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adultes') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>
                                             @if($product->hasChildSelector())<div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Enfants') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>@endif
                                             @if($product->hasTeenSelector())
                                                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                     <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adolescents') }}</label>
-                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.55rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                                 </div>
                                             @endif
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Total Pax') }}</label>
-                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.55rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: var(--tk-accent);">
+                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: var(--tk-accent);">
                                             </div>
                                         </div>
                                         @error('ageSelectorAdults') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
@@ -987,7 +987,7 @@
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">{{ __('Cette prestation nécessite une cotation personnalisée.') }}</p>
                                 </div>
                             @else
-                                <div style="background: rgba(255,255,255,.78); border: 1px solid var(--tk-accent-border); border-radius: 0.7rem; padding: 1rem; display: flex; flex-direction: column;">
+                                <div style="display: flex; flex-direction: column;">
                                     
                                     @if(($estimate['is_guiding'] ?? false) && ($estimate['has_date'] ?? false))
                                         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 0.65rem;">
@@ -1057,7 +1057,7 @@
                                         </div>
                                     @endif
 
-                                    <div style="display: flex; justify-content: space-between; align-items: center; min-height: 1.25rem; margin-bottom: 0.5rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                                         @if(($estimate['is_guiding'] ?? false) && ($estimate['guiding_optional_total'] ?? 0) > 0)
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Options complémentaires') }}</span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['guiding_optional_total'], 0, '.', ' ') }} ¥</span>
@@ -1080,19 +1080,19 @@
                                         @endif
                                     </div>
                                     
-                                    <div style="height: 1px; background: #e2e8f0; margin-bottom: 0.75rem;"></div>
+                                    <div style="height: 1px; background: #e2e8f0; margin: 0.25rem 0 0.6rem;"></div>
                                     
                                     <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                                        <span style="font-size: 1rem; font-weight: 600; color: #1e293b; text-transform: uppercase;">Total</span>
-                                        <span style="font-size: 2.25rem; font-weight: 600; color: var(--tk-accent); line-height: 1; letter-spacing: -0.02em;">
+                                        <span style="font-size: 0.85rem; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.04em;">Total</span>
+                                        <span style="font-size: 1.6rem; font-weight: 700; color: var(--tk-accent); line-height: 1; letter-spacing: -0.02em;">
                                             {{ number_format($estimate['grand_total'], 0, '.', ' ') }} ¥
                                         </span>
                                     </div>
                                     
-                                    <div style="min-height: {{ $estimate['has_date'] ? '0' : '4rem' }}; transition: min-height 0.2s;">
+                                    <div>
                                         @if(!$estimate['has_date'])
-                                            <div style="margin-top: 0.75rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
-                                                <svg style="width:20px; height:20px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.5rem 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
+                                                <svg style="width:16px; height:16px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                 {{ __('Veuillez sélectionner une date d’activité pour obtenir le tarif exact.') }}
                                             </div>
                                         @endif
@@ -1103,7 +1103,7 @@
                         @endif
 
                         {{-- DOSSIER ET ACTION --}}
-                        <div class="product-config-section product-final-step" style="display: flex; flex-direction: column; gap: 0.85rem;">
+                        <div class="product-config-section product-final-step" style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0;">
                             <h4 class="product-config-section-title" style="margin-bottom: 0;">{{ __('Ajouter au dossier') }}</h4>
                             <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1125,7 +1125,7 @@
                                 @error('selectedFolderId') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                             </div>
 
-                            <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='#00b388'" onmouseout="this.style.background='var(--primary-600)'">
+                            <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.7rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
                                 Ajouter cette prestation au dossier
                             </button>
                         </div>
