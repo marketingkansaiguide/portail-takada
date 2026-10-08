@@ -47,6 +47,8 @@ class AgencyPanelProvider extends PanelProvider
             ->path('') // Racine du site
             ->spa(true, true)
             ->login()
+            // « Mon compte » (menu utilisateur) : modification du nom et du mot de passe
+            ->profile(\App\Filament\Agency\Auth\EditProfile::class, isSimple: false)
             ->authGuard('agency') // Guard de session isolé pour les agences
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')

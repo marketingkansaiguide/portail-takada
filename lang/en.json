@@ -1336,5 +1336,13 @@
     "Adresse de l’hébergement": "Accommodation address",
     "Adresse complète (optionnel)": "Full address (optional)",
     "Lien Google Maps": "Google Maps link",
-    "optionnel": "optional"
+    "optionnel": "optional",
+    "Mon compte": "My account",
+    "Passer au thème clair": "Switch to light theme",
+    "Passer au thème foncé": "Switch to dark theme",
+    "Thème clair": "Light theme",
+    "Thème foncé": "Dark theme",
+    "Total estimé": "Estimated total",
+    "Ajouter au dossier": "Add to folder",
+    "Sur devis": "On quotation"
 }

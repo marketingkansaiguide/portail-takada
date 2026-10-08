@@ -94,7 +94,13 @@
         flex: none;
     }
 
-    /* Variante discrète (portail agences) : icône seule, comme les autres boutons de la barre */
+    /* Le bouton de la barre du haut suffit : on retire le sélecteur de thème du menu utilisateur */
+    .fi-user-menu .fi-dropdown-list:has(> .fi-theme-switcher),
+    .fi-dropdown-panel .fi-dropdown-list:has(> .fi-theme-switcher) {
+        display: none;
+    }
+
+    /* Variante discrète : icône seule, comme les autres boutons de la barre */
     .tk-theme-toggle.tk-theme-toggle--subtle,
     .dark .tk-theme-toggle.tk-theme-toggle--subtle {
         padding: 0.5rem;

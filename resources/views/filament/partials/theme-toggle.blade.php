@@ -1,11 +1,8 @@
 {{-- Bascule clair / foncé : utilise l'événement du sélecteur de thème Filament (préférence mémorisée dans le navigateur). --}}
 <button
     type="button"
-    @class([
-        'tk-theme-toggle',
-        // Portail agences : simple icône, sans fond ni libellé
-        'tk-theme-toggle--subtle' => filament()->getId() === 'agency',
-    ])
+    {{-- Icône seule, sans fond ni libellé, dans les deux panels --}}
+    class="tk-theme-toggle tk-theme-toggle--subtle"
     x-data
     x-on:click="$dispatch('theme-changed', $store.theme === 'dark' ? 'light' : 'dark')"
     x-bind:aria-label="$store.theme === 'dark' ? @js(__('Passer au thème clair')) : @js(__('Passer au thème foncé'))"
