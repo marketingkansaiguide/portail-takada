@@ -20,3 +20,7 @@ Schedule::command('backups:database-to-google-drive')
 Schedule::command('monitor:system')
     ->everyFifteenMinutes()
     ->withoutOverlapping(20);
+
+Schedule::command('action-board:generate')
+    ->everyTenMinutes()
+    ->withoutOverlapping(15);
