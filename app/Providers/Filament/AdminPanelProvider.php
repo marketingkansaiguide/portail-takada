@@ -53,7 +53,9 @@ class AdminPanelProvider extends PanelProvider
             ->globalSearchKeyBindings(['ctrl+k', 'command+k'])
             ->globalSearchFieldKeyBindingSuffix()
             ->login()
-            
+            // « Mon compte » (menu utilisateur) : modification du nom et du mot de passe
+            ->profile(\App\Filament\Auth\EditProfile::class, isSimple: false)
+
             // 🎨 Identité Visuelle (Logo SVG & Config)
             ->brandName('Portail Takada')
             ->brandLogo($brandLogo)
