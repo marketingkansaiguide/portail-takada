@@ -8,6 +8,11 @@ use App\Models\Folder;
 
 class PaxDemographicsChart extends ChartWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     use InteractsWithPageFilters;
 
     protected static bool $isLazy = false; 

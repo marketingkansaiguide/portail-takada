@@ -11,6 +11,11 @@ use Carbon\Carbon;
 
 class UpcomingCheckinsWidget extends BaseWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     protected int | string | array $columnSpan = 1;
     protected static ?int $sort = 1;
 

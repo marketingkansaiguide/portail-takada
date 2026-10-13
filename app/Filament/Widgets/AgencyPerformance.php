@@ -12,6 +12,11 @@ use App\Models\FolderItem;
 
 class AgencyPerformance extends BaseWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     use InteractsWithPageFilters; 
 
     protected static bool $isDiscovered = false; 

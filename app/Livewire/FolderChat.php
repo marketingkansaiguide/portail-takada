@@ -93,7 +93,7 @@ class FolderChat extends Component
         
         if ($sender) {
             // Si c'est un ADMIN Takada qui écrit
-            if (in_array($sender->role, ['super_admin', 'admin'])) {
+            if ($sender->isStaff()) {
                 // On envoie le mail au Vendeur Principal (l'agence)
                 if ($this->folder->mainSeller && $this->folder->mainSeller->email) {
                     Mail::to($this->folder->mainSeller->email)->send(new NewChatMessageForAgencyMail($this->folder));

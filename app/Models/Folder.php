@@ -37,6 +37,7 @@ class Folder extends Model
         'total_price',
         'documents',
         'google_drive_folder_id',
+        'segment',
         'label_exported_at',
     ];
 
@@ -49,6 +50,31 @@ class Folder extends Model
         'label_exported_at' => 'datetime',
         'ticket_dispatch_guide_id' => 'integer',
     ];
+
+    public const SEGMENTS = [
+        'fit' => 'FIT',
+        'groupe' => 'Groupe',
+        'billetterie' => 'Billetterie',
+    ];
+
+    protected static function booted(): void
+    {
+        // Segment fixé automatiquement par le profil du créateur (agence partenaire = billetterie).
+        static::creating(function (Folder $folder) {
+            if (blank($folder->segment)) {
+                $user = \Filament\Facades\Filament::auth()->user() ?? auth()->user();
+                $folder->segment = $user?->defaultFolderSegment();
+            }
+        });
+    }
+
+    /** Restreint aux segments autorisés pour l'utilisateur (null = tout, y compris non classés). */
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        $segments = $user?->visibleFolderSegments();
+
+        return $segments === null ? $query : $query->whereIn($query->getModel()->getTable() . '.segment', $segments);
+    }
 
     public function agency(): BelongsTo
     {

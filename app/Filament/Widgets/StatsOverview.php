@@ -11,6 +11,11 @@ use Carbon\Carbon;
 
 class StatsOverview extends BaseWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     use InteractsWithPageFilters; // 💡 Indispensable !
 
     protected static bool $isLazy = false; 

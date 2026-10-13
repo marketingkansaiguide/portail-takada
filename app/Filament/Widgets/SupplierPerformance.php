@@ -11,6 +11,11 @@ use App\Models\FolderItem;
 
 class SupplierPerformance extends BaseWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     use InteractsWithPageFilters; // 💡 Activation des filtres
 
     protected static bool $isLazy = false;

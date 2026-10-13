@@ -45,6 +45,11 @@ class FolderResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-folder-open';
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->visibleTo(auth('web')->user());
+    }
+
     public static function getNavigationLabel(): string
     {
         return __('Dossiers Clients');
@@ -309,7 +314,7 @@ class FolderResource extends Resource
 
         $documents = [];
         $seen = [];
-        $staffRoles = ['super_admin', 'admin', 'agent'];
+        
 
         $addDocument = function (string $path, string $source, ?Carbon $submittedAt = null) use (&$documents, &$seen): void {
             $path = ltrim(str_replace('\\', '/', trim($path)), '/');
@@ -334,7 +339,7 @@ class FolderResource extends Resource
             ->whereNotNull('attachment_path')
             ->oldest()
             ->get()
-            ->filter(fn (FolderMessage $message): bool => ! in_array($message->user?->role, $staffRoles, true))
+            ->filter(fn (FolderMessage $message): bool => ! ($message->user?->isStaff() ?? false))
             ->each(fn (FolderMessage $message) => $addDocument(
                 $message->attachment_path,
                 __('Messagerie agence'),
@@ -424,6 +429,20 @@ class FolderResource extends Resource
                             TextInput::make('hotel_booking_name')
                                 ->label(__('Nom réservation hôtel'))
                                 ->placeholder(__('Si différent')),
+
+                            Select::make('segment')
+                                ->label(__('Segment'))
+                                ->options(function () {
+                                    $user = auth('web')->user();
+                                    $allowed = $user?->visibleFolderSegments();
+
+                                    return $allowed === null
+                                        ? Folder::SEGMENTS
+                                        : array_intersect_key(Folder::SEGMENTS, array_flip($allowed));
+                                })
+                                ->placeholder(__('Non classé'))
+                                ->helperText(__('Défini automatiquement selon votre profil si unique.'))
+                                ->default(fn () => auth('web')->user()?->defaultFolderSegment()),
 
                             Select::make('agency_id')
                                 ->relationship('agency', 'name')
@@ -2047,6 +2066,12 @@ Repeater::make('transport_routes')
                     ->sortable()
                     ->searchable(),
 
+                TextColumn::make('segment')
+                    ->label(__('Segment'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => Folder::SEGMENTS[$state] ?? __('Non classé'))
+                    ->color(fn (?string $state) => $state ? 'info' : 'gray'),
+
                 TextColumn::make('status')
                     ->label(__('Statut'))
                     ->badge()
@@ -2075,7 +2100,11 @@ Repeater::make('transport_routes')
                     })
                     ->sortable(),
             ])
-            ->filters([])
+            ->filters([
+                FilamentTablesFiltersSelectFilter::make('segment')
+                    ->label(__('Segment'))
+                    ->options(Folder::SEGMENTS),
+            ])
             ->recordActions([
                 Action::make('download_pdf')
                     ->label(__('Pré-facture'))

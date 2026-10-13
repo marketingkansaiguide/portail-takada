@@ -20,5 +20,5 @@ class RolePolicy
     public function view(User $user, Role $role): bool { return false; }
     public function create(User $user): bool { return false; }
     public function update(User $user, Role $role): bool { return false; }
-    public function delete(User $user, Role $role): bool { return false; }
+    public function delete(User $user, Role $role): bool { return $role->id !== User::ROLE_SUPER_ADMIN && $role->id !== User::ROLE_AGENCY; }
 }

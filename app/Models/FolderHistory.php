@@ -174,11 +174,7 @@ class FolderHistory extends Model
         }
 
         $actor = $actorId ? User::find($actorId) : null;
-        if (! $actor || ! in_array($actor->role, [
-            User::ROLE_SUPER_ADMIN,
-            User::ROLE_ADMIN,
-            User::ROLE_AGENT,
-        ], true)) {
+        if (! $actor || ! $actor->isStaff()) {
             return;
         }
 

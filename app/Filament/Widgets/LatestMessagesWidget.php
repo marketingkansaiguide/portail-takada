@@ -33,7 +33,7 @@ class LatestMessagesWidget extends BaseWidget
                     ->weight('bold')
                     ->wrap()
                     ->description(fn ($record) => $record->created_at->diffForHumans())
-                    ->color(fn ($record) => ($record->user && $record->user->role === 'agency') ? 'warning' : 'info'),
+                    ->color(fn ($record) => ($record->user && $record->user->hasRole('agency')) ? 'warning' : 'info'),
 
                 Tables\Columns\TextColumn::make('folder.folder_name')
                     ->label(__('Dossier'))

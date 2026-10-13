@@ -43,9 +43,23 @@ class UserResource extends Resource
     {
         return array_filter([
             __('Email') => $record->email,
-            __('Rôle') => $record->role,
+            __('Rôle') => $record->roles->pluck('display_name')->implode(', '),
             __('Agence') => $record->agency?->name,
         ]);
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $viewer = auth('web')->user();
+
+        // Seuls les (super) administrateurs voient/gèrent les comptes d'administration.
+        if ($viewer && ! $viewer->hasRole(User::ROLE_SUPER_ADMIN) && ! $viewer->hasRole(User::ROLE_ADMIN)
+            && ! $viewer->hasRole(User::ROLE_AGENCY)) {
+            $query->whereNotIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN]);
+        }
+
+        return $query;
     }
 
     public static function form(Schema $schema): Schema
@@ -67,24 +81,11 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('role')
-                    ->label(__('Rôle'))
+                TablesColumnsTextColumn::make('roles.display_name')
+                    ->label(__('Profils'))
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        User::ROLE_SUPER_ADMIN => 'danger',
-                        User::ROLE_ADMIN => 'warning',
-                        User::ROLE_AGENT => 'info',
-                        User::ROLE_AGENCY => 'success',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        User::ROLE_SUPER_ADMIN => 'Super Admin',
-                        User::ROLE_ADMIN => 'Admin',
-                        User::ROLE_AGENT => 'Agent Interne',
-                        User::ROLE_AGENCY => 'Agence (Front)',
-                        default => $state,
-                    })
-                    ->sortable(),
+                    ->color('info'),
+
 
                 Tables\Columns\TextColumn::make('created_at')
                     ->label(__('Date de création'))
@@ -93,14 +94,11 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('role')
-                    ->label(__('Filtrer par rôle'))
-                    ->options([
-                        User::ROLE_SUPER_ADMIN => 'Super Admin',
-                        User::ROLE_ADMIN => 'Admin',
-                        User::ROLE_AGENT => 'Agent Interne',
-                        User::ROLE_AGENCY => 'Agence',
-                    ]),
+                TablesFiltersSelectFilter::make('roles')
+                    ->label(__('Filtrer par profil'))
+                    ->relationship('roles', 'display_name')
+                    ->multiple()
+                    ->preload(),
             ])
             ->actions([
                 // Utilisation du nouveau namespace unifié Filament v5

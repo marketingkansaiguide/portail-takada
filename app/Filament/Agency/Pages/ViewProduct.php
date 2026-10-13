@@ -90,7 +90,7 @@ class ViewProduct extends Page
             if ($user->agency_id) {
                 $this->activeAgencyId = (int) $user->agency_id;
             }
-            if (in_array($user->role, ['super_admin', 'admin'])) {
+            if (($user->hasRole('super_admin') || $user->hasRole('admin'))) {
                 $this->isAdmin = true;
             }
         }

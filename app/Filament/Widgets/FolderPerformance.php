@@ -11,6 +11,11 @@ use App\Models\FolderItem;
 
 class FolderPerformance extends BaseWidget
 {
+    public static function canView(): bool
+    {
+        return \App\Support\AdminAccess::allows('folder.viewAny');
+    }
+
     use InteractsWithPageFilters;
 
     // 💡 Désactivation du Lazy Loading pour Windows
