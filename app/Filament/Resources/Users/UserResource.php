@@ -81,7 +81,7 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TablesColumnsTextColumn::make('roles.display_name')
+                Tables\Columns\TextColumn::make('roles.display_name')
                     ->label(__('Profils'))
                     ->badge()
                     ->color('info'),
@@ -94,7 +94,7 @@ class UserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TablesFiltersSelectFilter::make('roles')
+                Tables\Filters\SelectFilter::make('roles')
                     ->label(__('Filtrer par profil'))
                     ->relationship('roles', 'display_name')
                     ->multiple()

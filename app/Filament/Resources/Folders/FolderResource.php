@@ -2101,7 +2101,7 @@ Repeater::make('transport_routes')
                     ->sortable(),
             ])
             ->filters([
-                FilamentTablesFiltersSelectFilter::make('segment')
+                \Filament\Tables\Filters\SelectFilter::make('segment')
                     ->label(__('Segment'))
                     ->options(Folder::SEGMENTS),
             ])
