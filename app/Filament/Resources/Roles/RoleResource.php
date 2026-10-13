@@ -196,6 +196,24 @@ class RoleResource extends Resource
                         ->gridDirection('vertical')
                         ->bulkToggleable(),
                 ]),
+
+            Section::make(__('SEO'))
+                ->compact()
+                ->schema([
+                    CheckboxList::make('permissions')
+                        ->hiddenLabel()
+                        ->options([
+                            'seo.dashboard' => __('Consulter le tableau de bord SEO'),
+                            'seo_site.viewAny' => __('Voir les sites suivis'),
+                            'seo_site.view' => __('Voir un site suivi'),
+                            'seo_site.create' => __('Ajouter un site suivi'),
+                            'seo_site.update' => __('Modifier un site suivi et sa clé'),
+                            'seo_site.delete' => __('Supprimer un site suivi'),
+                        ])
+                        ->columns(2)
+                        ->gridDirection('vertical')
+                        ->bulkToggleable(),
+                ]),
         ]);
     }
 
