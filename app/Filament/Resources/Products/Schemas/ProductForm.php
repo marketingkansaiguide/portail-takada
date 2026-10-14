@@ -66,6 +66,33 @@ class ProductForm
                                 ->columnSpanFull(),
                         ]),
 
+                    Section::make(__('Informations importantes'))
+                        ->description(__('Documents à lire par l\'agence avant d\'ajouter la prestation à un dossier (optionnel).'))
+                        ->schema([
+                            Repeater::make('important_documents')
+                                ->hiddenLabel()
+                                ->addActionLabel(__('Ajouter un document'))
+                                ->itemLabel(fn (array $state): ?string => $state['label'] ?? __('Nouveau document'))
+                                ->collapsible()
+                                ->collapsed()
+                                ->schema([
+                                    TextInput::make('label')
+                                        ->label(__('Libellé du document'))
+                                        ->placeholder(__('Ex: Conditions de l\'activité'))
+                                        ->required(),
+
+                                    FileUpload::make('file')
+                                        ->label(__('Fichier (PDF ou autre)'))
+                                        ->disk('public')
+                                        ->directory('products/important-documents')
+                                        ->preserveFilenames()
+                                        ->required(),
+                                ])
+                                ->columns(2),
+                        ])
+                        ->collapsible()
+                        ->collapsed(),
+
                     Section::make(__('Informations requises lors de l\'achat'))
                         ->description(__('Configurez les questions spécifiques que l\'agence devra remplir pour valider la réservation.'))
                         ->schema([

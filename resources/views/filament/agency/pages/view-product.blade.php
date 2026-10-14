@@ -1172,6 +1172,22 @@
                                 @error('selectedFolderId') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                             </div>
 
+                            @php $importantDocs = $product->importantDocumentLinks(); @endphp
+                            @if(count($importantDocs) > 0)
+                                <div role="alert" style="margin-bottom: 0.75rem; background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.6rem; padding: 0.75rem 0.85rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 800; color: #991b1b; font-size: 0.9rem; margin-bottom: 0.4rem;">
+                                        <svg style="width:18px; height:18px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                        {{ __('Informations importantes à lire') }}
+                                    </div>
+                                    <ul style="margin: 0 0 0.5rem 0; padding-left: 1.1rem; font-size: 0.82rem; color: #7f1d1d;">
+                                        @foreach($importantDocs as $doc)
+                                            <li style="margin-bottom: 0.2rem;"><a href="{{ $doc['url'] }}" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">{{ $doc['label'] }}</a></li>
+                                        @endforeach
+                                    </ul>
+                                    <p style="margin: 0; font-size: 0.75rem; color: #7f1d1d; line-height: 1.4;">{{ __('En ajoutant cette prestation au dossier, vous reconnaissez avoir pris connaissance de ces informations.') }}</p>
+                                </div>
+                            @endif
+
                             <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.7rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
                                 Ajouter cette prestation au dossier
                             </button>

@@ -14,6 +14,7 @@ class Product extends Model
 
     protected $casts = [
         'images' => 'array',
+        'important_documents' => 'array',
         'child_age_limit' => 'integer',
         'teen_age_limit' => 'integer',
         'max_pax' => 'integer',
@@ -126,6 +127,23 @@ class Product extends Model
         }
 
         return Storage::disk('public')->url($image);
+    }
+
+    /**
+     * Documents « Informations importantes » du produit, avec leur URL publique.
+     *
+     * @return array<int, array{label: string, url: string}>
+     */
+    public function importantDocumentLinks(): array
+    {
+        return collect($this->important_documents ?? [])
+            ->filter(fn ($doc): bool => ! empty($doc['file']))
+            ->map(fn ($doc): array => [
+                'label' => filled($doc['label'] ?? null) ? $doc['label'] : basename($doc['file']),
+                'url' => Storage::disk('public')->url($doc['file']),
+            ])
+            ->values()
+            ->all();
     }
 
     /**
