@@ -401,6 +401,23 @@ class AgencyFolderResource extends Resource
                                         }
                                     }),
 
+                                Placeholder::make('important_documents_notice')
+                                    ->hiddenLabel()
+                                    ->visible(fn (Get $get): bool => filled($get('product_id'))
+                                        && \App\Models\Product::find($get('product_id'))?->importantDocumentLinks() !== [])
+                                    ->content(function (Get $get): HtmlString {
+                                        $links = \App\Models\Product::find($get('product_id'))?->importantDocumentLinks() ?? [];
+
+                                        $items = collect($links)->map(fn (array $doc): string => '<li style="margin-bottom: 0.2rem;"><a href="'.e($doc['url']).'" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">'.e($doc['label']).'</a></li>')->implode('');
+
+                                        return new HtmlString('<div role="alert" style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.6rem; padding: 0.75rem 0.85rem;">'
+                                            .'<div style="font-weight: 800; color: #991b1b; font-size: 0.9rem; margin-bottom: 0.4rem;">'.e(__('Informations importantes à lire')).'</div>'
+                                            .'<ul style="margin: 0 0 0.5rem 0; padding-left: 1.1rem; font-size: 0.82rem; color: #7f1d1d;">'.$items.'</ul>'
+                                            .'<p style="margin: 0; font-size: 0.75rem; color: #7f1d1d; line-height: 1.4;">'.e(__('En ajoutant cette prestation au dossier, vous reconnaissez avoir pris connaissance de ces informations.')).'</p>'
+                                            .'</div>');
+                                    })
+                                    ->columnSpanFull(),
+
                                 // 💡 SECTION DÉDIÉE SI C'EST UN PRODUIT DE TRANSPORT (BILLET DE TRAIN / BUS)
             Section::make(__('🚄 Itinéraire de Transport (Multi-Trajets)'))
                     ->description(__('Indiquez pour chaque ticket la gare de départ, d\'arrivée, la date, l\'heure et le nombre de passagers.'))
