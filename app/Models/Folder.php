@@ -61,6 +61,13 @@ class Folder extends Model
     {
         // Segment fixé automatiquement par le profil du créateur (agence partenaire = billetterie).
         static::creating(function (Folder $folder) {
+            if (blank($folder->reference)) {
+                do {
+                    $reference = 'TKD-' . date('Ym') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+                } while (static::where('reference', $reference)->exists());
+                $folder->reference = $reference;
+            }
+
             if (blank($folder->segment)) {
                 $user = \Filament\Facades\Filament::auth()->user() ?? auth()->user();
                 $folder->segment = $user?->defaultFolderSegment();
