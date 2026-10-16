@@ -69,7 +69,7 @@ class IwaOrders extends Page implements HasTable
 
         // 3. Héritage Prestation : Si la prestation elle-même a un fournisseur explicite
         if (!empty($item->supplier_id)) {
-            return (int) $item->supplier_id === 4;
+            return $item->currentSupplierId() === 4;
         }
 
         // 4. Héritage Intra-Prestation : Si un autre trajet de la même prestation est IWA
@@ -135,7 +135,7 @@ class IwaOrders extends Page implements HasTable
                     }
                 }
             } else {
-                if ((int)$item->supplier_id === 4 || empty($item->supplier_id)) {
+                if ($item->currentSupplierId() === 4 || empty($item->supplier_id)) {
                     $hasValidIwaRoute = true;
                 }
             }

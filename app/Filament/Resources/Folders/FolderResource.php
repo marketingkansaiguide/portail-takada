@@ -953,28 +953,18 @@ class FolderResource extends Resource
                                 $quantity = $state['quantity'] ?? 1;
 
                                 $supplierText = "";
-                                if (!empty($state['supplier_id'])) {
-                                    $supplier = \App\Models\Supplier::find($state['supplier_id']);
+                                // Fournisseur actuel du produit (et non la copie figée sur la ligne)
+                                $currentSupplierId = \App\Models\FolderItem::currentSupplierIdFor($state['product_id'], $state['supplier_id'] ?? null);
+                                if ($currentSupplierId) {
+                                    $supplier = \App\Models\Supplier::find($currentSupplierId);
                                     $supplierName = $supplier?->name ?? '';
                                     $supplierText = "  |  🏢 {$supplierName}";
 
                                     if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
                                         $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
                                     }
-                                } elseif (!empty($state['product_id'])) {
-                                    $suppliersCount = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->count();
-                                    if ($suppliersCount > 1) {
-        $supplierText = "  |  <span style='background-color: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-weight: bold; border: 1px solid #f87171;'>⚠️ " . e(__('SÉLECTIONNER UN FOURNISSEUR')) . "</span>";
-                                    } elseif ($suppliersCount === 1) {
-                                        $ps = \App\Models\ProductSupplier::where('product_id', $state['product_id'])->first();
-                                        $supplier = \App\Models\Supplier::find($ps->supplier_id);
-                                        $supplierName = $supplier?->name ?? '';
-                                        $supplierText = "  |  🏢 {$supplierName}";
-
-                                        if ($supplier && $supplier->requires_invoice && empty($state['invoice_received_at'])) {
-                                            $supplierText .= "  |  <span style='color: #ef4444; font-weight: bold;'>⚠️ En attente de facture</span>";
-                                        }
-                                    }
+                                } elseif (\App\Models\ProductSupplier::where('product_id', $state['product_id'])->count() > 1) {
+                                    $supplierText = "  |  <span style='background-color: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 9999px; font-weight: bold; border: 1px solid #f87171;'>⚠️ " . e(__('SÉLECTIONNER UN FOURNISSEUR')) . "</span>";
                                 }
 
                                 $optionName = __('Sans option');

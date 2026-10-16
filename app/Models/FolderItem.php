@@ -125,11 +125,37 @@ class FolderItem extends Model
         ];
     }
 
+    /**
+     * Fournisseur actuel de la prestation. La ligne garde une copie (supplier_id) saisie à l'ajout :
+     * si ce fournisseur n'est plus rattaché au produit, on prend le fournisseur actuel du produit.
+     */
+    public static function currentSupplierIdFor(?int $productId, ?int $storedSupplierId): ?int
+    {
+        if (!$productId) {
+            return $storedSupplierId ?: null;
+        }
+
+        $supplierIds = \App\Models\ProductSupplier::where('product_id', $productId)->pluck('supplier_id');
+
+        if ($storedSupplierId && $supplierIds->contains($storedSupplierId)) {
+            return $storedSupplierId;
+        }
+
+        return $supplierIds->count() === 1 ? (int) $supplierIds->first() : null;
+    }
+
+    public function currentSupplierId(): ?int
+    {
+        return self::currentSupplierIdFor($this->product_id, $this->supplier_id);
+    }
+
     public function getProductSupplierData()
     {
-        if ($this->supplier_id) {
+        $supplierId = $this->currentSupplierId();
+
+        if ($supplierId) {
             return \App\Models\ProductSupplier::where('product_id', $this->product_id)
-                ->where('supplier_id', $this->supplier_id)
+                ->where('supplier_id', $supplierId)
                 ->first();
         }
         return \App\Models\ProductSupplier::where('product_id', $this->product_id)->first();
@@ -137,11 +163,12 @@ class FolderItem extends Model
 
     public function getTargetSupplier()
     {
-        if ($this->supplier_id) {
-            return \App\Models\Supplier::find($this->supplier_id);
-        }
         $ps = $this->getProductSupplierData();
-        return $ps ? \App\Models\Supplier::find($ps->supplier_id) : null;
+        if ($ps) {
+            return \App\Models\Supplier::find($ps->supplier_id);
+        }
+        // Produit sans fournisseur rattaché : on garde la copie de la ligne
+        return $this->supplier_id ? \App\Models\Supplier::find($this->supplier_id) : null;
     }
 
     public function parseSupplierEmailSubject(): string

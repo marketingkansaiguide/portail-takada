@@ -58,13 +58,9 @@ class SevenTicketsOrders extends Page implements HasTable
                    ->orWhere('name', 'like', '%Confirmé%')
                    ->orWhere('id', 1);
             })
-            ->where(function (Builder $query) {
-                // Prestations affectées explicitement au fournisseur 14
-                $query->where('supplier_id', 14)
-                      // Ou prestations dont le produit de base est lié au fournisseur 14
-                      ->orWhereHas('product.productSuppliers', function ($sq) {
-                          $sq->where('supplier_id', 14);
-                      });
+            // Fournisseur actuel du produit : une ligne encore copiée sur le fournisseur 14 n'y figure plus si le produit ne l'est plus
+            ->whereHas('product.productSuppliers', function ($sq) {
+                $sq->where('supplier_id', 14);
             });
     }
 

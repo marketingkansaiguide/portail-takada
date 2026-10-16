@@ -25,9 +25,9 @@ class ProductsTable
                     ->sortable()
                     ->weight('bold'),
 
-                TextColumn::make('supplier.name')
-                    ->label(__('Fournisseur'))
-                    ->sortable(),
+                TextColumn::make('productSuppliers.supplier.name')
+                    ->label(__('Fournisseurs'))
+                    ->listWithLineBreaks(),
 
                 TextColumn::make('category.name')
                     ->label(__('Catégorie'))
