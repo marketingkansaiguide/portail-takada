@@ -28,6 +28,11 @@ class SupplierForm
                         ->label(__('Téléphone'))
                         ->tel(),
 
+                    TextInput::make('email')
+                        ->label(__('Email'))
+                        ->email()
+                        ->maxLength(255),
+
                     TextInput::make('fax')
                         ->label(__('Fax')),
 

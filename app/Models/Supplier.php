@@ -13,6 +13,7 @@ class Supplier extends Model
         'name',
         'contact_name',
         'phone',
+        'email',
         'fax',
         'payment_type',
         'requires_invoice', // 💡 Nouveau

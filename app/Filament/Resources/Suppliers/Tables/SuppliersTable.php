@@ -23,6 +23,10 @@ class SuppliersTable
                 TextColumn::make('phone')
                     ->label(__('Téléphone')),
 
+                TextColumn::make('email')
+                    ->label(__('Email'))
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 // 💡 NOUVELLE COLONNE
                 TextColumn::make('payment_type')
                     ->label(__('Paiement'))
