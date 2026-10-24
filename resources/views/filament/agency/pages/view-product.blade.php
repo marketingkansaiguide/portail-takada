@@ -165,7 +165,7 @@
                     @if(count($images) > 0)
                         <div x-data="{ mainImage: '{{ $images[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
                             <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
-                                <img :src="mainImage" src="{{ $images[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
+                                <img :src="mainImage" src="{{ $images[0] }}" style="display: block; max-width: 100%; width: auto; height: auto; margin: 0 auto; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
                             </div>
                             @if(count($images) > 1)
                                 <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
