@@ -160,18 +160,84 @@
                                 }
                             }
                         }
+
+                        // Versions redimensionnées (GD) des photos locales, créées une fois puis réutilisées.
+                        // Les originaux ne sont jamais modifiés ; une image plus petite que $max reste telle quelle.
+                        $variant = function (string $url, int $max): string {
+                            $path = parse_url($url, PHP_URL_PATH) ?? '';
+                            if (! str_starts_with($path, '/storage/')) {
+                                return $url;
+                            }
+
+                            $relative = substr($path, strlen('/storage/'));
+                            $source = storage_path('app/public/'.$relative);
+                            $target = storage_path('app/public/variants/'.$max.'/'.$relative);
+
+                            if (is_file($target)) {
+                                return asset('storage/variants/'.$max.'/'.$relative);
+                            }
+
+                            $size = is_file($source) ? @getimagesize($source) : false;
+                            if (! $size || max($size[0], $size[1]) <= $max) {
+                                return $url;
+                            }
+
+                            $load = match ($size[2]) {
+                                IMAGETYPE_JPEG => 'imagecreatefromjpeg',
+                                IMAGETYPE_PNG => 'imagecreatefrompng',
+                                IMAGETYPE_WEBP => 'imagecreatefromwebp',
+                                default => null,
+                            };
+                            if ($load === null || ! function_exists('imagecreatetruecolor')) {
+                                return $url;
+                            }
+
+                            $scale = $max / max($size[0], $size[1]);
+                            $width = (int) round($size[0] * $scale);
+                            $height = (int) round($size[1] * $scale);
+
+                            $src = @$load($source);
+                            if (! $src) {
+                                return $url;
+                            }
+
+                            $dst = imagecreatetruecolor($width, $height);
+                            if (in_array($size[2], [IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
+                                imagealphablending($dst, false);
+                                imagesavealpha($dst, true);
+                            }
+                            imagecopyresampled($dst, $src, 0, 0, 0, 0, $width, $height, $size[0], $size[1]);
+
+                            if (! is_dir(dirname($target))) {
+                                @mkdir(dirname($target), 0755, true);
+                            }
+
+                            $saved = match ($size[2]) {
+                                IMAGETYPE_JPEG => imagejpeg($dst, $target, 85),
+                                IMAGETYPE_PNG => imagepng($dst, $target, 6),
+                                IMAGETYPE_WEBP => imagewebp($dst, $target, 85),
+                                default => false,
+                            };
+                            imagedestroy($src);
+                            imagedestroy($dst);
+
+                            return $saved ? asset('storage/variants/'.$max.'/'.$relative) : $url;
+                        };
+
+                        $galleryUrls = array_map(fn (string $url): string => $variant($url, 1200), $images);
+                        $thumbUrls = array_map(fn (string $url): string => $variant($url, 300), $images);
                     @endphp
 
                     @if(count($images) > 0)
-                        <div x-data="{ mainImage: '{{ $images[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div x-data="{ mainImage: '{{ $galleryUrls[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
                             <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
-                                <img :src="mainImage" src="{{ $images[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
+                                <img :src="mainImage" src="{{ $galleryUrls[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
                             </div>
                             @if(count($images) > 1)
                                 <div style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem;">
-                                    @foreach($images as $imgUrl)
-                                        <div @click="mainImage = '{{ $imgUrl }}'" class="gallery-thumb" :class="{ 'active': mainImage === '{{ $imgUrl }}' }">
-                                            <img src="{{ $imgUrl }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                    @foreach($images as $i => $imgUrl)
+                                        <div @click="mainImage = '{{ $galleryUrls[$i] }}'" class="gallery-thumb" :class="{ 'active': mainImage === '{{ $galleryUrls[$i] }}' }">
+                                            <img src="{{ $thumbUrls[$i] }}" style="width: 100%; height: 100%; object-fit: cover;">
                                         </div>
                                     @endforeach
                                 </div>
