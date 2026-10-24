@@ -1074,7 +1074,7 @@ Repeater::make('transport_routes')
                                                     }
                                                     $baseLabel = implode(' • ', $ageParts);
                                                 } else {
-                                                    $baseLabel = $product->usesGlobalGuidingRate($matchedPriceRow)
+                                                    $baseLabel = $product->usesGlobalRate($matchedPriceRow)
                                                         ? __('Forfait global')
                                                         : number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax";
                                                 }

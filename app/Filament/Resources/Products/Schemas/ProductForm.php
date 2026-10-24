@@ -346,9 +346,11 @@ class ProductForm
                                                             ->orderBy('min_pax')
                                                             ->get()
                                                             ->mapWithKeys(function ($price): array {
-                                                                $label = $price->pricing_mode === 'extra_pax'
-                                                                    ? __(':min+ pax — supplément :price ¥', ['min' => $price->min_pax, 'price' => number_format($price->price, 0, '.', ' ')])
-                                                                    : __(':min–:max pax — :price ¥', ['min' => $price->min_pax, 'max' => $price->max_pax, 'price' => number_format($price->price, 0, '.', ' ')]);
+                                                                $label = match ($price->pricing_mode) {
+                                                                    'extra_pax' => __(':min+ pax — supplément :price ¥', ['min' => $price->min_pax, 'price' => number_format($price->price, 0, '.', ' ')]),
+                                                                    'global' => __(':min–:max pax — forfait groupe :price ¥', ['min' => $price->min_pax, 'max' => $price->max_pax, 'price' => number_format($price->price, 0, '.', ' ')]),
+                                                                    default => __(':min–:max pax — :price ¥', ['min' => $price->min_pax, 'max' => $price->max_pax, 'price' => number_format($price->price, 0, '.', ' ')]),
+                                                                };
 
                                                                 return [$price->id => $label];
                                                             })
@@ -488,26 +490,31 @@ class ProductForm
                                             ])->columns(2),
 
                                             TextInput::make('price')
-                                                ->label(fn (Get $get): string => $get('pricing_mode') === 'extra_pax'
-                                                    ? __('Supplément par pax (¥)')
-                                                    : __('Prix net (¥)'))
-                                                ->helperText(fn (Get $get): ?string => $get('pricing_mode') === 'extra_pax'
-                                                    ? __('Cette ligne est ajoutée au tarif de base pour chaque pax inclus dans sa tranche.')
-                                                    : null)
+                                                ->label(fn (Get $get): string => match ($get('pricing_mode')) {
+                                                    'extra_pax' => __('Supplément par pax (¥)'),
+                                                    'global' => __('Prix du groupe (¥)'),
+                                                    default => __('Prix net (¥)'),
+                                                })
+                                                ->helperText(fn (Get $get): ?string => match ($get('pricing_mode')) {
+                                                    'extra_pax' => __('Cette ligne est ajoutée au tarif de base pour chaque pax inclus dans sa tranche.'),
+                                                    'global' => __('Prix unique pour tout le groupe, quel que soit le nombre de pax de la tranche.'),
+                                                    default => null,
+                                                })
                                                 ->placeholder('0')
                                                 ->numeric()
                                                 ->required(),
 
                                             Select::make('pricing_mode')
                                                 ->label(__('Type de tarif'))
-                                                ->options([
+                                                ->options(fn (Get $get, $livewire): array => [
                                                     'per_pax' => __('Par pax'),
                                                     'global' => __('Forfait global par tranche'),
-                                                    'extra_pax' => __('Supplément par pax supplémentaire'),
+                                                    ...((int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 4
+                                                        ? ['extra_pax' => __('Supplément par pax supplémentaire')]
+                                                        : []),
                                                 ])
                                                 ->default('per_pax')
                                                 ->live()
-                                                ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
                                                 ->required(),
 
                                             TextInput::make('purchase_price')

@@ -37,9 +37,13 @@ class Product extends Model
         return $this->product_type === 'transport';
     }
 
-    public function usesGlobalGuidingRate(?ProductPrice $price): bool
+    /**
+     * Tranche « forfait global » : le prix de la ligne couvre tout le groupe,
+     * quel que soit le nombre de pax de la tranche.
+     */
+    public function usesGlobalRate(?ProductPrice $price): bool
     {
-        return (int) $this->category_id === 4 && $price?->isGlobalRate();
+        return $price?->isGlobalRate() ?? false;
     }
 
     public function baseRateTotal(?ProductPrice $price, int $quantity, ?ProductPeriod $period = null, ?int $age = null): float
@@ -48,7 +52,7 @@ class Product extends Model
             return 0.0;
         }
 
-        $baseTotal = $this->usesGlobalGuidingRate($price)
+        $baseTotal = $this->usesGlobalRate($price)
             ? (float) $price->price
             : (float) $price->price * max(1, $quantity);
 
@@ -183,7 +187,7 @@ class Product extends Model
                 ->first();
 
             if ($price) {
-                $total = $this->usesGlobalGuidingRate($price)
+                $total = $this->usesGlobalRate($price)
                     ? (float) $price->price
                     : (float) $price->price * $paxCount;
 

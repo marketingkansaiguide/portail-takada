@@ -752,7 +752,7 @@ class ViewProduct extends Page
             'has_date' => $hasDate,
             'unit_base' => $ageBaseTotal !== null ? ($ageBaseTotal / max(1, $qty)) : $basePricePerUnit,
             'total_base' => $totalBase,
-            'base_is_global' => $this->product->usesGlobalGuidingRate($basePriceRow),
+            'base_is_global' => $this->product->usesGlobalRate($basePriceRow),
             'base_adult_unit' => $ageBaseBreakdown['adult_unit'] ?? null,
             'base_child_unit' => $ageBaseBreakdown['child_unit'] ?? null,
             'base_teen_unit' => $ageBaseBreakdown['teen_unit'] ?? null,
