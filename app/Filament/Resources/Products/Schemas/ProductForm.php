@@ -49,7 +49,27 @@ class ProductForm
                                 ->required(fn (Get $get): bool => (int) $get('category_id') === 4)
                                 ->columnSpanFull(),
 
-                            Textarea::make('description')
+                            Toggle::make('guide_all_day')
+                                ->label(__('Mission journée entière'))
+                                ->helperText(__('Envoie la mission au Planning Guides sans horaires (journée entière).'))
+                                ->live()
+                                ->visible(fn (Get $get): bool => (int) $get('category_id') === 4)
+                                ->columnSpanFull(),
+
+                            TimePicker::make('guide_start_time')
+                                ->label(__('Début guidage par défaut'))
+                                ->helperText(__("Utilisé si l'option choisie n'a pas d'horaire propre."))
+                                ->seconds(false)
+                                ->visible(fn (Get $get): bool => (int) $get('category_id') === 4 && ! $get('guide_all_day'))
+                                ->columnSpan(1),
+
+                            TimePicker::make('guide_end_time')
+                                ->label(__('Fin guidage par défaut'))
+                                ->seconds(false)
+                                ->visible(fn (Get $get): bool => (int) $get('category_id') === 4 && ! $get('guide_all_day'))
+                                ->columnSpan(1),
+
+                                                        Textarea::make('description')
                                 ->label(__('Description commerciale'))
                                 ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
                                 ->rows(5)

@@ -17,12 +17,15 @@ class GuideMissionPayloadFactory
         $option = $this->guidingOption($item);
         $meetingPlace = $this->meetingPlace($item);
 
+        $allDay = (bool) $product?->guide_all_day && blank($option?->guide_start_time);
         $required = [
             'date' => $item->service_date?->format('Y-m-d'),
             'city' => trim((string) $product?->guide_city),
-            'start_time' => $option?->guide_start_time,
-            'end_time' => $option?->guide_end_time,
         ];
+        if (! $allDay) {
+            $required['start_time'] = $option?->guide_start_time ?: $product?->guide_start_time;
+            $required['end_time'] = $option?->guide_end_time ?: $product?->guide_end_time;
+        }
         $missing = array_keys(array_filter($required, fn ($value): bool => blank($value)));
         if ($missing !== []) {
             throw ValidationException::withMessages([
@@ -54,8 +57,10 @@ class GuideMissionPayloadFactory
             'agency' => (string) ($folder?->agency?->name ?? ''),
             'client' => (string) ($folder?->folder_name ?: $folder?->lead_traveler_name),
             'date' => $required['date'],
-            'start_time' => substr((string) $required['start_time'], 0, 5),
-            'end_time' => substr((string) $required['end_time'], 0, 5),
+            ...($allDay ? ['all_day' => true] : [
+                'start_time' => substr((string) $required['start_time'], 0, 5),
+                'end_time' => substr((string) $required['end_time'], 0, 5),
+            ]),
             'details' => implode("\n\n", $details),
             'participants' => $pax,
             'meeting_place' => $meetingPlace,
