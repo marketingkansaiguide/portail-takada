@@ -192,6 +192,11 @@ class ImportProducts extends Command
                 'supplier_id' => $supplier->id,
                 'is_public' => true,
                 'is_on_demand' => $data['is_on_demand'] ?? false,
+                'is_lottery' => $data['is_lottery'] ?? false,
+                'guide_city' => $data['guide_city'] ?? null,
+                'guide_start_time' => $data['guide_start_time'] ?? null,
+                'guide_end_time' => $data['guide_end_time'] ?? null,
+                'guide_all_day' => $data['guide_all_day'] ?? false,
             ]);
             ProductSupplier::firstOrCreate(['product_id' => $product->id, 'supplier_id' => $supplier->id]);
             $stats['Produits']++;
@@ -238,6 +243,9 @@ class ImportProducts extends Command
                     'code' => $option['code'],
                     'billing_type' => $option['billing_type'] ?? 'per_booking',
                     'is_required' => $option['is_required'] ?? false,
+                    'guide_city' => $option['guide_city'] ?? null,
+                    'guide_start_time' => $option['guide_start_time'] ?? null,
+                    'guide_end_time' => $option['guide_end_time'] ?? null,
                     'price_modifier' => 0,
                 ]);
                 $stats['Options']++;
