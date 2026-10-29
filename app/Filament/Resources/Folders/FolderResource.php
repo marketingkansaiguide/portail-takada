@@ -233,11 +233,7 @@ class FolderResource extends Resource
                 if (empty($optData['product_option_id'])) continue;
                 $option = \App\Models\ProductOption::find($optData['product_option_id']);
                 if ($option) {
-                    $purchasePrice = $option->purchasePriceForDate($serviceDate, $itemQuantity);
-                    if ($purchasePrice !== null) {
-                        $guidePurchaseTotal += $purchasePrice;
-                        $hasGuidePurchasePrice = true;
-                    }
+                    $guidePurchaseTotal += (float) ($option->purchasePriceForDate($serviceDate, $itemQuantity) ?? 0);
                     $pricingQuantity = $ageSelectorData ? $ageSelectorData['adults'] : $itemQuantity;
                     $mod = $option->priceModifierForDate($serviceDate, 'adult', $pricingQuantity);
                     if ($option->billing_type === 'per_pax' || $option->hasExtraPaxSeasonalModifierForDate($serviceDate, $pricingQuantity)) {
@@ -258,6 +254,12 @@ class FolderResource extends Resource
                     }
                 }
             }
+        }
+
+        $guideBasePurchase = $product?->guideBasePurchaseForDate($serviceDate, (int) $itemQuantity);
+        if ($guideBasePurchase !== null) {
+            $guidePurchaseTotal += $guideBasePurchase;
+            $hasGuidePurchasePrice = true;
         }
 
         // --- NOUVELLE LOGIQUE DE CALCUL ---

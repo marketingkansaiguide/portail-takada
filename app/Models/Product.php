@@ -37,6 +37,31 @@ class Product extends Model
         return $this->product_type === 'transport';
     }
 
+    /** PA guide du tarif de base pour la date et le nombre de pax (hors options). */
+    public function guideBasePurchaseForDate(string|Carbon|null $date, int $quantity): ?float
+    {
+        if ((int) $this->category_id !== 4 || blank($date) || ! ($period = $this->periodForDate($date))) {
+            return null;
+        }
+
+        $regular = $period->productPrices->reject(fn (ProductPrice $price): bool => $price->isExtraPaxRate());
+        $row = $regular->where('min_pax', '<=', $quantity)->where('max_pax', '>=', $quantity)->first()
+            ?? $regular->sortByDesc('max_pax')->first();
+
+        if (! $row || $row->purchase_price === null) {
+            return null;
+        }
+
+        $total = (float) $row->purchase_price;
+        foreach ($period->productPrices->filter(fn (ProductPrice $price): bool => $price->isExtraPaxRate()) as $extraRate) {
+            $from = max(1, (int) $extraRate->min_pax);
+            $to = max($from, (int) ($extraRate->max_pax ?? $quantity));
+            $total += max(0, min($quantity, $to) - $from + 1) * (float) ($extraRate->purchase_price ?? 0);
+        }
+
+        return $total;
+    }
+
     /**
      * Tranche « forfait global » : le prix de la ligne couvre tout le groupe,
      * quel que soit le nombre de pax de la tranche.

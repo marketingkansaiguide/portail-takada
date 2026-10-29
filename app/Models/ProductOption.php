@@ -131,11 +131,9 @@ class ProductOption extends Model
             : null;
         $seasonPrice ??= $seasonalPrices->first(fn (ProductOptionSeasonPrice $price): bool => $price->product_price_id === null);
 
-        // Une déclinaison peut ne pas avoir de coût propre pour cette saison.
-        // Dans ce cas, le coût du tarif saisonnier de base est le coût de guidage.
-        return $seasonPrice?->purchase_price_modifier !== null
-            ? (float) $seasonPrice->purchase_price_modifier
-            : ($basePrice?->purchase_price !== null ? (float) $basePrice->purchase_price : null);
+        // Écart de PA de la déclinaison, à ajouter au PA du tarif de base
+        // (Product::guideBasePurchaseForDate).
+        return (float) ($seasonPrice?->purchase_price_modifier ?? 0);
     }
 
     /**

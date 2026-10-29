@@ -76,7 +76,10 @@ class GuideMissionPayloadFactory
             return $storedAmount;
         }
 
-        return (int) ($option?->purchasePriceForDate($item->service_date?->format('Y-m-d'), $quantity) ?? 0);
+        $date = $item->service_date?->format('Y-m-d');
+        $total = (float) ($item->product?->guideBasePurchaseForDate($date, $quantity) ?? 0);
+
+        return (int) ($total + (float) ($option?->purchasePriceForDate($date, $quantity) ?? 0));
     }
 
     private function meetingPlace(FolderItem $item): ?string

@@ -159,7 +159,7 @@ class ImportProducts extends Command
 
             foreach ($product['options'] ?? [] as $option) {
                 foreach ($option['rows'] ?? [] as $row) {
-                    if (! in_array($row['period'].'|'.$row['min_pax'], $priceKeys, true)) {
+                    if ($row['min_pax'] !== null && ! in_array($row['period'].'|'.$row['min_pax'], $priceKeys, true)) {
                         $errors[] = "{$label} : option « {$option['name']} » sans tarif ({$row['period']}, {$row['min_pax']} pax)";
                     }
                 }
@@ -226,10 +226,10 @@ class ImportProducts extends Command
                     'product_period_id' => $periods[$row['period']]->id,
                     'min_pax' => $row['min_pax'],
                     'max_pax' => $row['max_pax'],
-                    'price' => $row['price'] ?? 0,
+                    'price' => $row['price'] ?? ($row['pricing_mode'] === 'extra_pax' ? ($row['extra_pax_price'] ?? 0) : 0),
                     'purchase_price' => $guiding ? $this->guideCost($row) : ($row['purchase_price'] ?? null),
                     'pricing_mode' => $row['pricing_mode'],
-                    'extra_pax_price' => $row['extra_pax_price'] ?? null,
+                    'extra_pax_price' => $row['pricing_mode'] === 'extra_pax' ? null : ($row['extra_pax_price'] ?? null),
                 ]);
                 $stats['Tarifs']++;
                 $priceIds[$row['period'].'|'.$row['min_pax']] = $price->id;
@@ -255,7 +255,7 @@ class ImportProducts extends Command
                         'product_id' => $product->id,
                         'product_option_id' => $productOption->id,
                         'product_period_id' => $periods[$row['period']]->id,
-                        'product_price_id' => $priceIds[$row['period'].'|'.$row['min_pax']],
+                        'product_price_id' => $row['min_pax'] === null ? null : $priceIds[$row['period'].'|'.$row['min_pax']],
                         'price_modifier' => $row['price_modifier'],
                         'purchase_price_modifier' => $row['purchase_price_modifier'],
                     ]);
