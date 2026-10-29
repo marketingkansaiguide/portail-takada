@@ -243,6 +243,7 @@ class ImportProducts extends Command
                     'code' => $option['code'],
                     'billing_type' => $option['billing_type'] ?? 'per_booking',
                     'is_required' => $option['is_required'] ?? false,
+                    'sort_order' => $option['sort_order'] ?? 0,
                     'guide_city' => $option['guide_city'] ?? null,
                     'guide_start_time' => $option['guide_start_time'] ?? null,
                     'guide_end_time' => $option['guide_end_time'] ?? null,

@@ -364,7 +364,7 @@ class Product extends Model
 
     public function productOptions()
     {
-        return $this->hasMany(ProductOption::class);
+        return $this->hasMany(ProductOption::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function guidingOptionSeasonPrices()
