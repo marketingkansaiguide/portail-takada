@@ -24,6 +24,9 @@ class ImportProducts extends Command
 
     private const GUIDING_CATEGORY_ID = 4;
 
+    /** Produits importés dont au moins une tranche n'a pas de PA. */
+    private array $missingCost = [];
+
     private const SEASON_NAMES = [
         'basse' => 'Basse saison 2027',
         'haute' => 'Haute saison 2027',
@@ -35,7 +38,7 @@ class ImportProducts extends Command
         try {
             $lot = $this->readJson($this->argument('file'));
             $seasons = $this->readJson($this->option('seasons'));
-            $definitions = $this->periodDefinitions($seasons);
+            $definitions = $this->periodDefinitions($seasons, $lot);
             $this->validate($lot, $definitions);
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
@@ -63,6 +66,10 @@ class ImportProducts extends Command
 
         $this->table(['Élément', 'Créés'], collect($stats)->map(fn (int $count, string $label): array => [$label, $count])->values()->all());
 
+        if ($this->missingCost !== []) {
+            $this->warn('PA manquant (au moins une tranche) : '.implode(' ; ', array_keys($this->missingCost)));
+        }
+
         return Command::SUCCESS;
     }
 
@@ -80,7 +87,7 @@ class ImportProducts extends Command
     /**
      * Périodes utilisables par le lot : les trois saisons 2027 et une période annuelle pour les transferts.
      */
-    private function periodDefinitions(array $seasons): array
+    private function periodDefinitions(array $seasons, array $lot = []): array
     {
         $definitions = [];
 
@@ -98,6 +105,10 @@ class ImportProducts extends Command
             'name' => 'Toute l\'année 2027',
             'date_ranges' => [['01-01', '12-31']],
         ];
+
+        foreach ($lot['period_definitions'] ?? [] as $key => $definition) {
+            $definitions[$key] = $definition;
+        }
 
         return $definitions;
     }
@@ -144,17 +155,14 @@ class ImportProducts extends Command
                 if (($row['pricing_mode'] ?? null) === 'global') {
                     $cost = $guiding ? ($row['guide_cost'] ?? null) : ($row['purchase_price'] ?? null);
 
-                    if ($row['price'] === null || $cost === null) {
-                        $errors[] = "{$label} : tarif ou PA manquant ({$row['period']}, {$row['min_pax']} pax)";
-                    } elseif ($cost > $row['price']) {
+                    if ($row['price'] === null) {
+                        $errors[] = "{$label} : tarif manquant ({$row['period']}, {$row['min_pax']} pax)";
+                    } elseif ($cost !== null && $cost > $row['price']) {
                         $errors[] = "{$label} : PA supérieur au PV ({$row['period']}, {$row['min_pax']} pax)";
                     }
                 }
 
-                if ($guiding && ($row['pricing_mode'] ?? null) === 'extra_pax' && ($row['guide_cost_extra_pax'] ?? null) === null) {
-                    $errors[] = "{$label} : PA par pax supplémentaire manquant ({$row['period']})";
-                }
-            }
+                            }
             $priceKeys = array_map(fn (array $row): string => $row['period'].'|'.$row['min_pax'], $product['prices'] ?? []);
 
             foreach ($product['options'] ?? [] as $option) {
@@ -182,14 +190,18 @@ class ImportProducts extends Command
         ];
 
         foreach ($lot['products'] as $data) {
-            $supplier = Supplier::firstOrCreate(['name' => $data['supplier']]);
+            $supplier = empty($data['supplier']) ? null : Supplier::firstOrCreate(['name' => $data['supplier']]);
             $categoryId = $data['category_id'] ?? Category::firstOrCreate(['name' => $data['category']])->id;
             $guiding = ($data['cost_mode'] ?? null) === 'guiding_option';
 
             $product = Product::create([
                 'name' => $data['name'],
                 'category_id' => $categoryId,
-                'supplier_id' => $supplier->id,
+                'supplier_id' => $supplier?->id,
+                'description' => $data['description'] ?? null,
+                'max_pax' => $data['max_pax'] ?? null,
+                'enable_child_selector' => $data['enable_child_selector'] ?? false,
+                'child_age_limit' => $data['child_age_limit'] ?? 11,
                 'is_public' => true,
                 'is_on_demand' => $data['is_on_demand'] ?? false,
                 'is_lottery' => $data['is_lottery'] ?? false,
@@ -198,7 +210,9 @@ class ImportProducts extends Command
                 'guide_end_time' => $data['guide_end_time'] ?? null,
                 'guide_all_day' => $data['guide_all_day'] ?? false,
             ]);
-            ProductSupplier::firstOrCreate(['product_id' => $product->id, 'supplier_id' => $supplier->id]);
+            if ($supplier) {
+                ProductSupplier::firstOrCreate(['product_id' => $product->id, 'supplier_id' => $supplier->id]);
+            }
             $stats['Produits']++;
 
             $periods = [];
@@ -226,13 +240,19 @@ class ImportProducts extends Command
                     'product_period_id' => $periods[$row['period']]->id,
                     'min_pax' => $row['min_pax'],
                     'max_pax' => $row['max_pax'],
+                    'min_age' => $row['min_age'] ?? 0,
+                    'max_age' => $row['max_age'] ?? 99,
                     'price' => $row['price'] ?? ($row['pricing_mode'] === 'extra_pax' ? ($row['extra_pax_price'] ?? 0) : 0),
                     'purchase_price' => $guiding ? $this->guideCost($row) : ($row['purchase_price'] ?? null),
                     'pricing_mode' => $row['pricing_mode'],
                     'extra_pax_price' => $row['pricing_mode'] === 'extra_pax' ? null : ($row['extra_pax_price'] ?? null),
                 ]);
                 $stats['Tarifs']++;
-                $priceIds[$row['period'].'|'.$row['min_pax']] = $price->id;
+                $priceIds[$row['period'].'|'.$row['min_pax']] ??= $price->id;
+
+                if ($price->purchase_price === null) {
+                    $this->missingCost[$data['name']] = true;
+                }
             }
 
             foreach ($data['options'] ?? [] as $option) {
@@ -247,11 +267,13 @@ class ImportProducts extends Command
                     'guide_city' => $option['guide_city'] ?? null,
                     'guide_start_time' => $option['guide_start_time'] ?? null,
                     'guide_end_time' => $option['guide_end_time'] ?? null,
-                    'price_modifier' => 0,
+                    'price_modifier' => $option['price_modifier'] ?? 0,
+                    'adult_price_modifier' => $option['adult_price_modifier'] ?? null,
+                    'child_price_modifier' => $option['child_price_modifier'] ?? null,
                 ]);
                 $stats['Options']++;
 
-                foreach ($option['rows'] as $row) {
+                foreach ($option['rows'] ?? [] as $row) {
                     ProductOptionSeasonPrice::create([
                         'product_id' => $product->id,
                         'product_option_id' => $productOption->id,
