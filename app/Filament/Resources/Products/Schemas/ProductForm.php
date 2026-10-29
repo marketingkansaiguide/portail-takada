@@ -44,9 +44,8 @@ class ProductForm
 
                             TextInput::make('guide_city')
                                 ->label(__('Ville de la visite guidée'))
-                                ->helperText(__('Obligatoire pour créer automatiquement une mission Planning Guides.'))
+                                ->helperText(__("Ville par défaut de la mission Planning Guides. Laisser vide si elle dépend de l'option choisie ou de la réservation."))
                                 ->visible(fn (Get $get): bool => (int) $get('category_id') === 4)
-                                ->required(fn (Get $get): bool => (int) $get('category_id') === 4)
                                 ->columnSpanFull(),
 
                             Toggle::make('guide_all_day')
@@ -212,6 +211,12 @@ class ProductForm
                                         ->placeholder(__('Ex: 2 000 ¥'))
                                         ->required()
                                         ->columnSpan(['default' => 12, 'md' => 3]),
+
+                                    TextInput::make('guide_city')
+                                        ->label(__('Ville du guidage'))
+                                        ->helperText(__('Prioritaire sur la ville du produit.'))
+                                        ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->columnSpan(['default' => 12, 'md' => 2]),
 
                                     TimePicker::make('guide_start_time')
                                         ->label(__('Début guidage'))

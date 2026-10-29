@@ -20,7 +20,7 @@ class GuideMissionPayloadFactory
         $allDay = (bool) $product?->guide_all_day && blank($option?->guide_start_time);
         $required = [
             'date' => $item->service_date?->format('Y-m-d'),
-            'city' => trim((string) $product?->guide_city),
+            'city' => $this->guideCity($item, $option),
         ];
         if (! $allDay) {
             $required['start_time'] = $option?->guide_start_time ?: $product?->guide_start_time;
@@ -116,6 +116,28 @@ class GuideMissionPayloadFactory
         }
 
         return null;
+    }
+
+    /** Option's city first, then the one typed at booking, then the product's. */
+    private function guideCity(FolderItem $item, ?ProductOption $option): string
+    {
+        if (filled($option?->guide_city)) {
+            return trim((string) $option->guide_city);
+        }
+
+        $values = is_array($item->custom_values) ? $item->custom_values : [];
+        foreach (collect($item->product?->custom_field_definitions ?? []) as $definition) {
+            if (($definition['key'] ?? null) !== 'guide_city') {
+                continue;
+            }
+
+            $value = $values[(string) $definition['key']] ?? null;
+            if (is_scalar($value) && filled($value)) {
+                return trim((string) $value);
+            }
+        }
+
+        return trim((string) $item->product?->guide_city);
     }
 
     private function guidingOption(FolderItem $item): ?ProductOption

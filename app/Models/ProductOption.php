@@ -11,6 +11,7 @@ class ProductOption extends Model
         'group_name',
         'name',
         'code',
+        'guide_city',
         'guide_start_time',
         'guide_end_time',
         'price_modifier',
