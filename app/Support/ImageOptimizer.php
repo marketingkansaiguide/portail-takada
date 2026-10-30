@@ -93,6 +93,45 @@ class ImageOptimizer
         return $path;
     }
 
+    /**
+     * URL d'une miniature nette (largeur $width, jamais agrandie), générée une
+     * fois puis mise en cache sur le disque public. Retombe sur l'original.
+     */
+    public static function thumbUrl(string $path, int $width = 640): string
+    {
+        $path = ltrim($path, '/');
+        $disk = Storage::disk('public');
+        $thumb = 'thumbs/' . $width . '/' . md5($path) . '.jpg';
+
+        try {
+            if (! $disk->exists($thumb)) {
+                $src = $disk->path($path);
+                $info = is_file($src) ? @getimagesize($src) : false;
+                if (! $info || $info[0] <= $width || ! class_exists(\Imagick::class)) {
+                    return asset('storage/' . $path);
+                }
+
+                $im = new \Imagick($src);
+                $im->setIteratorIndex(0);
+                $im->autoOrient();
+                $im->setImageBackgroundColor('white');
+                $im = $im->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+                $im->resizeImage($width, 0, \Imagick::FILTER_LANCZOS, 1);
+                $im->unsharpMaskImage(0, 0.6, 0.7, 0.02);
+                $im->setImageFormat('jpeg');
+                $im->setImageCompressionQuality(88);
+                $im->setInterlaceScheme(\Imagick::INTERLACE_PLANE);
+                $im->stripImage();
+                $disk->put($thumb, $im->getImageBlob(), 'public');
+                $im->clear();
+            }
+        } catch (\Throwable) {
+            return asset('storage/' . $path);
+        }
+
+        return asset('storage/' . $thumb);
+    }
+
     private static function hasAlpha($img): bool
     {
         $w = imagesx($img);
