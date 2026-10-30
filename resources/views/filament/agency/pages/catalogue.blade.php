@@ -113,6 +113,14 @@
                                             }
                                         }
                                     }
+
+                                    // Prix porté par les options (ex: transferts aéroport, base à 0 ¥)
+                                    if (($minPrice === null || (int) $minPrice <= 0) && ! $product->is_on_demand) {
+                                        $optionMin = \App\Models\ProductOptionSeasonPrice::where('product_id', $product->id)
+                                            ->where('price_modifier', '>', 0)
+                                            ->min('price_modifier');
+                                        $minPrice = $optionMin ?: $minPrice;
+                                    }
                                 @endphp
 
                                 <div style="display: flex; flex-direction: column;">
