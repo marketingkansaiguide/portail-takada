@@ -807,8 +807,8 @@ class ProductForm
                                 ->minValue(1),
 
                             Toggle::make('is_public')
-                                ->label(__('Produit public (Vitrine)'))
-                                ->helperText(__('Si activé, l\'activité s\'affiche sur le catalogue sans authentification (prix masqué).'))
+                                ->label(__('Produit actif'))
+                                ->helperText(__('Si désactivé, le produit disparaît du catalogue et des sélections de produits. Les dossiers existants ne sont pas modifiés.'))
                                 ->default(true),
 
                             Toggle::make('is_on_demand')

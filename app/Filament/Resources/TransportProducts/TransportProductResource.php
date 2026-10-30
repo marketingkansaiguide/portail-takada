@@ -211,7 +211,7 @@ class TransportProductResource extends Resource
                                 ->dehydrated(),
 
                             Toggle::make('is_public')
-                                ->label(__('Visible sur le catalogue B2B'))
+                                ->label(__('Produit actif'))
                                 ->default(true),
 
                             CheckboxList::make('clientGroups')

@@ -312,6 +312,12 @@ class Product extends Model
         return $this->belongsToMany(ClientGroup::class);
     }
 
+    /** Produits actifs (is_public) : seuls ceux-là sont proposés aux agences et aux nouveaux dossiers. */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('is_public'), true);
+    }
+
     /**
      * Une prestation sans groupe reste accessible à toutes les agences.
      */

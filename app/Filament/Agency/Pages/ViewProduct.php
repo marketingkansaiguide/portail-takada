@@ -97,10 +97,8 @@ class ViewProduct extends Page
 
         $this->product = Product::with(['productOptions.seasonalPrices', 'productPeriods.productPrices'])->findOrFail($record);
 
-        if (isset($this->product->is_public) && !$this->product->is_public) {
-            if (!$this->activeAgencyId) {
-            abort(403, __('Cette activité requiert un compte partenaire B2B privilégié.'));
-            }
+        if (! $this->isAdmin && ! $this->product->is_public) {
+            abort(404);
         }
 
         if (! $this->isAdmin && ! $this->product->isAvailableForAgency($this->activeAgencyId)) {

@@ -1401,7 +1401,9 @@ class FolderResource extends Resource
                                         ->columnSpan(4),
 
                                     Select::make('product_id')
-                                        ->relationship('product', 'name')
+                                        ->relationship('product', 'name', fn ($query, Get $get) => $query->where(
+                                            fn ($q) => $q->where('products.is_public', true)->orWhere('products.id', $get('product_id'))
+                                        ))
                                         ->label(__('Produit / Activité'))
                                         ->required()
                                         ->searchable()

@@ -60,10 +60,8 @@ class Catalogue extends Page
         $agencyId = auth('agency')->user()?->agency_id
             ?? \Filament\Facades\Filament::auth()->user()?->agency_id;
 
-        // Si l'agence n'est pas connectée, on n'affiche que les produits publics
-        if (! $agencyId) {
-            $query->where('is_public', true);
-        }
+        // Les produits désactivés n'apparaissent jamais côté agence
+        $query->active();
 
         $query->availableForAgency($agencyId);
 
