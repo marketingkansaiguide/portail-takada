@@ -364,6 +364,9 @@ class Product extends Model
 
     protected ?\Illuminate\Support\Collection $baseTariffPeriods = null;
 
+    /** @var array<string, \Illuminate\Support\Collection> */
+    protected array $variantPeriodsCache = [];
+
     /**
      * Charge la grille tarifaire correspondant aux options choisies : celle de
      * la variante si une option qui en porte une est sélectionnée, sinon la
@@ -380,9 +383,10 @@ class Product extends Model
         $this->baseTariffPeriods ??= $this->getRelation('productPeriods');
 
         $optionIds = array_values(array_filter(array_map('intval', $optionIds)));
+        sort($optionIds);
         $variant = $optionIds === []
             ? collect()
-            : $this->variantPeriods()->whereIn('variant_option_id', $optionIds)->with('productPrices')->get();
+            : ($this->variantPeriodsCache[implode(',', $optionIds)] ??= $this->variantPeriods()->whereIn('variant_option_id', $optionIds)->with('productPrices')->get());
 
         $this->setRelation('productPeriods', $variant->isNotEmpty() ? $variant : $this->baseTariffPeriods);
 

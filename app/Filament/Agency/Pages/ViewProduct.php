@@ -530,9 +530,19 @@ class ViewProduct extends Page
         return $map;
     }
 
+    protected array $estimateMemo = [];
+
     public function getEstimatedPrice(): array
     {
         if (!$this->product) return [];
+
+        $memoKey = md5(json_encode([$this->selectedOptions, $this->customValues['transport_routes'] ?? null, $this->quantity, $this->serviceDate, $this->ageSelectorAdults, $this->ageSelectorChildren, $this->ageSelectorTeenagers]));
+
+        return $this->estimateMemo[$memoKey] ??= $this->computeEstimatedPrice();
+    }
+
+    protected function computeEstimatedPrice(): array
+    {
 
         // Une option peut remplacer la grille tarifaire de base (ex: cérémonie privée)
         $this->product->applyTariffVariant(
