@@ -83,7 +83,7 @@
                             @if(auth('agency')->check())
                                 @php
                                     $minPrice = null;
-                                    $isGuiding = (int) $product->category_id === 4;
+                                    $isGuiding = (int) $product->category_id === 4 || $product->usesAgeSelector();
                                     // En guidage, les lignes enfants peuvent être gratuites : elles ne
                                     // constituent jamais un prix d'appel. On cherche donc une ligne
                                     // adulte réellement facturable, hors supplément par pax.
