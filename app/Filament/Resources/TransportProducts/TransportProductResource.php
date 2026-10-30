@@ -92,6 +92,7 @@ class TransportProductResource extends Resource
                                 ->reorderable()
                                 ->disk('public')
                                 ->directory('products')
+                                ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string => \App\Support\ImageOptimizer::storeUpload($file, 'public', 'products'))
                                 ->panelLayout('grid')
                                 ->columnSpanFull()
                                 ->helperText(__('Vous pouvez ajouter plusieurs images et les réorganiser par glisser-déposer.')),
