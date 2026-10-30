@@ -350,9 +350,43 @@ class Product extends Model
         return $this->belongsTo(Category::class);
     }
 
+    /** Grille tarifaire de base (hors variantes liées à une option). */
     public function productPeriods()
     {
-        return $this->hasMany(ProductPeriod::class);
+        return $this->hasMany(ProductPeriod::class)->whereNull('variant_option_id');
+    }
+
+    /** Grilles qui remplacent la grille de base quand leur option est choisie (ex: cérémonie privée). */
+    public function variantPeriods()
+    {
+        return $this->hasMany(ProductPeriod::class)->whereNotNull('variant_option_id');
+    }
+
+    protected ?\Illuminate\Support\Collection $baseTariffPeriods = null;
+
+    /**
+     * Charge la grille tarifaire correspondant aux options choisies : celle de
+     * la variante si une option qui en porte une est sélectionnée, sinon la
+     * grille de base. À appeler avant tout calcul de prix.
+     *
+     * @param  array<int, int|string|null>  $optionIds
+     */
+    public function applyTariffVariant(array $optionIds): static
+    {
+        if (! $this->relationLoaded('productPeriods')) {
+            $this->load('productPeriods.productPrices');
+        }
+
+        $this->baseTariffPeriods ??= $this->getRelation('productPeriods');
+
+        $optionIds = array_values(array_filter(array_map('intval', $optionIds)));
+        $variant = $optionIds === []
+            ? collect()
+            : $this->variantPeriods()->whereIn('variant_option_id', $optionIds)->with('productPrices')->get();
+
+        $this->setRelation('productPeriods', $variant->isNotEmpty() ? $variant : $this->baseTariffPeriods);
+
+        return $this;
     }
 
     public function periodForDate(string|Carbon|null $date): ?ProductPeriod

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductPeriod extends Model
 {
-    protected $fillable = ['product_id', 'name', 'start_date', 'end_date', 'date_ranges'];
+    protected $fillable = ['product_id', 'variant_option_id', 'name', 'start_date', 'end_date', 'date_ranges'];
 
     protected $casts = [
         'date_ranges' => 'array',

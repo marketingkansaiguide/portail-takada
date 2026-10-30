@@ -1018,6 +1018,9 @@ Repeater::make('transport_routes')
                                                 
                                                 $product = \App\Models\Product::with(['productPeriods.productPrices', 'productOptions.seasonalPrices'])->find($productId);
                                                 if (!$product) return 'Produit introuvable.';
+                                                $product->applyTariffVariant(
+                                                    $product->productOptions->filter(fn ($o) => (bool) $get("opt_enabled_{$o->id}"))->pluck('id')->all()
+                                                );
                                                 
                                                 $matchedPrice = null;
                                                 $matchedPriceRow = null;

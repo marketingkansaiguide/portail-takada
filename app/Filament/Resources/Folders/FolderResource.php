@@ -165,6 +165,7 @@ class FolderResource extends Resource
         $customValues = $get('custom_values') ?? [];
 
         $product = $productId ? \App\Models\Product::with(['productPeriods.productPrices', 'productOptions.seasonalPrices'])->find($productId) : null;
+        $product?->applyTariffVariant(array_column(is_array($selectedOptions) ? $selectedOptions : [], 'product_option_id'));
         $ageBaseTotal = null;
         $ageBaseBreakdown = null;
         $ageSelectorData = null;

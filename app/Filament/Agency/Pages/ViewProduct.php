@@ -534,6 +534,11 @@ class ViewProduct extends Page
     {
         if (!$this->product) return [];
 
+        // Une option peut remplacer la grille tarifaire de base (ex: cérémonie privée)
+        $this->product->applyTariffVariant(
+            collect($this->selectedOptions)->filter(fn ($opt) => ! empty($opt['enabled']))->keys()->all()
+        );
+
         if ($this->product->product_type === 'transport') {
             $routes = $this->customValues['transport_routes'] ?? [];
             $totalBase = 0;
