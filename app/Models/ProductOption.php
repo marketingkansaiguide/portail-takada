@@ -53,12 +53,24 @@ class ProductOption extends Model
         return $agePrice !== null ? (float) $agePrice : (float) ($this->price_modifier ?? 0);
     }
 
+    /** Les tarifs saisonniers d'option s'appliquent aux activités de guidage et à toute option qui en porte (ex: transferts aéroport). */
+    protected function usesSeasonalPricing(?Product $product): bool
+    {
+        if ((int) ($product?->category_id ?? 0) === 4) {
+            return true;
+        }
+
+        return $this->relationLoaded('seasonalPrices')
+            ? $this->seasonalPrices->isNotEmpty()
+            : $this->seasonalPrices()->exists();
+    }
+
     public function priceModifierForDate(string|null $date, string $group = 'adult', ?int $quantity = null): float
     {
         $fallback = $this->priceModifierForAgeGroup($group);
         $product = $this->relationLoaded('product') ? $this->product : $this->product()->with('productPeriods')->first();
 
-        if ((int) ($product?->category_id ?? 0) !== 4 || blank($date)) {
+        if (! $this->usesSeasonalPricing($product) || blank($date)) {
             return $fallback;
         }
 
@@ -110,7 +122,7 @@ class ProductOption extends Model
     public function purchasePriceForDate(string|null $date, ?int $quantity = null): ?float
     {
         $product = $this->relationLoaded('product') ? $this->product : $this->product()->with('productPeriods.productPrices')->first();
-        if ((int) ($product?->category_id ?? 0) !== 4 || blank($date)) {
+        if (! $this->usesSeasonalPricing($product) || blank($date)) {
             return null;
         }
         $period = $product->periodForDate($date);
@@ -149,7 +161,7 @@ class ProductOption extends Model
         $quantity = max(1, (int) ($quantity ?? 1));
         $product = $this->relationLoaded('product') ? $this->product : $this->product()->with('productPeriods')->first();
 
-        if ((int) ($product?->category_id ?? 0) !== 4 || blank($date)) {
+        if (! $this->usesSeasonalPricing($product) || blank($date)) {
             return $quantity;
         }
 
@@ -189,7 +201,7 @@ class ProductOption extends Model
         $quantity = max(1, (int) ($quantity ?? 1));
         $product = $this->relationLoaded('product') ? $this->product : $this->product()->with('productPeriods')->first();
 
-        if ((int) ($product?->category_id ?? 0) !== 4 || blank($date)) {
+        if (! $this->usesSeasonalPricing($product) || blank($date)) {
             return false;
         }
 
