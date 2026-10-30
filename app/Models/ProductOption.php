@@ -13,6 +13,7 @@ class ProductOption extends Model
         'code',
         'guide_city',
         'sort_order',
+        'available_days',
         'guide_start_time',
         'guide_end_time',
         'price_modifier',
@@ -29,6 +30,7 @@ class ProductOption extends Model
         'child_price_modifier' => 'integer',
         'teen_price_modifier' => 'integer',
         'is_required' => 'boolean',
+        'available_days' => 'array',
     ];
 
     public function priceModifierForAge(bool $isChild): float

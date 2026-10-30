@@ -249,6 +249,25 @@ class ViewProduct extends Page
                 $this->selectedOptions[$option->id]['enabled'] = ($option->id === $selectedOptionId);
             }
         }
+
+        $this->refreshCalendar();
+    }
+
+    public function updatedSelectedOptions(): void
+    {
+        $this->refreshCalendar();
+    }
+
+    /** Recalcule le calendrier (jours d'ouverture / prix propres à l'option choisie) et le renvoie au navigateur. */
+    protected function refreshCalendar(): void
+    {
+        $map = $this->getCalendarMapProperty();
+
+        if ($this->serviceDate && ! ($map[$this->serviceDate]['available'] ?? false)) {
+            $this->serviceDate = null;
+        }
+
+        $this->dispatch('calendar-map-updated', map: $map);
     }
 
     public function updatedQuantity($value)
@@ -489,7 +508,15 @@ class ViewProduct extends Page
         $map = [];
         if (!$this->product) return $map;
 
-        $availableDays = $this->product->available_days ?? ['mon','tue','wed','thu','fri','sat','sun'];
+        // Une option peut imposer ses propres jours d'ouverture et sa grille tarifaire
+        $enabledIds = collect($this->selectedOptions)->filter(fn ($opt) => ! empty($opt['enabled']))->keys()->all();
+        $this->product->applyTariffVariant($enabledIds);
+        $optionDays = $this->product->productOptions
+            ->whereIn('id', $enabledIds)
+            ->pluck('available_days')
+            ->first(fn ($days) => ! empty($days));
+
+        $availableDays = $optionDays ?: ($this->product->available_days ?? ['mon','tue','wed','thu','fri','sat','sun']);
         $blackoutDates = collect($this->product->blackout_dates ?? [])->pluck('date')->toArray();
         $isOnDemand = $this->product->is_on_demand;
 
