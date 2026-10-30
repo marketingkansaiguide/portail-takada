@@ -952,13 +952,10 @@ class ViewProduct extends Page
             ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
         foreach ($groupedRequired as $groupName => $optionsGroup) {
-            $hasChoiceSelected = false;
-            foreach ($optionsGroup as $opt) {
-                if (!empty($this->selectedOptions[$opt->id]['enabled'])) {
-                    $hasChoiceSelected = true;
-                    break;
-                }
-            }
+            $selectedCount = $optionsGroup
+                ->filter(fn ($opt) => !empty($this->selectedOptions[$opt->id]['enabled']))
+                ->count();
+            $hasChoiceSelected = $selectedCount === 1;
 
             if (!$hasChoiceSelected) {
                 $displayName = ($groupName === 'default_required') ? __('Déclinaison') : $groupName;
