@@ -56,7 +56,8 @@ class ProductsTable
                     ->label(__('Statut'))
                     ->trueLabel(__('Actifs'))
                     ->falseLabel(__('Inactifs'))
-                    ->placeholder(__('Tous')),
+                    ->placeholder(__('Tous'))
+                    ->default(true),
 
                 SelectFilter::make('category')
                     ->label(__('Filtrer par catégorie'))
