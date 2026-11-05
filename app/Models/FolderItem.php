@@ -172,9 +172,10 @@ class FolderItem extends Model
     }
 
     /**
-     * Fax et mail disponibles pour une prestation : le fax vient de l'en-tête fax
-     * du produit-fournisseur (sinon du fournisseur), le mail de l'e-mail du fournisseur.
-     * Une valeur vide ou faite d'espaces compte comme absente.
+     * Fax et mail disponibles pour une prestation :
+     * fax = FAX destinataire renseigné dans le produit (en-tête fax du produit-fournisseur) ;
+     * mail = modèle d'e-mail renseigné dans le produit-fournisseur ;
+     * une valeur vide ou faite d'espaces compte comme absente.
      *
      * @return array{fax: bool, mail: bool}
      */
@@ -186,18 +187,11 @@ class FolderItem extends Model
                 ->first()
             : null;
 
-        $targetId = $ps?->supplier_id ?? $supplierId;
-        $supplier = $targetId ? \App\Models\Supplier::find($targetId) : null;
-
         $faxHeader = is_array($ps?->fax_header) ? $ps->fax_header : [];
-        $fax = trim((string) ($faxHeader['to_fax'] ?? ''));
-        if ($fax === '') {
-            $fax = trim((string) ($supplier?->fax ?? ''));
-        }
 
         return [
-            'fax' => $fax !== '',
-            'mail' => trim((string) ($supplier?->email ?? '')) !== '',
+            'fax' => trim((string) ($faxHeader['to_fax'] ?? '')) !== '',
+            'mail' => trim((string) ($ps?->email_template ?? '')) !== '',
         ];
     }
 
