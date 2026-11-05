@@ -112,6 +112,7 @@ class FolderDayByDay
                 'name' => $productId ? ($products->get($productId) ?? __('Produit inconnu')) : __('Nouvelle ligne de prestation'),
                 'options' => $optionNames->isNotEmpty() ? $optionNames->implode(', ') : ($productId ? __('Sans option') : ''),
                 'quantity' => $state['quantity'] ?? 1,
+                'product_id' => $productId,
                 'supplier_id' => $currentSupplierId,
                 'must_select_supplier' => $mustSelectSupplier,
                 'invoice_received' => ! empty($state['invoice_received_at']),
@@ -151,6 +152,9 @@ class FolderDayByDay
         foreach ($rows as &$row) {
             $supplier = $row['supplier_id'] ? $suppliers->get($row['supplier_id']) : null;
             $row['supplier'] = $supplier?->name;
+            $contact = $row['internal'] ? ['fax' => false, 'mail' => false] : \App\Models\FolderItem::supplierContactAvailable($row['product_id'], $row['supplier_id']);
+            $row['has_fax'] = $contact['fax'];
+            $row['has_mail'] = $contact['mail'];
             $row['awaiting_invoice'] = ! $row['internal'] && $supplier && $supplier->requires_invoice && ! $row['invoice_received'];
             $row['status_name'] = $row['status']?->name ?? __('Aucun statut');
             $row['status_tone'] = match ($row['status']?->color) {

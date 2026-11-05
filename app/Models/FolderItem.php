@@ -171,6 +171,36 @@ class FolderItem extends Model
         return $this->supplier_id ? \App\Models\Supplier::find($this->supplier_id) : null;
     }
 
+    /**
+     * Fax et mail disponibles pour une prestation : le fax vient de l'en-tête fax
+     * du produit-fournisseur (sinon du fournisseur), le mail de l'e-mail du fournisseur.
+     * Une valeur vide ou faite d'espaces compte comme absente.
+     *
+     * @return array{fax: bool, mail: bool}
+     */
+    public static function supplierContactAvailable(?int $productId, ?int $supplierId): array
+    {
+        $ps = $productId
+            ? \App\Models\ProductSupplier::where('product_id', $productId)
+                ->when($supplierId, fn ($q) => $q->where('supplier_id', $supplierId))
+                ->first()
+            : null;
+
+        $targetId = $ps?->supplier_id ?? $supplierId;
+        $supplier = $targetId ? \App\Models\Supplier::find($targetId) : null;
+
+        $faxHeader = is_array($ps?->fax_header) ? $ps->fax_header : [];
+        $fax = trim((string) ($faxHeader['to_fax'] ?? ''));
+        if ($fax === '') {
+            $fax = trim((string) ($supplier?->fax ?? ''));
+        }
+
+        return [
+            'fax' => $fax !== '',
+            'mail' => trim((string) ($supplier?->email ?? '')) !== '',
+        ];
+    }
+
     public function parseSupplierEmailSubject(): string
     {
         $productSupplier = $this->getProductSupplierData();

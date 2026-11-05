@@ -1017,6 +1017,13 @@ class FolderResource extends Resource
                                     ->icon('heroicon-o-envelope')
                                     ->color('info')
                                     ->tooltip(__('Aperçu de l\'email fournisseur'))
+                                    ->visible(function (array $arguments, \Filament\Forms\Components\Repeater $component): bool {
+                                        $itemData = $component->getState()[$arguments['item']] ?? [];
+                                        return \App\Models\FolderItem::supplierContactAvailable(
+                                            ! empty($itemData['product_id']) ? (int) $itemData['product_id'] : null,
+                                            ! empty($itemData['supplier_id']) ? (int) $itemData['supplier_id'] : null,
+                                        )['mail'];
+                                    })
                                     ->modalHeading(__('Mail Fournisseur'))
                                     ->modalSubmitActionLabel(__('Ouvrir dans Gmail'))
                                     ->modalCancelAction(false)
@@ -1114,6 +1121,13 @@ class FolderResource extends Resource
                                     ->icon('heroicon-o-document-text')
                                     ->color('success')
                                     ->tooltip(__('Ouvrir un nouveau FAX dans Google Sheets'))
+                                    ->visible(function (array $arguments, \Filament\Forms\Components\Repeater $component): bool {
+                                        $itemData = $component->getState()[$arguments['item']] ?? [];
+                                        return \App\Models\FolderItem::supplierContactAvailable(
+                                            ! empty($itemData['product_id']) ? (int) $itemData['product_id'] : null,
+                                            ! empty($itemData['supplier_id']) ? (int) $itemData['supplier_id'] : null,
+                                        )['fax'];
+                                    })
                                     ->action(function (array $arguments, \Filament\Forms\Components\Repeater $component) {
                                         
                                         $googleDriveFolderId = '0AJNFhn85cg0OUk9PVA'; 
