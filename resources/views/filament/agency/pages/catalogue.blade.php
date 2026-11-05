@@ -76,7 +76,7 @@
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.3;">{{ $product->name }}</h3>
                         
                         <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; height: 3.8rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
-                            {{ strip_tags($product->description) }}
+                            {{ trim(preg_replace('/\s+/u', ' ', str_replace(['**', '__'], '', explode('## ', strip_tags((string) $product->description))[0]))) }}
                         </p>
 
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
