@@ -319,242 +319,227 @@
                         
                         {{-- CAS PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                
-                                <div style="margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
-                                    <h3 style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
-                                        <span style="font-size: 1.1rem;">🚄</span> {{ __('Itinéraire de Transport (Multi-Trajets)') }}
-                                    </h3>
-                                    <p style="font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4;">
-                                        {{ __('Indiquez pour chaque ticket la gare de départ, d’arrivée, la date, l’heure et le nombre de passagers.') }}
-                                    </p>
-                                </div>
+                            <style>
+                                .tk-tr-hint { margin: -0.25rem 0 0.85rem; font-size: 0.78rem; color: #64748b; line-height: 1.4; }
+                                .tk-tr-list { display: flex; flex-direction: column; gap: 0.75rem; }
+                                .tk-tr-card { border: 1px solid #e2e8f0; border-radius: 0.375rem; background: #ffffff; }
+                                .tk-tr-head { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; background: #f8fafc; border-radius: 0.375rem 0.375rem 0 0; }
+                                .tk-tr-num { flex: 0 0 auto; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #ffffff; background: var(--primary-600); padding: 0.15rem 0.45rem; border-radius: 0.25rem; }
+                                .tk-tr-sum { flex: 1 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 600; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                                .tk-tr-del { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border: 0; border-radius: 0.25rem; background: transparent; color: #94a3b8; cursor: pointer; }
+                                .tk-tr-del:hover { color: #dc2626; background: #fef2f2; }
+                                .tk-tr-body { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+                                .tk-tr-label { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.72rem; font-weight: 700; color: #475569; margin-bottom: 0.25rem; }
+                                .tk-tr-label .req { color: var(--tk-accent); }
+                                .tk-tr-input { width: 100%; height: 2.25rem; padding: 0 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.85rem; color: #0f172a; background: #ffffff; outline: none; transition: border-color .15s, box-shadow .15s; }
+                                textarea.tk-tr-input { height: auto; padding: 0.45rem 0.6rem; resize: vertical; }
+                                .tk-tr-input:focus { border-color: var(--primary-600); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-600) 18%, transparent); }
+                                .tk-tr-err { display: block; margin-top: 0.2rem; color: #dc2626; font-size: 0.72rem; }
+                                /* Départ / arrivée reliés par une ligne verticale */
+                                .tk-tr-route { position: relative; display: flex; flex-direction: column; gap: 0.6rem; padding-left: 1.35rem; }
+                                .tk-tr-route::before { content: ''; position: absolute; left: 0.35rem; top: 1.85rem; bottom: 1.15rem; border-left: 2px dotted #cbd5e1; }
+                                .tk-tr-stop { position: relative; }
+                                .tk-tr-dot { position: absolute; left: -1.35rem; top: 1.95rem; width: 0.75rem; height: 0.75rem; border-radius: 999px; border: 2px solid var(--primary-600); background: #ffffff; }
+                                .tk-tr-dot.is-end { background: var(--primary-600); }
+                                .tk-tr-map { font-size: 0.7rem; font-weight: 600; color: var(--tk-accent); text-decoration: none; white-space: nowrap; }
+                                .tk-tr-map:hover { text-decoration: underline; }
+                                .tk-tr-menu { position: absolute; z-index: 50; left: 0; right: 0; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 220px; overflow-y: auto; }
+                                .tk-tr-opt { padding: 0.45rem 0.65rem; font-size: 0.8rem; font-weight: 600; color: #1e293b; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+                                .tk-tr-opt:hover { background: var(--tk-accent-soft); color: var(--tk-accent); }
+                                .tk-tr-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.6rem 0.75rem; }
+                                .tk-tr-pax { display: flex; align-items: stretch; height: 2.25rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; overflow: hidden; background: #ffffff; }
+                                .tk-tr-pax button { flex: 0 0 2.1rem; border: 0; background: #f8fafc; color: #475569; font-size: 1rem; font-weight: 700; cursor: pointer; }
+                                .tk-tr-pax button:hover:not(:disabled) { background: var(--tk-accent-soft); color: var(--tk-accent); }
+                                .tk-tr-pax button:disabled { opacity: .4; cursor: default; }
+                                .tk-tr-pax input { flex: 1 1 auto; min-width: 0; border: 0; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; text-align: center; font-size: 0.85rem; font-weight: 700; color: #0f172a; background: transparent; -moz-appearance: textfield; }
+                                .tk-tr-pax input::-webkit-outer-spin-button, .tk-tr-pax input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+                                .tk-tr-note-toggle { align-self: flex-start; border: 0; background: none; padding: 0; font-size: 0.75rem; font-weight: 600; color: var(--tk-accent); cursor: pointer; }
+                                .tk-tr-note-toggle:hover { text-decoration: underline; }
+                                .tk-tr-add { width: 100%; margin-top: 0.75rem; padding: 0.55rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; border: 1px dashed var(--tk-accent-border, #e5b8c0); border-radius: 0.375rem; background: transparent; color: var(--tk-accent); font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: background .15s, border-color .15s; }
+                                .tk-tr-add:hover { background: var(--tk-accent-soft); border-color: var(--primary-600); }
+                                .tk-tr-fees { margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.8rem; }
+                                .tk-tr-fees-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; color: #64748b; }
+                                .tk-tr-fees-row strong { color: #0f172a; font-weight: 700; white-space: nowrap; }
+                                .tk-tr-fees-row .muted { color: #64748b; font-weight: 600; font-style: italic; white-space: nowrap; }
+                                .tk-tr-fees-title { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.1rem; }
+                                @media (max-width: 420px) { .tk-tr-grid { grid-template-columns: 1fr; } }
+                                /* Mode sombre */
+                                .dark .tk-tr-hint, .dark .tk-tr-fees-row, .dark .tk-tr-fees-row .muted { color: var(--gray-400); }
+                                .dark .tk-tr-card { background: var(--gray-900); border-color: var(--gray-700); }
+                                .dark .tk-tr-head { background: var(--gray-800); border-color: var(--gray-700); }
+                                .dark .tk-tr-sum, .dark .tk-tr-label { color: var(--gray-300); }
+                                .dark .tk-tr-input, .dark .tk-tr-pax, .dark .tk-tr-menu { background: var(--gray-950); border-color: var(--gray-700); color: var(--gray-100); }
+                                .dark .tk-tr-pax button { background: var(--gray-800); color: var(--gray-300); }
+                                .dark .tk-tr-pax input { color: var(--gray-100); border-color: var(--gray-700); }
+                                .dark .tk-tr-opt { color: var(--gray-200); border-color: var(--gray-800); }
+                                .dark .tk-tr-dot { background: var(--gray-900); }
+                                .dark .tk-tr-route::before { border-color: var(--gray-600); }
+                                .dark .tk-tr-fees { border-color: var(--gray-700); }
+                                .dark .tk-tr-fees-row strong { color: var(--gray-100); }
+                                .dark .tk-tr-del:hover { background: var(--gray-800); }
+                            </style>
+
+                            <div class="product-config-section">
+                                <h4 class="product-config-section-title">{{ __('Vos trajets') }}</h4>
+                                <p class="tk-tr-hint">{{ __('Un trajet par billet : gares, date, classe et nombre de passagers.') }}</p>
 
                                 @if(!empty($customValues['transport_routes']))
-                                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                    @php $routeCount = count($customValues['transport_routes']); @endphp
+                                    <div class="tk-tr-list">
                                         @foreach($customValues['transport_routes'] as $index => $route)
-                                            <div wire:key="route-step-{{ $index }}" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 1rem; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-                                                
-                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
-                                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                                        <span style="color: #64748b; font-size: 0.9rem;">⇅</span>
-                                                        <span style="font-size: 0.85rem; font-weight: 600; color: #1e293b;">
-                                                            {{ (!empty($route['departure_station']) || !empty($route['arrival_station'])) ? (($route['departure_station'] ?: __('Départ')) . ' ➔ ' . ($route['arrival_station'] ?: __('Arrivée')) . (!empty($route['departure_date']) ? ' ('.$route['departure_date'].')' : '')) : __('Nouveau trajet') }}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    @if(count($customValues['transport_routes']) > 1)
-                                                        <button type="button" wire:click="removeTransportRoute({{ $index }})" title="Supprimer ce trajet" style="color: #ef4444; background: transparent; border: none; cursor: pointer; padding: 0.2rem; display: flex; align-items: center;">
-                                                            <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            @php
+                                                $routeSummary = collect([
+                                                    (!empty($route['departure_station']) || !empty($route['arrival_station']))
+                                                        ? (($route['departure_station'] ?: '…') . ' → ' . ($route['arrival_station'] ?: '…'))
+                                                        : null,
+                                                    !empty($route['departure_date']) ? \Illuminate\Support\Carbon::parse($route['departure_date'])->format('d/m') : null,
+                                                ])->filter()->implode(' · ');
+                                                $pax = max(1, (int) ($route['pax_count'] ?? 1));
+                                            @endphp
+                                            <div wire:key="route-step-{{ $index }}" class="tk-tr-card">
+                                                <div class="tk-tr-head">
+                                                    <span class="tk-tr-num">{{ __('Trajet') }} {{ $index + 1 }}</span>
+                                                    <span class="tk-tr-sum" title="{{ $routeSummary }}">{{ $routeSummary }}</span>
+                                                    @if($routeCount > 1)
+                                                        <button type="button" class="tk-tr-del" wire:click="removeTransportRoute({{ $index }})" title="{{ __('Supprimer ce trajet') }}" aria-label="{{ __('Supprimer ce trajet') }}">
+                                                            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                         </button>
                                                     @endif
                                                 </div>
 
-                                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-bottom: 0.85rem;">
-                                                    
-                                                    {{-- Gare / Station de départ --}}
-                                                    <div x-data="{
-                                                        search: @entangle('customValues.transport_routes.' . $index . '.departure_station').live,
-                                                        open: false,
-                                                        stations: @js($this->stationsList),
-                                                        get filtered() {
-                                                            if (!this.search || this.search.length < 1) {
-                                                                return this.stations.slice(0, 10);
-                                                            }
-                                                            let q = this.search.toLowerCase();
-                                                            return this.stations.filter(s => 
-                                                                s.name.toLowerCase().includes(q) || 
-                                                                (s.label && s.label.toLowerCase().includes(q))
-                                                            ).slice(0, 15);
-                                                        },
-                                                        select(st) {
-                                                            this.search = st.name;
-                                                            this.open = false;
-                                                        }
-                                                    }" style="position: relative; grid-column: span 1 / span 1;">
-                                                        <label style="font-size: 0.8rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.25rem;">
-                                                            {{ __('Gare / Station de départ') }}<span style="color: #dc2626;">*</span>
-                                                        </label>
-                                                        
-                                                        <div style="position: relative;">
-                                                            <input type="text" 
-                                                                   x-model="search"
-                                                                   @focus="open = true"
-                                                                   @click.away="open = false"
-                                                                   placeholder="{{ __('Sélectionner...') }}"
-                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
-                                                        </div>
-
-                                                        <div x-show="open && filtered.length > 0" 
-                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
-                                                            <template x-for="st in filtered" :key="st.name">
-                                                                <div @click="select(st)" 
-                                                                     style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
-                                                                     onmouseover="this.style.background='var(--tk-accent-soft)'" 
-                                                                     onmouseout="this.style.background='#ffffff'">
-                                                                    <span x-text="st.label"></span>
+                                                <div class="tk-tr-body">
+                                                    {{-- Gares de départ et d'arrivée --}}
+                                                    <div class="tk-tr-route">
+                                                        @foreach([
+                                                            ['field' => 'departure_station', 'label' => __('Gare de départ'), 'end' => false],
+                                                            ['field' => 'arrival_station', 'label' => __('Gare d’arrivée'), 'end' => true],
+                                                        ] as $leg)
+                                                            @php $legMaps = $this->getStationMapUrl($route[$leg['field']] ?? null); @endphp
+                                                            <div class="tk-tr-stop" x-data="{
+                                                                search: @entangle('customValues.transport_routes.' . $index . '.' . $leg['field']).live,
+                                                                open: false,
+                                                                stations: @js($this->stationsList),
+                                                                get filtered() {
+                                                                    if (!this.search || this.search.length < 1) {
+                                                                        return this.stations.slice(0, 10);
+                                                                    }
+                                                                    let q = this.search.toLowerCase();
+                                                                    return this.stations.filter(s =>
+                                                                        s.name.toLowerCase().includes(q) ||
+                                                                        (s.label && s.label.toLowerCase().includes(q))
+                                                                    ).slice(0, 15);
+                                                                },
+                                                                select(st) {
+                                                                    this.search = st.name;
+                                                                    this.open = false;
+                                                                }
+                                                            }">
+                                                                <span class="tk-tr-dot {{ $leg['end'] ? 'is-end' : '' }}"></span>
+                                                                <label class="tk-tr-label">
+                                                                    <span>{{ $leg['label'] }} <span class="req">*</span></span>
+                                                                    @if($legMaps)
+                                                                        <a href="{{ $legMaps }}" target="_blank" rel="noopener" class="tk-tr-map">{{ __('Voir sur la carte') }} ↗</a>
+                                                                    @endif
+                                                                </label>
+                                                                <input type="text" class="tk-tr-input"
+                                                                       x-model="search"
+                                                                       @focus="open = true"
+                                                                       @click.away="open = false"
+                                                                       @keydown.escape="open = false"
+                                                                       autocomplete="off"
+                                                                       placeholder="{{ __('Rechercher une gare…') }}" />
+                                                                <div x-show="open && filtered.length > 0" x-cloak class="tk-tr-menu">
+                                                                    <template x-for="st in filtered" :key="st.name">
+                                                                        <div class="tk-tr-opt" @click="select(st)"><span x-text="st.label"></span></div>
+                                                                    </template>
                                                                 </div>
-                                                            </template>
+                                                                @error("customValues.transport_routes.{$index}.{$leg['field']}")
+                                                                    <span class="tk-tr-err">{{ $message }}</span>
+                                                                @enderror
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+
+                                                    {{-- Date, horaire, classe, passagers --}}
+                                                    <div class="tk-tr-grid">
+                                                        <div>
+                                                            <label class="tk-tr-label"><span>{{ __('Date') }} <span class="req">*</span></span></label>
+                                                            <input type="date" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" />
+                                                            @error("customValues.transport_routes.{$index}.departure_date")
+                                                                <span class="tk-tr-err">{{ $message }}</span>
+                                                            @enderror
                                                         </div>
-
-                                                        @php $depMaps = $this->getStationMapUrl($route['departure_station'] ?? null); @endphp
-                                                        @if($depMaps)
-                                                            <a href="{{ $depMaps }}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-weight: 600;">
-                                                                📍 Voir sur Google Maps
-                                                            </a>
-                                                        @endif
-                                                        @error("customValues.transport_routes.{$index}.departure_station")
-                                                            <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
-                                                        @enderror
-                                                    </div>
-
-                                                    {{-- Gare / Station d'arrivée --}}
-                                                    <div x-data="{
-                                                        search: @entangle('customValues.transport_routes.' . $index . '.arrival_station').live,
-                                                        open: false,
-                                                        stations: @js($this->stationsList),
-                                                        get filtered() {
-                                                            if (!this.search || this.search.length < 1) {
-                                                                return this.stations.slice(0, 10);
-                                                            }
-                                                            let q = this.search.toLowerCase();
-                                                            return this.stations.filter(s => 
-                                                                s.name.toLowerCase().includes(q) || 
-                                                                (s.label && s.label.toLowerCase().includes(q))
-                                                            ).slice(0, 15);
-                                                        },
-                                                        select(st) {
-                                                            this.search = st.name;
-                                                            this.open = false;
-                                                        }
-                                                    }" style="position: relative; grid-column: span 1 / span 1;">
-                                                        <label style="font-size: 0.8rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.25rem;">
-                                                            {{ __('Gare / Station d’arrivée') }}<span style="color: #dc2626;">*</span>
-                                                        </label>
-
-                                                        <div style="position: relative;">
-                                                            <input type="text" 
-                                                                   x-model="search"
-                                                                   @focus="open = true"
-                                                                   @click.away="open = false"
-                                                                   placeholder="{{ __('Sélectionner...') }}"
-                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
+                                                        <div>
+                                                            <label class="tk-tr-label"><span>{{ __('Heure / n° de train') }}</span></label>
+                                                            <input type="text" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="{{ __('Ex : 09:30, Hikari 502') }}" />
                                                         </div>
-
-                                                        <div x-show="open && filtered.length > 0" 
-                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
-                                                            <template x-for="st in filtered" :key="st.name">
-                                                                <div @click="select(st)" 
-                                                                     style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
-                                                                     onmouseover="this.style.background='var(--tk-accent-soft)'" 
-                                                                     onmouseout="this.style.background='#ffffff'">
-                                                                    <span x-text="st.label"></span>
-                                                                </div>
-                                                            </template>
+                                                        <div>
+                                                            <label class="tk-tr-label"><span>{{ __('Classe') }} <span class="req">*</span></span></label>
+                                                            <select required="required" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.option_id">
+                                                                <option value="">{{ __('Choisir…') }}</option>
+                                                                @foreach($product->productOptions as $opt)
+                                                                    <option value="{{ $opt->id }}">
+                                                                        {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}
+                                                                    </option>
+                                                                @endforeach
+                                                            </select>
                                                         </div>
-
-                                                        @php $arrMaps = $this->getStationMapUrl($route['arrival_station'] ?? null); @endphp
-                                                        @if($arrMaps)
-                                                            <a href="{{ $arrMaps }}" target="_blank" style="color: #2563eb; text-decoration: underline; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; font-weight: 600;">
-                                                                📍 Voir sur Google Maps
-                                                            </a>
-                                                        @endif
-                                                        @error("customValues.transport_routes.{$index}.arrival_station")
-                                                            <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
-                                                        @enderror
+                                                        <div>
+                                                            <label class="tk-tr-label"><span>{{ __('Passagers') }} <span class="req">*</span></span></label>
+                                                            <div class="tk-tr-pax">
+                                                                <button type="button" wire:click="$set('customValues.transport_routes.{{ $index }}.pax_count', {{ max(1, $pax - 1) }})" @disabled($pax <= 1) aria-label="{{ __('Retirer un passager') }}">−</button>
+                                                                <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" aria-label="{{ __('Nombre de passagers') }}" />
+                                                                <button type="button" wire:click="$set('customValues.transport_routes.{{ $index }}.pax_count', {{ $pax + 1 }})" aria-label="{{ __('Ajouter un passager') }}">+</button>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
-                                                </div>
-
-                                                <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem;">
-                                                    <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Date du trajet<span style="color: #dc2626;">*</span></label>
-                                                        <input type="date" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;" />
-                                                        @error("customValues.transport_routes.{$index}.departure_date")
-                                                            <span style="color: #dc2626; font-size: 0.7rem;">{{ $message }}</span>
-                                                        @enderror
-                                                    </div>
-
-                                                    <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Heure / N° Train ou Bus</label>
-                                                        <input type="text" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="Ex: 09:30 / Hikari 502 / Indications" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;" />
-                                                    </div>
-
-                                                    <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Classe<span style="color: #ef4444;">*</span></label>
-                                                        <select required="required" wire:model.live="customValues.transport_routes.{{ $index }}.option_id" style="width: 100%; padding: 0.45rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff; color: #1e293b; font-weight: 600;">
-                                                            <option value="">-- {{ __('Sélectionnez') }} --</option>
-                                                            @foreach($product->productOptions as $opt)
-                                                                <option value="{{ $opt->id }}">
-                                                                    {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Nombre de Passagers<span style="color: #dc2626;">*</span></label>
-                                                        <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
-                                                    </div>
-
-                                                    <div style="grid-column: 1 / -1;">
-                                                        <label for="route-specific-requests-{{ $index }}" style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">{{ __('Demandes spécifiques/indication complémentaire') }}</label>
-                                                        <textarea id="route-specific-requests-{{ $index }}" wire:model="customValues.transport_routes.{{ $index }}.specific_requests" rows="3" maxlength="5000" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;"></textarea>
+                                                    {{-- Remarque : repliée tant qu'elle est vide --}}
+                                                    <div x-data="{ open: @js(filled($route['specific_requests'] ?? null)) }" style="display: flex; flex-direction: column;">
+                                                        <button type="button" class="tk-tr-note-toggle" x-show="!open" @click="open = true; $nextTick(() => $refs.note.focus())">+ {{ __('Ajouter une demande spécifique') }}</button>
+                                                        <div x-show="open" x-cloak>
+                                                            <label for="route-specific-requests-{{ $index }}" class="tk-tr-label"><span>{{ __('Demande spécifique') }}</span></label>
+                                                            <textarea id="route-specific-requests-{{ $index }}" x-ref="note" class="tk-tr-input" wire:model="customValues.transport_routes.{{ $index }}.specific_requests" rows="2" maxlength="5000" placeholder="{{ __('Siège côté fenêtre, bagages volumineux, correspondance…') }}"></textarea>
+                                                        </div>
                                                         @error("customValues.transport_routes.{$index}.specific_requests")
-                                                            <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                                                            <span class="tk-tr-err">{{ $message }}</span>
                                                         @enderror
                                                     </div>
-
                                                 </div>
                                             </div>
                                         @endforeach
                                     </div>
 
-                                    <div style="text-align: center; margin-top: 1.25rem;">
-                                        <button type="button" wire:click="addTransportRoute" style="background: #ffffff; color: #374151; border: 1px solid #d1d5db; padding: 0.5rem 1.25rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#9ca3af';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#d1d5db';">
-                                            Ajouter un trajet
-                                        </button>
-                                    </div>
+                                    <button type="button" class="tk-tr-add" wire:click="addTransportRoute">
+                                        <svg style="width: 15px; height: 15px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" /></svg>
+                                        {{ __('Ajouter un trajet') }}
+                                    </button>
                                 @endif
 
                                 @php $estimate = $this->getEstimatedPrice(); @endphp
-                                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.5rem; padding: 1.25rem; margin-top: 1.25rem;">
-                                    <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
-                                        {{ __('Estimation de vos frais d’émission :') }}
-                                    </h4>
-
-                                    <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="color: #78350f; font-weight: 500;">
-                                                • @if($estimate['base_is_global'] ?? false) {{ __('Forfait global') }} @else Frais de service de l'agence ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} trajet{{ ($estimate['qty'] ?? 1) > 1 ? 's' : '' }} total) @endif
-                                            </span>
-                                            <span style="font-weight: 600; color: #78350f;">
-                                                {{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥
-                                            </span>
+                                <div class="tk-tr-fees">
+                                    <div class="tk-tr-fees-title">{{ __('Estimation des frais') }}</div>
+                                    <div class="tk-tr-fees-row">
+                                        <span>
+                                            @if($estimate['base_is_global'] ?? false)
+                                                {{ __('Forfait global') }}
+                                            @else
+                                                {{ __('Frais de service') }} ({{ number_format($estimate['unit_base'] ?? 0, 0, '.', ' ') }} ¥ × {{ $estimate['qty'] ?? 1 }} {{ ($estimate['qty'] ?? 1) > 1 ? __('trajets') : __('trajet') }})
+                                            @endif
+                                        </span>
+                                        <strong>{{ number_format($estimate['total_base'] ?? 0, 0, '.', ' ') }} ¥</strong>
+                                    </div>
+                                    @if(($estimate['total_options'] ?? 0) > 0)
+                                        <div class="tk-tr-fees-row">
+                                            <span>{{ __('Suppléments classes / options') }}</span>
+                                            <strong>+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</strong>
                                         </div>
-
-                                        @if(($estimate['total_options'] ?? 0) > 0)
-                                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                                <span style="color: var(--tk-accent); font-weight: 600;">
-                                                    • {{ __('Suppléments classes / options') }}
-                                                </span>
-                                                <span style="font-weight: 600; color: var(--tk-accent);">
-                                                    + {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥
-                                                </span>
-                                            </div>
-                                        @endif
-
-                                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                                            <span style="color: #b45309; font-weight: 500;">
-                                                • Prix des billets (Train / Bus)
-                                            </span>
-                                            <span style="font-weight: 600; color: #b45309;">
-                                                Sur devis (Prix coutant)
-                                            </span>
-                                        </div>
-
+                                    @endif
+                                    <div class="tk-tr-fees-row">
+                                        <span>{{ __('Billets train / bus') }}</span>
+                                        <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
                                     </div>
                                 </div>
-
                             </div>
                         @else
                             {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
