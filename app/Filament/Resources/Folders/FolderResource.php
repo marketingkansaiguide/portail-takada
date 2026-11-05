@@ -411,12 +411,14 @@ class FolderResource extends Resource
         return $schema
             ->columns(3)
             ->components([
-                
+                FolderStickyHeader::component(),
+
+
                 // -------------------------------------------------------------
                 // 1. COLONNE DE GAUCHE (Span 2)
                 // -------------------------------------------------------------
                 Group::make()->schema([
-                    Section::make(__('Informations Générales'))
+                    Section::make(__('Informations Générales'))->extraAttributes(['data-tk-anchor' => 'informations'])
                         ->columns(4)
                         ->schema([
                             TextInput::make('folder_name')
@@ -609,7 +611,7 @@ class FolderResource extends Resource
                                 ->columnSpanFull(),
                         ]),
 
-                    Section::make(__('Informations du Premier Hébergement'))
+                    Section::make(__('Informations du Premier Hébergement'))->extraAttributes(['data-tk-anchor' => 'informations'])
                         ->columns(3)
                         ->schema([
                             Select::make('hotel_preset')
@@ -657,7 +659,7 @@ class FolderResource extends Resource
                                 ->rows(1),
                         ]),
 
-                    Section::make(__('Liste des Voyageurs'))
+                    Section::make(__('Liste des Voyageurs'))->extraAttributes(['data-tk-anchor' => 'voyageurs'])
                         ->description(__('Renseignez l\'identité, l\'âge et les contraintes médicales ou alimentaires de chaque passager.'))
                         ->schema([
                             Repeater::make('folderPassengers')
@@ -733,7 +735,7 @@ class FolderResource extends Resource
                 // 2. COLONNE DE DROITE (Span 1)
                 // -------------------------------------------------------------
                 Group::make()->schema([
-                    Section::make(__('Informations de Vol & Séjour au Japon'))
+                    Section::make(__('Informations de Vol & Séjour au Japon'))->extraAttributes(['data-tk-anchor' => 'vol'])
                         ->description(__('Renseignez les dates globales du séjour ainsi que le détail des vols.'))
                         ->schema([
                             Group::make()->schema([
@@ -767,7 +769,7 @@ class FolderResource extends Resource
                                 ->columnSpanFull(),
                         ]),
 
-                    Section::make(__('Statut & Facturation'))
+                    Section::make(__('Statut & Facturation'))->extraAttributes(['data-tk-anchor' => 'facturation'])
                         ->schema([
                             Select::make('status')
                                 ->label(__('Statut du dossier'))
@@ -876,7 +878,7 @@ class FolderResource extends Resource
                             ])->columns(3),
                         ]),
                         
-                    Section::make(__('📂 Documents du dossier'))
+                    Section::make(__('📂 Documents du dossier'))->extraAttributes(['data-tk-anchor' => 'documents'])
                         ->description(__('Fichiers partagés avec l\'agence'))
                         ->schema([
                             FileUpload::make('documents')
@@ -919,7 +921,7 @@ class FolderResource extends Resource
                         ])
                         ->collapsible(),
 
-                    Section::make(__('📥 Documents reçus de l’agence'))
+                    Section::make(__('📥 Documents reçus de l’agence'))->extraAttributes(['data-tk-anchor' => 'documents'])
                         ->description(__('Tous les fichiers ajoutés par l’agence via les prestations ou la messagerie.'))
                         ->schema([
                             Placeholder::make('agency_submitted_documents')
@@ -936,7 +938,7 @@ class FolderResource extends Resource
                 // -------------------------------------------------------------
                 
                 // PRESTATIONS CLIENTS / AGENCE
-                Section::make(__('Prestations commandées'))
+                Section::make(__('Prestations commandées'))->extraAttributes(['data-tk-anchor' => 'prestations'])
                     ->description(__('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
                     ->columnSpanFull()
                     ->schema([
@@ -1976,7 +1978,7 @@ Repeater::make('transport_routes')
                     ]),
 
                 // PRESTATIONS INTERNES (CONFIDENTIELLES - MASQUÉES AUX AGENCE)
-                Section::make(__('🔒 Prestations Internes (Masquées aux agences)'))
+                Section::make(__('🔒 Prestations Internes (Masquées aux agences)'))->extraAttributes(['data-tk-anchor' => 'internes'])
                     ->description(__('Saisissez des prestations ou frais internes. Ces éléments n\'apparaissent PAS côté agence ni sur les pré-factures, mais sont comptabilisés dans la marge Admin.'))
                     ->columnSpanFull()
                     ->collapsible()

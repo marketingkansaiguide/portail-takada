@@ -48,6 +48,7 @@ class EditFolder extends EditRecord
             ->schema([
                 
                 Section::make(__('Suivi de modification'))
+                    ->extraAttributes(['data-tk-anchor' => 'suivi'])
                     ->description(__('Ajoutez une note contextuelle pour l\'historique du dossier.'))
                     ->columnSpan(1)
                     ->schema([
@@ -60,6 +61,7 @@ class EditFolder extends EditRecord
                     ]),
 
                 Section::make(__('Messagerie Agence'))
+                    ->extraAttributes(['data-tk-anchor' => 'suivi'])
                     ->description(__('Échangez directement avec l\'agence en temps réel.'))
                     ->columnSpan(1)
                     ->schema([
