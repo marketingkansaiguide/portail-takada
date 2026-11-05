@@ -859,7 +859,7 @@ class ProductForm
                                 ->maxValue(99),
 
                             Toggle::make('requires_guide')
-                                ->label(__('Activité à faire en présence d'un de nos guides'))
+                                ->label(__('Activité à faire en présence d’un de nos guides'))
                                 ->helperText(__('Affiche un bandeau bien visible sur la fiche agence.')),
 
                             Toggle::make('is_public')
