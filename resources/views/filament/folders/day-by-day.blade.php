@@ -24,13 +24,26 @@
                 && (li.getAttribute('wire:key') || '').includes('.' + repeater + '.')
             );
         },
-        open(repeater, key) {
+        current: null,
+        open(repeater, key, name = '') {
             const li = this.item(repeater, key);
             if (! li) return;
-            li.classList.add('tk-dbd-open', 'tk-dbd-flash');
+            this.close();
+            li.classList.add('tk-dbd-open', 'tk-dbd-modal');
             li.dispatchEvent(new CustomEvent('expand'));
-            setTimeout(() => li.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-            setTimeout(() => li.classList.remove('tk-dbd-flash'), 1800);
+            li.scrollTop = 0;
+            this.current = { repeater, key, name };
+            document.documentElement.style.overflow = 'hidden';
+        },
+        close() {
+            document.querySelectorAll('.tk-dbd-modal').forEach((el) => el.classList.remove('tk-dbd-modal', 'tk-dbd-open'));
+            this.current = null;
+            document.documentElement.style.overflow = '';
+        },
+        save() {
+            const form = document.querySelector('.tk-dbd-modal')?.closest('form') || this.$el.closest('form');
+            this.close();
+            if (form) form.requestSubmit();
         },
         act(repeater, key, action) {
             const li = this.item(repeater, key);
@@ -38,10 +51,8 @@
                 .find((el) => (el.getAttribute('wire:click') || '').includes(`mountAction('${action}'`));
             if (button) button.click(); else this.open(repeater, key);
         },
-        closeAll() {
-            document.querySelectorAll('.tk-dbd-open').forEach((el) => el.classList.remove('tk-dbd-open'));
-        },
     }"
+    x-on:keydown.escape.window="current && ! document.querySelector('.fi-modal-open, .tk-dbd-modal [aria-expanded=true]') && close()"
 >
     <style>
         .tk-dbd { --tk-dbd-line: var(--gray-200); --tk-dbd-head: var(--gray-50); --tk-dbd-muted: var(--gray-400); }
@@ -101,12 +112,27 @@
         .tk-dbd-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: .85rem; border: 1px dashed var(--tk-dbd-line); border-radius: .5rem; }
         /* Mode jour par jour : les fiches du repeater restent repliées et masquées, sauf celles ouvertes depuis le tableau ou pas encore enregistrées. */
         .tk-dbd-on .fi-fo-repeater-item[x-sortable-item^="record-"]:not(.tk-dbd-open) { display: none; }
-        .fi-fo-repeater-item.tk-dbd-flash { outline: 2px solid var(--primary-500); outline-offset: 2px; transition: outline-color .3s; }
+        /* Popin : la fiche du repeater est affichée par-dessus la page, sans la déplacer dans le DOM (les champs restent liés au formulaire). */
+        .tk-dbd-backdrop { position: fixed; inset: 0; z-index: 35; background: rgba(12, 10, 9, .55); }
+        .tk-dbd-mbar, .fi-fo-repeater-item.tk-dbd-modal { left: calc(50% - min(520px, 47vw)); width: min(1040px, 94vw); }
+        .tk-dbd-mbar { position: fixed; z-index: 37; top: 4vh; height: 3.25rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: 0 1rem 0 1.25rem; background: #fff; border-bottom: 1px solid var(--gray-200); border-radius: .75rem .75rem 0 0; }
+        html.dark .tk-dbd-mbar { background: var(--gray-900); border-color: var(--gray-700); }
+        .tk-dbd-mbar strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-950); }
+        html.dark .tk-dbd-mbar strong { color: var(--gray-50); }
+        .tk-dbd-mbar .tk-mbtns { display: flex; gap: .5rem; flex-shrink: 0; }
+        .tk-dbd-mbar button { font-size: .8rem; font-weight: 600; padding: .4rem .8rem; border-radius: .375rem; border: 1px solid var(--gray-300); color: var(--gray-700); background: transparent; }
+        html.dark .tk-dbd-mbar button { color: var(--gray-200); border-color: var(--gray-600); }
+        .tk-dbd-mbar button.is-primary { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
+        .fi-fo-repeater-item.tk-dbd-modal { display: block !important; position: fixed !important; z-index: 36; top: calc(4vh + 3.25rem); max-height: calc(92vh - 3.25rem); overflow-y: auto; margin: 0 !important; background: #fff; border-radius: 0 0 .75rem .75rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .4); }
+        html.dark .fi-fo-repeater-item.tk-dbd-modal { background: var(--gray-900); }
+        /* Jours libres consécutifs regroupés */
+        .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
+        .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
     </style>
 
     <div class="tk-dbd-bar">
         <div class="tk-dbd-kpis" x-show="mode === 'day'">
-            <span><b>{{ count($days) }}</b> {{ __('jours') }}</span>
+            <span><b>{{ $dayCount }}</b> {{ __('jours') }}</span>
             <span><b>{{ $total }}</b> {{ __('prestations') }}</span>
             @if ($counts->get('success'))<span><b>{{ $counts->get('success') }}</b> {{ __('confirmées') }}</span>@endif
             @if ($counts->get('warning'))<span><b>{{ $counts->get('warning') }}</b> {{ __('en attente') }}</span>@endif
@@ -115,7 +141,6 @@
         </div>
         <div x-show="mode !== 'day'"></div>
         <div style="display:flex;align-items:center">
-            <button type="button" class="tk-dbd-link" x-show="mode === 'day'" x-on:click="closeAll()">{{ __('Masquer les fiches ouvertes') }}</button>
             <div class="tk-dbd-seg">
                 <button type="button" x-bind:class="{ 'is-on': mode === 'list' }" x-on:click="setMode('list')">{{ __('Liste') }}</button>
                 <button type="button" x-bind:class="{ 'is-on': mode === 'day' }" x-on:click="setMode('day')">{{ __('Jour par jour') }}</button>
@@ -124,7 +149,7 @@
     </div>
 
     <div x-show="mode === 'day'">
-        @if (empty($days) && empty($undated))
+        @if (empty($groups))
             <div class="tk-dbd-empty">{{ __('Aucune prestation pour le moment. Renseignez les dates du séjour ou ajoutez une prestation.') }}</div>
         @else
             <div class="tk-dbd-scroll">
@@ -144,8 +169,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (array_merge($days, empty($undated) ? [] : [['number' => null, 'date' => null, 'is_start' => false, 'is_end' => false, 'rows' => $undated]]) as $day)
+                        @foreach ($groups as $day)
+                            @if ($day['type'] === 'free' && $day['count'] > 1)
+                                @php
+                                    $fromLabel = \Illuminate\Support\Str::ucfirst($day['from']['date']->copy()->locale($locale)->isoFormat('ddd DD/MM'));
+                                    $toLabel = \Illuminate\Support\Str::ucfirst($day['to']['date']->copy()->locale($locale)->isoFormat('ddd DD/MM'));
+                                @endphp
+                                <tr class="is-day is-free is-free-range">
+                                    <td class="tk-j">{{ $day['from']['number'] }}–{{ $day['to']['number'] }}</td>
+                                    <td class="tk-d">{{ $fromLabel }} → {{ $toLabel }}</td>
+                                    <td colspan="8">— {{ $day['count'] }} {{ __('journées libres') }}</td>
+                                </tr>
+                                @continue
+                            @endif
                             @php
+                                if ($day['type'] === 'free') {
+                                    $day = $day['from'];
+                                }
                                 $isWeekend = $day['date'] && $day['date']->isWeekend();
                                 $flags = [];
                                 if ($day['is_start']) $flags[] = '✈️ ' . __('Arrivée');
@@ -167,7 +207,7 @@
                                 @foreach ($day['rows'] as $i => $row)
                                     <tr
                                         class="is-item {{ $i === 0 ? 'is-day' : '' }} {{ $isWeekend ? 'is-we' : '' }} {{ $row['cancelled'] ? 'is-cancelled' : '' }}"
-                                        x-on:click="open(@js($row['repeater']), @js($row['key']))"
+                                        x-on:click="open(@js($row['repeater']), @js($row['key']), @js($row['name']))"
                                         title="{{ __('Ouvrir la fiche de la prestation') }}"
                                     >
                                         @if ($i === 0)
@@ -223,4 +263,17 @@
             </div>
         @endif
     </div>
+
+    <template x-teleport="body">
+        <div x-show="current" x-cloak>
+            <div class="tk-dbd-backdrop" x-on:click="close()"></div>
+            <div class="tk-dbd-mbar">
+                <strong x-text="current ? current.name : ''"></strong>
+                <div class="tk-mbtns">
+                    <button type="button" class="is-primary" x-on:click="save()">{{ __('Enregistrer le dossier') }}</button>
+                    <button type="button" x-on:click="close()">{{ __('Fermer') }} ✕</button>
+                </div>
+            </div>
+        </div>
+    </template>
 </div>

@@ -189,13 +189,36 @@ class FolderDayByDay
             }
         }
 
+        // Jours consécutifs sans prestation (hors arrivée / départ) condensés en une seule ligne.
+        $groups = [];
+        $freeRun = [];
+        $flushFree = function () use (&$groups, &$freeRun) {
+            if ($freeRun) {
+                $groups[] = ['type' => 'free', 'from' => $freeRun[0], 'to' => end($freeRun), 'count' => count($freeRun)];
+                $freeRun = [];
+            }
+        };
+        foreach ($days as $day) {
+            if (empty($day['rows']) && ! $day['is_start'] && ! $day['is_end']) {
+                $freeRun[] = $day;
+
+                continue;
+            }
+            $flushFree();
+            $groups[] = ['type' => 'day'] + $day;
+        }
+        $flushFree();
+        if ($undated->isNotEmpty()) {
+            $groups[] = ['type' => 'day', 'number' => null, 'date' => null, 'is_start' => false, 'is_end' => false, 'rows' => $undated->all()];
+        }
+
         $counts = collect($rows)->groupBy('status_tone')->map->count();
         $billable = collect($rows)->where('internal', false)->where('cancelled', false)->sum('price');
         $purchaseTotal = collect($rows)->where('cancelled', false)->sum('purchase');
 
         return new HtmlString(view('filament.folders.day-by-day', [
-            'days' => $days,
-            'undated' => $undated->all(),
+            'dayCount' => count($days),
+            'groups' => $groups,
             'total' => count($rows),
             'counts' => $counts,
             'cancelledCount' => collect($rows)->where('cancelled', true)->count(),
