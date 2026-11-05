@@ -8,7 +8,15 @@
     class="tk-dbd"
     x-data="{
         mode: (() => { try { return localStorage.getItem('tk-dbd-mode') || 'day' } catch (e) { return 'day' } })(),
-        init() { this.apply() },
+        init() {
+            this.apply();
+            clearInterval(window.tkDbdWatch);
+            window.tkDbdWatch = setInterval(() => {
+                if (this.current && ! document.querySelector('.tk-dbd-modal')) this.close();
+                const li = document.querySelector('.tk-dbd-modal');
+                if (li) this.tag(li);
+            }, 600);
+        },
         setMode(mode) {
             this.mode = mode;
             try { localStorage.setItem('tk-dbd-mode', mode) } catch (e) {}
@@ -31,9 +39,21 @@
             this.close();
             li.classList.add('tk-dbd-open', 'tk-dbd-modal');
             li.dispatchEvent(new CustomEvent('expand'));
+            this.tag(li);
             li.scrollTop = 0;
             this.current = { repeater, key, name, sub };
             document.documentElement.style.overflow = 'hidden';
+        },
+        tag(li) {
+            const root = li.querySelector(':scope > .fi-fo-repeater-item-content > .fi-grid');
+            if (! root) return;
+            [...root.children].forEach((col) => {
+                const grid = col.querySelector('.fi-grid');
+                if (! grid) return;
+                if (col.querySelector('[id$=&quot;.service_date&quot;]')) grid.classList.add('tk-h-date');
+                else if (col.querySelector('[id$=&quot;.invoice_received_at&quot;]')) grid.classList.add('tk-h-facture');
+                else if (! col.querySelector('.fi-fo-repeater') && col.querySelectorAll('.fi-select-input').length >= 2) grid.classList.add('tk-h-prestation');
+            });
         },
         close() {
             document.querySelectorAll('.tk-dbd-modal').forEach((el) => el.classList.remove('tk-dbd-modal', 'tk-dbd-open'));
@@ -119,7 +139,7 @@
         /* Popin : la fiche du repeater est affichée par-dessus la page, sans la déplacer dans le DOM (les champs restent liés au formulaire). */
         .tk-dbd-backdrop { position: fixed; inset: 0; z-index: 35; background: rgba(12, 10, 9, .55); }
         .tk-dbd-mbar, .fi-fo-repeater-item.tk-dbd-modal { left: calc(50% - min(520px, 47vw)); width: min(1040px, 94vw); }
-        .tk-dbd-mbar { position: fixed; z-index: 37; top: 4vh; height: 3.25rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: 0 1rem 0 1.25rem; background: #fff; border-bottom: 1px solid var(--gray-200); border-radius: .75rem .75rem 0 0; }
+        .tk-dbd-mbar { position: fixed; z-index: 36; top: 4vh; height: 3.25rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: 0 1rem 0 1.25rem; background: #fff; border-bottom: 1px solid var(--gray-200); border-radius: .75rem .75rem 0 0; }
         html.dark .tk-dbd-mbar { background: var(--gray-900); border-color: var(--gray-700); }
         .tk-dbd-mbar strong { font-size: .95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--gray-950); }
         html.dark .tk-dbd-mbar strong { color: var(--gray-50); }
@@ -127,22 +147,78 @@
         .tk-dbd-mbar button { font-size: .8rem; font-weight: 600; padding: .4rem .8rem; border-radius: .375rem; border: 1px solid var(--gray-300); color: var(--gray-700); background: transparent; }
         html.dark .tk-dbd-mbar button { color: var(--gray-200); border-color: var(--gray-600); }
         .tk-dbd-mbar button.is-primary { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
-        .fi-fo-repeater-item.tk-dbd-modal { display: block !important; position: fixed !important; z-index: 36; top: calc(4vh + 3.25rem); max-height: calc(92vh - 3.25rem); overflow-y: auto; margin: 0 !important; background: #fff; border-radius: 0 0 .75rem .75rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .4); }
+        .fi-fo-repeater-item.tk-dbd-modal { display: block !important; position: fixed !important; z-index: 37; top: calc(4vh + 3.25rem); max-height: calc(92vh - 3.25rem); overflow-y: auto; margin: 0 !important; background: #fff; border-radius: 0 0 .75rem .75rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .4); }
         html.dark .fi-fo-repeater-item.tk-dbd-modal { background: var(--gray-900); }
         .tk-dbd-mbar .tk-mtitle { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
         .tk-dbd-mbar .tk-mtitle span { font-size: .75rem; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        /* Popin : fiche toujours dépliée, sans libellé replié ni bouton plier/déplier ; seules les actions restent dans une barre d'outils. */
-        .tk-dbd-modal > .fi-fo-repeater-item-header { pointer-events: none; cursor: default; justify-content: flex-end; gap: .5rem; padding: .45rem 1.25rem; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
-        html.dark .tk-dbd-modal > .fi-fo-repeater-item-header { background: var(--gray-800); border-color: var(--gray-700); }
-        .tk-dbd-modal > .fi-fo-repeater-item-header::before { content: 'Actions'; margin-right: auto; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-500); }
-        .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions { pointer-events: auto; }
+        /* ---------- Popin : fiche d'une prestation ----------
+           La fiche reste le composant Filament d'origine (champs liés au formulaire) ;
+           on la met en page uniquement en CSS : fond papier, blocs blancs titrés,
+           actions remontées dans la barre du haut, plus de pliage. */
+        .tk-dbd-mbar .tk-mbtns { width: 16.5rem; justify-content: flex-end; }
+        .tk-dbd-modal > .fi-fo-repeater-item-header {
+            position: fixed; z-index: 38; top: calc(4vh + .7rem); right: calc(50vw - min(520px, 47vw) + 18.25rem);
+            display: flex; align-items: center; gap: .25rem; padding: 0 .75rem 0 0; margin: 0; height: 1.9rem;
+            background: transparent; border: 0; border-right: 1px solid var(--gray-200); cursor: default; pointer-events: none;
+        }
+        html.dark .tk-dbd-modal > .fi-fo-repeater-item-header { border-color: var(--gray-700); }
+        .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions { pointer-events: auto; gap: .35rem; }
         .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-label,
         .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-start-actions,
         .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-collapsible-actions { display: none !important; }
-        .tk-dbd-modal > .fi-fo-repeater-item-content { display: block !important; padding: 1.25rem 1.5rem 1.5rem; }
-        /* Options tarifaires imbriquées : une ligne compacte (champ à gauche, actions à droite). */
-        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] { display: flex !important; flex-direction: row-reverse; align-items: center; }
-        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header { border: 0; padding: .25rem .6rem; gap: .25rem; }
+
+        .tk-dbd-modal > .fi-fo-repeater-item-content { display: block !important; padding: 1rem 1.25rem 1.25rem; background: var(--tk-paper, #f7f6f3); border: 0; }
+        html.dark .tk-dbd-modal > .fi-fo-repeater-item-content { background: var(--gray-950); }
+        .tk-dbd-modal > .fi-fo-repeater-item-content > .fi-grid { gap: .75rem !important; }
+
+        /* Chaque groupe de champs devient un bloc blanc */
+        .tk-dbd-modal > .fi-fo-repeater-item-content > .fi-grid > .fi-grid-col:has(.fi-fo-field-label) {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: .5rem; padding: .85rem 1rem 1rem;
+        }
+        html.dark .tk-dbd-modal > .fi-fo-repeater-item-content > .fi-grid > .fi-grid-col:has(.fi-fo-field-label) { background: var(--gray-900); border-color: var(--gray-700); }
+        .tk-dbd-modal .fi-fo-field-label-content { font-size: .75rem; font-weight: 500; color: var(--gray-600); }
+        html.dark .tk-dbd-modal .fi-fo-field-label-content { color: var(--gray-400); }
+
+        /* Titres de blocs (pseudo-éléments placés comme cellules de grille pleine largeur) */
+        .tk-dbd-modal .tk-h-prestation::before, .tk-dbd-modal .tk-h-facture::before, .tk-dbd-modal .tk-h-date::before, .tk-dbd-modal .tk-h-date::after { display: block; grid-column: 1 / -1; font-size: .875rem; font-weight: 600; color: var(--gray-950); line-height: 1.2; }
+        html.dark .tk-dbd-modal .tk-h-prestation::before, html.dark .tk-dbd-modal .tk-h-facture::before, html.dark .tk-dbd-modal .tk-h-date::before, html.dark .tk-dbd-modal .tk-h-date::after { color: var(--gray-50); }
+        .tk-dbd-modal .tk-h-prestation::before { content: 'Prestation'; order: -2; }
+        .tk-dbd-modal .tk-h-facture::before { content: 'Facture fournisseur'; }
+        .tk-dbd-modal .tk-h-date::before { content: 'Date et voyageurs'; order: 0; }
+        .tk-dbd-modal .tk-h-date::after { content: 'Prix'; order: 3; padding-top: .9rem; margin-top: .15rem; border-top: 1px solid var(--gray-200); }
+        html.dark .tk-dbd-modal .tk-h-date::after { border-color: var(--gray-700); }
+
+        /* Bloc Prestation : produit en premier et plus large */
+        .tk-dbd-modal .tk-h-prestation { grid-template-columns: 5fr 4fr 4fr !important; }
+        .tk-dbd-modal .tk-h-prestation > .fi-grid-col { grid-column: auto !important; }
+        .tk-dbd-modal .tk-h-prestation > .fi-grid-col:nth-child(2) { order: -1; }
+
+        /* Bloc Date et voyageurs + Prix : grille régulière de 4 colonnes */
+        .tk-dbd-modal .tk-h-date { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; row-gap: .85rem !important; }
+        .tk-dbd-modal .tk-h-date > .fi-grid-col { grid-column: auto !important; order: 1; }
+        .tk-dbd-modal .tk-h-date > .fi-grid-col:not(:has(input)) { grid-column: 1 / -1 !important; order: 2; margin-top: -.4rem; font-size: .75rem; }
+        .tk-dbd-modal .tk-h-date > .fi-grid-col:has([id$=".purchase_total_price"]),
+        .tk-dbd-modal .tk-h-date > .fi-grid-col:has([id$=".unit_price"]),
+        .tk-dbd-modal .tk-h-date > .fi-grid-col:has([id$=".total_price"]) { order: 4; }
+        .tk-dbd-modal input[id$=".purchase_total_price"], .tk-dbd-modal input[id$=".unit_price"], .tk-dbd-modal input[id$=".total_price"] { text-align: right; font-variant-numeric: tabular-nums; }
+        .tk-dbd-modal input[id$=".total_price"]:not([id$="purchase_total_price"]) { font-weight: 600; }
+
+        .tk-dbd-modal .fi-fo-field:has(.fi-fo-repeater) > .fi-fo-field-label-col .fi-fo-field-label-content { font-size: .875rem; font-weight: 600; color: var(--gray-950); }
+        html.dark .tk-dbd-modal .fi-fo-field:has(.fi-fo-repeater) > .fi-fo-field-label-col .fi-fo-field-label-content { color: var(--gray-50); }
+        /* Sections Filament imbriquées (trajets, réponses) : à plat dans leur bloc */
+        .tk-dbd-modal .fi-section { box-shadow: none; }
+        .tk-dbd-modal > .fi-fo-repeater-item-content > .fi-grid > .fi-grid-col:has(.fi-section) { background: transparent !important; border: 0 !important; padding: 0 !important; }
+        .tk-dbd-modal .fi-section { border-radius: .5rem; }
+
+        @media (max-width: 760px) {
+            .tk-dbd-modal .tk-h-prestation, .tk-dbd-modal .tk-h-date { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .tk-dbd-modal > .fi-fo-repeater-item-header { position: static; border: 0; padding: .4rem 1rem; justify-content: flex-end; height: auto; }
+        }
+
+        /* Options tarifaires imbriquées : une ligne compacte (champ à gauche, actions à droite) */
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] { display: flex !important; flex-direction: row-reverse; align-items: center; background: var(--tk-paper, #f7f6f3); }
+        html.dark .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] { background: var(--gray-800); }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header { border: 0; padding: .25rem .6rem; gap: .25rem; background: transparent; }
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-content { flex: 1; min-width: 0; padding: .55rem .75rem; border: 0; }
         /* Jours libres consécutifs regroupés */
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
