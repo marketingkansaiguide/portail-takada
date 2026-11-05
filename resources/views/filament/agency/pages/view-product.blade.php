@@ -644,7 +644,7 @@
                                                             <template x-if="day && day.info.available">
                                                                 <div style="text-align: center; width: 100%;">
                                                                     <template x-if="!day.info.is_on_demand && day.info.price">
-                                                                        <span class="calendar-price-text" x-text="day.info.price + ' ¥/' + (day.info.unit || 'pax')" :style="selectedDate === day.dateStr ? 'color: var(--primary-100);' : 'color: var(--tk-accent);'"></span>
+                                                                        <span class="calendar-price-text" style="display:flex;flex-direction:column;align-items:center;" :style="selectedDate === day.dateStr ? 'color: var(--primary-100);' : 'color: var(--tk-accent);'"><span x-text="day.info.price + ' ¥'"></span><span style="font-size:0.5rem;font-weight:600;opacity:.85;" x-text="'/' + (day.info.unit || 'pax')"></span></span>
                                                                     </template>
                                                                     <template x-if="!day.info.is_on_demand && !day.info.price">
                                                                         <span class="calendar-price-text" :style="selectedDate === day.dateStr ? 'color: var(--primary-100);' : 'color: var(--tk-accent);'">-</span>
