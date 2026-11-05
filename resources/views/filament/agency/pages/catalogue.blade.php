@@ -18,10 +18,6 @@
                 <div style="position: relative; width: 100%; max-width: 400px;">
                     <input type="text" wire:model.live="search" placeholder="{{ __('Rechercher une activité...') }}"
                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem; border: 1px solid #e2e8f0; border-radius: 9999px; font-size: 0.9rem; outline: none; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;">
-                        <button type="button" wire:click="$toggle('premiumOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #a32035; {{ $premiumOnly ? 'background:#a32035;color:#fff;' : 'background:#fff;color:#a32035;' }}">{{ __('Expériences premium') }}</button>
-                        <button type="button" wire:click="$toggle('familyOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #2f7d4f; {{ $familyOnly ? 'background:#2f7d4f;color:#fff;' : 'background:#fff;color:#2f7d4f;' }}">{{ __('Conseillées aux familles') }}</button>
-                    </div>
                     <svg style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
             </div>
@@ -47,6 +43,15 @@
                         @endif
                     </div>
                 </div>
+
+                @if($loop->first)
+                    <div style="display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; margin-top: -0.25rem;">
+                        <span style="font-size: 0.82rem; color: #64748b;">{{ __('Affiner :') }}</span>
+                        <button type="button" wire:click="$toggle('premiumOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #d97706; {{ $premiumOnly ? 'background:#d97706;color:#fff;' : 'background:#fffbeb;color:#92400e;' }}">★ {{ __('Expériences premium') }}</button>
+                        <button type="button" wire:click="$toggle('familyOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #059669; {{ $familyOnly ? 'background:#059669;color:#fff;' : 'background:#ecfdf5;color:#065f46;' }}">👨‍👩‍👧 {{ __('Conseillées aux familles') }}</button>
+                        <span style="font-size: 0.8rem; color: #94a3b8;">{{ __('Premium : expériences d’exception, souvent privées. Familles : activités adaptées aux enfants.') }}</span>
+                    </div>
+                @endif
 
                 <div id="{{ $carouselId }}" style="{{ $carouselEnabled ? 'display: flex; gap: 1.25rem; overflow-x: auto; padding: 0.25rem 0.2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--tk-accent-border) transparent;' : 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;' }}">
                     @foreach($section['products'] as $product)
@@ -75,9 +80,9 @@
                             {{ $product->category->name ?? __('Activité') }}
                         </div>
                         @if($product->is_premium || $product->is_family_friendly)
-                            <div style="position: absolute; top: 3rem; left: 1rem; display: flex; gap: 0.35rem; flex-wrap: wrap;">
-                                @if($product->is_premium)<span style="padding: 0.2rem 0.6rem; border-radius: 0.4rem; font-size: 0.75rem; font-weight: 700; line-height: 1.2; background: #a32035; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);">{{ __('Premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.6rem; border-radius: 0.4rem; font-size: 0.75rem; font-weight: 700; line-height: 1.2; background: #2f7d4f; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);">{{ __('Familles') }}</span>@endif
+                            <div style="position: absolute; top: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
+                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Familles') }}</span>@endif
                             </div>
                         @endif
                     </div>
