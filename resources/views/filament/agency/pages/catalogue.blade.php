@@ -49,7 +49,7 @@
                         <span style="font-size: 0.82rem; color: #64748b;">{{ __('Affiner :') }}</span>
                         <button type="button" wire:click="$toggle('premiumOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #d97706; {{ $premiumOnly ? 'background:#d97706;color:#fff;' : 'background:#fffbeb;color:#92400e;' }}">★ {{ __('Expériences premium') }}</button>
                         <button type="button" wire:click="$toggle('familyOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #059669; {{ $familyOnly ? 'background:#059669;color:#fff;' : 'background:#ecfdf5;color:#065f46;' }}">👨‍👩‍👧 {{ __('Conseillées aux familles') }}</button>
-                        <span style="font-size: 0.8rem; color: #94a3b8;">{{ __('Premium : expériences d’exception, souvent privées. Familles : activités adaptées aux enfants.') }}</span>
+                        <span style="font-size: 0.8rem; color: #94a3b8;">{{ __('Premium : expériences d’exception, souvent privées. Familles : activités adaptées aux enfants et aux adultes.') }}</span>
                     </div>
                 @endif
 
