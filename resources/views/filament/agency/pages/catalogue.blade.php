@@ -18,6 +18,10 @@
                 <div style="position: relative; width: 100%; max-width: 400px;">
                     <input type="text" wire:model.live="search" placeholder="{{ __('Rechercher une activité...') }}"
                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem; border: 1px solid #e2e8f0; border-radius: 9999px; font-size: 0.9rem; outline: none; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap;">
+                        <button type="button" wire:click="$toggle('premiumOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #d97706; {{ $premiumOnly ? 'background:#d97706;color:#fff;' : 'background:#fffbeb;color:#92400e;' }}">★ {{ __('Expériences premium') }}</button>
+                        <button type="button" wire:click="$toggle('familyOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #059669; {{ $familyOnly ? 'background:#059669;color:#fff;' : 'background:#ecfdf5;color:#065f46;' }}">👨‍👩‍👧 {{ __('Conseillées aux familles') }}</button>
+                    </div>
                     <svg style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
             </div>
@@ -74,6 +78,12 @@
 
                     <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.3;">{{ $product->name }}</h3>
+                        @if($product->is_premium || $product->is_family_friendly)
+                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                @if($product->is_premium)<span style="padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d;">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
+                            </div>
+                        @endif
                         
                         <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; height: 3.8rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                             {{ trim(preg_replace('/\s+/u', ' ', str_replace(['**', '__'], '', explode('## ', strip_tags((string) $product->description))[0]))) }}

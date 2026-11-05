@@ -31,6 +31,12 @@ class Catalogue extends Page
     #[Url(as: 'category')]
     public ?int $categoryId = null;
 
+    #[Url(as: 'premium')]
+    public bool $premiumOnly = false;
+
+    #[Url(as: 'familles')]
+    public bool $familyOnly = false;
+
     private const PRODUCTS_PER_CATEGORY = 4;
 
     public function getCatalogueSettingsProperty(): array
@@ -57,6 +63,14 @@ class Catalogue extends Page
             $query->where('category_id', $this->categoryId);
         }
 
+        if ($this->premiumOnly) {
+            $query->where('is_premium', true);
+        }
+
+        if ($this->familyOnly) {
+            $query->where('is_family_friendly', true);
+        }
+
         $agencyId = auth('agency')->user()?->agency_id
             ?? \Filament\Facades\Filament::auth()->user()?->agency_id;
 
@@ -75,7 +89,7 @@ class Catalogue extends Page
     public function getProductSectionsProperty(): Collection
     {
         $settings = $this->catalogueSettings;
-        $showAllProducts = filled($this->search) || $this->categoryId !== null;
+        $showAllProducts = filled($this->search) || $this->categoryId !== null || $this->premiumOnly || $this->familyOnly;
 
         if (! $settings['separateCategories']) {
             return collect([[

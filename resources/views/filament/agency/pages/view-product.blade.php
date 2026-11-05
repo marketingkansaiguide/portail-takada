@@ -131,6 +131,12 @@
                             @endif
                         </div>
                         <h1 class="product-title" style="font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
+                        @if($product->is_premium || $product->is_family_friendly)
+                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d;">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
+                            </div>
+                        @endif
                         
                     </div>
 

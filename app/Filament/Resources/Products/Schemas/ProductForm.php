@@ -870,6 +870,12 @@ class ProductForm
                                 ->minValue(1)
                                 ->maxValue(99),
 
+                            Toggle::make('is_premium')
+                                ->label(__('Expérience premium (badge + filtre agence)')),
+
+                            Toggle::make('is_family_friendly')
+                                ->label(__('Conseillée aux familles (badge + filtre agence)')),
+
                             Toggle::make('requires_guide')
                                 ->label(__('Activité à faire en présence d’un de nos guides'))
                                 ->helperText(__('Affiche un bandeau bien visible sur la fiche agence.')),
