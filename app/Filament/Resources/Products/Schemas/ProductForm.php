@@ -74,6 +74,17 @@ class ProductForm
                                 ->rows(5)
                                 ->columnSpanFull(),
 
+                            TextInput::make('culture_title')
+                                ->label(__('Encart culturel : titre'))
+                                ->placeholder(__('Ex: La calligraphie'))
+                                ->columnSpanFull(),
+
+                            Textarea::make('culture_text')
+                                ->label(__('Encart culturel : petit point culturel'))
+                                ->helperText(__('Affiché sous la description, sur la fiche agence.'))
+                                ->rows(5)
+                                ->columnSpanFull(),
+
                             FileUpload::make('images')
                                 ->label(__('Galerie de photos d\'illustration'))
                                 ->multiple()
