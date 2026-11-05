@@ -73,6 +73,7 @@
         html.dark .tk-dbd .tk-name { color: var(--gray-50); }
         .tk-dbd .is-cancelled .tk-name { text-decoration: line-through; color: var(--tk-dbd-muted); }
         .tk-dbd .tk-opt { font-size: .75rem; color: var(--gray-500); min-width: 7.5rem; }
+        .tk-dbd .tk-buy { color: var(--gray-500); }
         .tk-dbd .tk-c { text-align: center; white-space: nowrap; }
         .tk-dbd .tk-r { text-align: right; white-space: nowrap; }
         .tk-dbd .tk-flag { display: inline-block; font-size: .72rem; font-style: normal; color: var(--gray-600); background: var(--tk-accent-soft, #f3f1ec); border: 1px solid var(--tk-accent-border, #e4e0d6); border-radius: .25rem; padding: 0 .4rem; margin-right: .4rem; }
@@ -137,6 +138,7 @@
                             <th class="tk-c">{{ __('Qté') }}</th>
                             <th>{{ __('Fournisseur') }}</th>
                             <th>{{ __('Statut') }}</th>
+                            <th class="tk-r">{{ __('Achat ¥') }}</th>
                             <th class="tk-r">{{ __('Vente ¥') }}</th>
                             <th></th>
                         </tr>
@@ -156,7 +158,7 @@
                                 <tr class="is-day is-free {{ $isWeekend ? 'is-we' : '' }}">
                                     <td class="tk-j">{{ $day['number'] }}</td>
                                     <td class="tk-d">{{ $dayLabel }}</td>
-                                    <td colspan="7">
+                                    <td colspan="8">
                                         @foreach ($flags as $flag)<span class="tk-flag">{{ $flag }}</span>@endforeach
                                         — {{ __('journée libre') }}
                                     </td>
@@ -178,7 +180,7 @@
                                             @endif
                                             <span class="tk-name">{{ $row['name'] }}</span>
                                             @if ($row['internal'])
-                                                <span class="tk-lock">🔒 {{ __('interne · achat') }} {{ $fmtPrice($row['price']) }} ¥</span>
+                                                <span class="tk-lock">🔒 {{ __('interne') }}</span>
                                             @endif
                                         </td>
                                         <td class="tk-opt">{{ $row['options'] }}</td>
@@ -193,6 +195,7 @@
                                             @endif
                                         </td>
                                         <td><span class="tk-badge tk-{{ $row['status_tone'] }}">{{ $row['status_name'] }}</span></td>
+                                        <td class="tk-r tk-buy">{{ $fmtPrice($row['purchase']) }}</td>
                                         <td class="tk-r">{{ $row['internal'] ? '—' : $fmtPrice($row['price']) }}</td>
                                         <td class="tk-r" x-on:click.stop>
                                             <span class="tk-acts">
@@ -210,7 +213,8 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="7" class="tk-r">{{ __('Total prestations facturables') }}</td>
+                            <td colspan="7" class="tk-r">{{ __('Totaux (hors annulations)') }}</td>
+                            <td class="tk-r tk-buy">{{ $fmtPrice($purchaseTotal) }}</td>
                             <td class="tk-r">{{ $fmtPrice($billable) }}</td>
                             <td></td>
                         </tr>

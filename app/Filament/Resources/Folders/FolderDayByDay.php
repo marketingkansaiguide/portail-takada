@@ -112,6 +112,7 @@ class FolderDayByDay
                 'invoice_received' => ! empty($state['invoice_received_at']),
                 'status' => ! empty($state['item_status_id']) ? $statuses->get((int) $state['item_status_id']) : null,
                 'price' => (float) ($state['total_price'] ?? 0),
+                'purchase' => (float) ($state['purchase_total_price'] ?? 0),
             ];
         }
 
@@ -132,7 +133,8 @@ class FolderDayByDay
                 'must_select_supplier' => false,
                 'invoice_received' => true,
                 'status' => ! empty($state['item_status_id']) ? $statuses->get((int) $state['item_status_id']) : null,
-                'price' => (float) ($state['purchase_total_price'] ?? 0),
+                'price' => 0.0,
+                'purchase' => (float) ($state['purchase_total_price'] ?? 0),
             ];
         }
 
@@ -189,6 +191,7 @@ class FolderDayByDay
 
         $counts = collect($rows)->groupBy('status_tone')->map->count();
         $billable = collect($rows)->where('internal', false)->where('cancelled', false)->sum('price');
+        $purchaseTotal = collect($rows)->where('cancelled', false)->sum('purchase');
 
         return new HtmlString(view('filament.folders.day-by-day', [
             'days' => $days,
@@ -197,6 +200,7 @@ class FolderDayByDay
             'counts' => $counts,
             'cancelledCount' => collect($rows)->where('cancelled', true)->count(),
             'billable' => $billable,
+            'purchaseTotal' => $purchaseTotal,
         ])->render());
     }
 
