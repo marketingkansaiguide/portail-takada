@@ -541,6 +541,7 @@ class ViewProduct extends Page
             }
 
             $price = 0;
+            $isGroup = false;
             if (!$isOnDemand && $isAvailable) {
                 $rates = $this->product->periodForDate($date)?->productPrices
                     ->reject(fn ($price): bool => $price->isExtraPaxRate());
@@ -552,9 +553,8 @@ class ViewProduct extends Page
                 }
                 $row = $adultRates?->first(fn ($price): bool => $price->min_pax <= $qty && $price->max_pax >= $qty)
                     ?? $adultRates?->sortByDesc('max_pax')->first();
-                $matchedPrice = $row
-                    ? ($this->product->usesGlobalRate($row) ? $row->price / $qty : $row->price)
-                    : null;
+                $isGroup = $row && $this->product->usesGlobalRate($row);
+                $matchedPrice = $row ? $row->price : null;
                 if ($matchedPrice !== null) {
                     $price = $matchedPrice;
                 }
@@ -563,6 +563,7 @@ class ViewProduct extends Page
             $map[$dateStr] = [
                 'available' => $isAvailable,
                 'price' => $price ? number_format($price, 0, '.', ' ') : null,
+                'unit' => $isGroup ? 'groupe' : 'pax',
                 'is_on_demand' => $isOnDemand
             ];
 
