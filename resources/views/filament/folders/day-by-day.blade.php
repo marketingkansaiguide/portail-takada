@@ -185,6 +185,9 @@
         html.dark .tk-dbd-modal .fi-dropdown-panel { background: var(--gray-900); }
         .tk-dbd-modal .fi-dropdown-panel .fi-select-input-option, .tk-dbd-modal .fi-dropdown-panel li { opacity: 1; color: var(--gray-950); }
         html.dark .tk-dbd-modal .fi-dropdown-panel .fi-select-input-option, html.dark .tk-dbd-modal .fi-dropdown-panel li { color: var(--gray-50); }
+        /* Liste déroulante ouverte près du bas de la popin : on réserve la place pour qu'elle ne soit pas coupée ni ne décale le contenu */
+        .tk-dbd-modal { scrollbar-gutter: stable; }
+        .tk-dbd-modal:has(.fi-dropdown-panel[style*="display: block"]) { padding-bottom: 14rem; }
 
         .tk-dbd-modal > .fi-fo-repeater-item-content { display: block !important; padding: 1rem 1.25rem 1.25rem; background: var(--tk-paper, #f7f6f3); border: 0; }
         html.dark .tk-dbd-modal > .fi-fo-repeater-item-content { background: var(--gray-950); }
