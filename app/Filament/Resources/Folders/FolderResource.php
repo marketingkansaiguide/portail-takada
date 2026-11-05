@@ -950,6 +950,8 @@ class FolderResource extends Resource
                             ->hiddenLabel() 
                             ->addActionLabel(__('Ajouter une prestation au dossier'))
                             ->collapsible()
+                            ->collapseAllAction(fn ($action) => $action->hidden())
+                            ->expandAllAction(fn ($action) => $action->hidden())
                             ->collapsed()
                             ->live()
                             ->defaultItems(0)
