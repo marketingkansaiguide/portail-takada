@@ -194,7 +194,9 @@ class Product extends Model
         $teenAge = (int) ($this->child_age_limit ?? 11) + 1;
         $adultAge = $this->teen_age_limit !== null ? (int) $this->teen_age_limit + 1 : $teenAge;
 
-        $findPrice = function (int $age, int $paxCount) use ($prices, $period): ?array {
+        $findPrice = function (int $age, int $paxCount, ?int $groupCount = null) use ($prices, $period): ?array {
+            // $paxCount sert à choisir la tranche ; $groupCount = nombre de personnes de cette catégorie.
+            $groupCount ??= $paxCount;
             $regularPrices = $prices->reject(fn (ProductPrice $price): bool => $price->isExtraPaxRate());
             $price = $regularPrices
                 ->where('min_pax', '<=', $paxCount)
@@ -214,10 +216,10 @@ class Product extends Model
             if ($price) {
                 $total = $this->usesGlobalRate($price)
                     ? (float) $price->price
-                    : (float) $price->price * $paxCount;
+                    : (float) $price->price * $groupCount;
 
                 return [
-                    'unit' => $total / max(1, $paxCount),
+                    'unit' => $total / max(1, $groupCount),
                     'total' => $total,
                 ];
             }
@@ -236,10 +238,10 @@ class Product extends Model
                     return ['unit' => 0.0, 'total' => 0.0];
                 }
 
-                $total = $this->baseRateTotal($fallback, $paxCount, $period, $age);
+                $total = $this->baseRateTotal($fallback, $groupCount, $period, $age);
 
                 return [
-                    'unit' => $total / max(1, $paxCount),
+                    'unit' => $total / max(1, $groupCount),
                     'total' => $total,
                 ];
             }
@@ -253,11 +255,11 @@ class Product extends Model
             $childPax = $usePerAgePaxCount ? $children : $totalPax;
             // Sans tranche « 0 an » (âge minimum du produit), on cherche la
             // tranche enfant la plus haute plutôt que de facturer au tarif adulte.
-            $childPrice = $findPrice($childAge, $childPax)
-                ?? $findPrice(max(0, (int) ($this->child_age_limit ?? 11)), $childPax);
+            $childPrice = $findPrice($childAge, $childPax, $children)
+                ?? $findPrice(max(0, (int) ($this->child_age_limit ?? 11)), $childPax, $children);
         }
-        $teenPrice = $teenagers > 0 ? $findPrice($teenAge, $usePerAgePaxCount ? $teenagers : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
-        $adultPrice = $adults > 0 ? $findPrice($adultAge, $usePerAgePaxCount ? $adults : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
+        $teenPrice = $teenagers > 0 ? $findPrice($teenAge, $usePerAgePaxCount ? $teenagers : $totalPax, $teenagers) : ['unit' => 0.0, 'total' => 0.0];
+        $adultPrice = $adults > 0 ? $findPrice($adultAge, $usePerAgePaxCount ? $adults : $totalPax, $adults) : ['unit' => 0.0, 'total' => 0.0];
 
         if (($children > 0 && $childPrice === null) || ($teenagers > 0 && $teenPrice === null) || ($adults > 0 && $adultPrice === null)) {
             return null;
