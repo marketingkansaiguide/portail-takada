@@ -1652,6 +1652,17 @@ class FolderResource extends Resource
                                                 // Options regroupées par déclinaison (group_name) pour ne plus les mélanger
                                                 $options = \App\Models\ProductOption::where('product_id', $productId)
                                                     ->orderBy('sort_order')->orderBy('id')->get();
+                                                // Chaque ligne ne propose que les choix de SA déclinaison ;
+                                                // une nouvelle ligne ne propose que les déclinaisons pas encore utilisées.
+                                                $currentId = $get('product_option_id');
+                                                $currentGroup = $currentId ? $options->firstWhere('id', (int) $currentId)?->group_name : null;
+                                                if (filled($currentGroup)) {
+                                                    $options = $options->where('group_name', $currentGroup)->values();
+                                                } else {
+                                                    $usedIds = collect($get('../../selected_options') ?? [])->pluck('product_option_id')->filter()->map(fn ($i) => (int) $i);
+                                                    $usedGroups = $options->whereIn('id', $usedIds)->pluck('group_name')->filter()->unique();
+                                                    $options = $options->reject(fn ($o) => filled($o->group_name) && $usedGroups->contains($o->group_name))->values();
+                                                }
                                                 if ($options->every(fn ($o) => blank($o->group_name))) {
                                                     return $options->pluck('name', 'id')->toArray();
                                                 }
@@ -1713,17 +1724,27 @@ class FolderResource extends Resource
                                         if ($product->product_type === 'transport') {
                                             return [
                                                 $ageSelectorMetadata,
-                                                Section::make(__('🚄 Itinéraire de Transport (Multi-Trajets)'))
-                                                    ->description(__('Ajoutez autant de trajets que nécessaire pour cette réservation de billet.'))
+                                                Section::make(__('Trajets'))
+                                                    ->description(__('Un trajet par billet.'))
+                                                    ->compact()
                                                     ->schema([
 Repeater::make('transport_routes')
     ->hiddenLabel()
     ->addActionLabel(__('Ajouter un trajet'))
-    ->itemLabel(fn (array $state): ?string => 
-        (!empty($state['departure_station']) && !empty($state['arrival_station']))
-            ? "{$state['departure_station']} ➔ {$state['arrival_station']}" . (!empty($state['departure_date']) ? " ({$state['departure_date']})" : "")
-            : __('Nouveau trajet')
-    )
+    // Libellé lisible même replié : « Trajet 2 · Kyoto → Tokyo · 07/08 · 2 pax »
+    ->itemLabel(function (array $state, ?int $index = null): string {
+        $parts = [__('Trajet') . ($index !== null ? ' ' . ($index + 1) : '')];
+        if (!empty($state['departure_station']) || !empty($state['arrival_station'])) {
+            $parts[] = ($state['departure_station'] ?: '…') . ' → ' . ($state['arrival_station'] ?: '…');
+        }
+        if (!empty($state['departure_date'])) {
+            try { $parts[] = \Illuminate\Support\Carbon::parse($state['departure_date'])->format('d/m'); } catch (\Throwable $e) {}
+        }
+        if (!empty($state['pax_count'])) {
+            $parts[] = (int) $state['pax_count'] . ' pax';
+        }
+        return implode(' · ', $parts);
+    })
     ->collapsible()
     ->live()
     ->afterStateUpdated(function ($set, $get) {
@@ -1734,7 +1755,7 @@ Repeater::make('transport_routes')
     ->schema([
         Group::make()->schema([
             Select::make('departure_station')
-                ->label(__('Gare / Station de départ'))
+                ->label(__('Gare de départ'))
                 ->searchable()
                 ->required()
                 ->placeholder(__('Rechercher gare ou station...'))
@@ -1769,7 +1790,7 @@ Repeater::make('transport_routes')
                 ->getOptionLabelUsing(fn ($value) => $value),
 
             Select::make('arrival_station')
-                ->label(__('Gare / Station d\'arrivée'))
+                ->label(__('Gare d\'arrivée'))
                 ->searchable()
                 ->required()
                 ->placeholder(__('Rechercher gare ou station...'))
@@ -1806,22 +1827,26 @@ Repeater::make('transport_routes')
 
         Group::make()->schema([
             DatePicker::make('departure_date')
-                ->label(__('Date du trajet'))
+                ->label(__('Date'))
                 ->native(false)
+                ->displayFormat('d/m/Y')
                 ->required(),
 
             TextInput::make('departure_time')
-                ->label(__('Heure de départ'))
-                ->placeholder(__('Ex: 09:32')),
+                ->label(__('Départ'))
+                ->placeholder(__('09:32')),
 
             TextInput::make('arrival_time')
-                ->label(__('Heure d\'arrivée'))
-                ->placeholder(__('Ex: 12:05')),
+                ->label(__('Arrivée'))
+                ->placeholder(__('12:05')),
 
             TextInput::make('train_number')
-                ->label(__('N° Train / Bus'))
-                ->placeholder(__('Ex: Hikari 502 / Voiture 3')),
+                ->label(__('N° train / bus'))
+                ->placeholder(__('Hikari 502, voiture 3')),
+        ])->columns(['default' => 2, 'md' => 4]),
 
+        // Classe, passagers et achat sur une seule ligne
+        Group::make()->schema([
             Select::make('option_id')
                 ->label(__('Classe'))
                 ->options(fn () => \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id'))
@@ -1829,30 +1854,27 @@ Repeater::make('transport_routes')
                 ->required(),
 
             TextInput::make('pax_count')
-                ->label(__('Passagers (Pax)'))
+                ->label(__('Passagers'))
                 ->numeric()
+                ->minValue(1)
+                ->suffix(__('pax'))
                 ->default(1)
                 ->required(),
-        ])->columns(6),
 
-        Textarea::make('specific_requests')
-            ->label(__('Demandes spécifiques/indication complémentaire'))
-            ->rows(3)
-            ->maxLength(5000)
-            ->columnSpanFull(),
-
-        Group::make()->schema([
             Select::make('supplier_id')
-                ->label(__('Fournisseur pour ce trajet'))
+                ->label(__('Fournisseur'))
+                ->hintColor('gray')
+                ->hintIcon('heroicon-m-information-circle', tooltip: __('Qui émet ce billet (JR, Willer Express...)'))
                 ->options(fn () => \App\Models\Supplier::pluck('name', 'id'))
                 ->searchable()
                 ->preload()
-                ->nullable()
-                ->helperText(__('Sélectionnez qui émet ce billet (JR, Willer Express...)')),
+                ->nullable(),
 
             TextInput::make('purchase_price')
-                ->label(__('Prix d\'achat Total du trajet (¥)'))
-                ->helperText(__('Ce montant sera refacturé à l\'identique (prix coûtant) à l\'agence.'))
+                ->label(__('Prix d\'achat'))
+                ->hintColor('gray')
+                ->hintIcon('heroicon-m-information-circle', tooltip: __('Total du trajet, refacturé à l\'agence au prix coûtant.'))
+                ->suffix('¥')
                 ->numeric()
                 ->default(0)
                 ->live()
@@ -1861,7 +1883,15 @@ Repeater::make('transport_routes')
                     $parentGet = function($k) use ($get) { return $get('../../'.$k); };
                     self::updateItemPrices($parentSet, $parentGet);
                 }),
-        ])->columns(2),
+        ])->columns(['default' => 2, 'md' => 4]),
+
+        Textarea::make('specific_requests')
+            ->label(__('Demande spécifique'))
+            ->placeholder(__('Siège côté fenêtre, bagages volumineux, correspondance…'))
+            ->rows(2)
+            ->autosize()
+            ->maxLength(5000)
+            ->columnSpanFull(),
     ])
                                                     ])
                                             ];
