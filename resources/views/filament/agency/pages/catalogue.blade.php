@@ -81,8 +81,8 @@
                         </div>
                         @if($product->is_premium || $product->is_family_friendly)
                             <div style="position: absolute; top: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
-                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Familles') }}</span>@endif
+                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
                             </div>
                         @endif
                     </div>
