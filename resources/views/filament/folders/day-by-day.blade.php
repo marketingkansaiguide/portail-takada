@@ -66,12 +66,12 @@
         html.dark .tk-dbd-seg button { color: var(--gray-300); }
         .tk-dbd-seg button.is-on { background: var(--primary-600); color: #fff; }
         .tk-dbd-link { font-size: .75rem; color: var(--gray-500); text-decoration: underline; margin-right: .5rem; }
-        .tk-dbd-scroll { overflow-x: auto; }
-        .tk-dbd table { width: 100%; border-collapse: collapse; font-size: .8125rem; min-width: 960px; }
-        .tk-dbd th { background: var(--tk-dbd-head); text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-500); padding: .5rem .6rem; border: 1px solid var(--tk-dbd-line); font-weight: 600; }
-        .tk-dbd td { border: 1px solid var(--tk-dbd-line); padding: .45rem .6rem; vertical-align: middle; }
-        .tk-dbd td.tk-j { text-align: center; font-weight: 700; width: 2.6rem; background: var(--tk-dbd-head); }
-        .tk-dbd td.tk-d { width: 6.2rem; white-space: nowrap; font-weight: 600; background: var(--tk-dbd-head); }
+        .tk-dbd-scroll { overflow: visible; }
+        .tk-dbd table { width: 100%; border-collapse: collapse; font-size: .78rem; table-layout: auto; }
+        .tk-dbd th { background: var(--tk-dbd-head); text-align: left; font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-500); padding: .45rem .4rem; border: 1px solid var(--tk-dbd-line); font-weight: 600; }
+        .tk-dbd td { border: 1px solid var(--tk-dbd-line); padding: .4rem .4rem; vertical-align: middle; }
+        .tk-dbd td.tk-j { text-align: center; font-weight: 700; width: 2rem; background: var(--tk-dbd-head); }
+        .tk-dbd td.tk-d { width: 5.4rem; white-space: nowrap; font-weight: 600; background: var(--tk-dbd-head); }
         .tk-dbd tr.is-we td.tk-d, .tk-dbd tr.is-we td.tk-j { color: var(--primary-700); }
         html.dark .tk-dbd tr.is-we td.tk-d, html.dark .tk-dbd tr.is-we td.tk-j { color: var(--primary-400); }
         .tk-dbd tr.is-day td { border-top: 2px solid var(--gray-300); }
@@ -80,16 +80,17 @@
         .tk-dbd tr.is-item { cursor: pointer; }
         .tk-dbd tr.is-item:hover td:not(.tk-j):not(.tk-d) { background: color-mix(in srgb, var(--primary-500) 5%, transparent); }
         .tk-dbd .tk-name { font-weight: 500; color: var(--gray-950); }
-        .tk-dbd td.tk-p { min-width: 15rem; }
+        .tk-dbd td.tk-p { min-width: 9rem; }
         html.dark .tk-dbd .tk-name { color: var(--gray-50); }
         .tk-dbd .is-cancelled .tk-name { text-decoration: line-through; color: var(--tk-dbd-muted); }
-        .tk-dbd .tk-opt { font-size: .75rem; color: var(--gray-500); min-width: 7.5rem; }
+        .tk-dbd .tk-opt { display: block; font-size: .72rem; color: var(--gray-500); margin-top: .1rem; }
+        .tk-dbd td.tk-st { min-width: 7.5rem; }
         .tk-dbd .tk-buy { color: var(--gray-500); }
         .tk-dbd .tk-c { text-align: center; white-space: nowrap; }
         .tk-dbd .tk-r { text-align: right; white-space: nowrap; }
         .tk-dbd .tk-flag { display: inline-block; font-size: .72rem; font-style: normal; color: var(--gray-600); background: var(--tk-accent-soft, #f3f1ec); border: 1px solid var(--tk-accent-border, #e4e0d6); border-radius: .25rem; padding: 0 .4rem; margin-right: .4rem; }
         .tk-dbd .tk-lock { font-size: .72rem; color: var(--gray-500); white-space: nowrap; }
-        .tk-dbd .tk-badge { display: inline-flex; align-items: center; padding: .1rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 600; white-space: nowrap; border: 1px solid; }
+        .tk-dbd .tk-badge { display: inline-flex; align-items: center; padding: .1rem .55rem; border-radius: 999px; font-size: .7rem; font-weight: 600; white-space: normal; line-height: 1.25; border: 1px solid; }
         .tk-dbd .tk-success { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
         .tk-dbd .tk-warning { background: #fffbeb; color: #b45309; border-color: #fde68a; }
         .tk-dbd .tk-danger { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
@@ -102,12 +103,15 @@
         html.dark .tk-dbd .tk-info { color: #60a5fa; border-color: #1e40af; }
         html.dark .tk-dbd .tk-gray { color: #94a3b8; border-color: #334155; }
         .tk-dbd .tk-alert-invoice { display: block; color: #dc2626; font-weight: 700; font-size: .72rem; }
-        .tk-dbd .tk-alert-supplier { display: inline-block; margin-top: .15rem; background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; border-radius: 999px; padding: 0 .5rem; font-weight: 700; font-size: .68rem; white-space: nowrap; }
-        .tk-dbd .tk-acts { display: inline-flex; gap: .25rem; }
-        .tk-dbd .tk-acts button { font-size: .7rem; font-weight: 600; color: var(--gray-600); border: 1px solid var(--tk-dbd-line); border-radius: .25rem; padding: .1rem .35rem; background: transparent; white-space: nowrap; }
+        .tk-dbd .tk-alert-supplier { display: inline-block; margin-top: .15rem; background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; border-radius: 999px; padding: 0 .45rem; font-weight: 700; font-size: .65rem; white-space: normal; }
+        .tk-dbd .tk-acts { display: inline-flex; gap: .15rem; }
+        .tk-dbd .tk-acts button { font-size: .7rem; font-weight: 600; color: var(--gray-600); border: 1px solid var(--tk-dbd-line); border-radius: .25rem; padding: .2rem; background: transparent; white-space: nowrap; line-height: 0; }
+        .tk-dbd .tk-acts svg { width: .95rem; height: .95rem; }
         html.dark .tk-dbd .tk-acts button { color: var(--gray-300); }
         .tk-dbd .tk-acts button:hover { border-color: var(--gray-400); }
         .tk-dbd .tk-acts button.is-del { color: #b91c1c; }
+        .tk-dbd .tk-acts button.is-mail { color: #2563eb; }
+        .tk-dbd .tk-acts button.is-fax { color: #16a34a; }
         .tk-dbd tfoot td { font-weight: 700; background: var(--tk-dbd-head); }
         .tk-dbd-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: .85rem; border: 1px dashed var(--tk-dbd-line); border-radius: .5rem; }
         /* Mode jour par jour : les fiches du repeater restent repliées et masquées, sauf celles ouvertes depuis le tableau ou pas encore enregistrées. */
@@ -159,7 +163,6 @@
                             <th>{{ __('J') }}</th>
                             <th>{{ __('Date') }}</th>
                             <th>{{ __('Prestation') }}</th>
-                            <th>{{ __('Option') }}</th>
                             <th class="tk-c">{{ __('Qté') }}</th>
                             <th>{{ __('Fournisseur') }}</th>
                             <th>{{ __('Statut') }}</th>
@@ -177,8 +180,8 @@
                                 @endphp
                                 <tr class="is-day is-free is-free-range">
                                     <td class="tk-j">{{ $day['from']['number'] }}–{{ $day['to']['number'] }}</td>
-                                    <td class="tk-d">{{ $fromLabel }} → {{ $toLabel }}</td>
-                                    <td colspan="8">— {{ $day['count'] }} {{ __('journées libres') }}</td>
+                                    <td class="tk-d" style="white-space:normal">{{ $fromLabel }} → {{ $toLabel }}</td>
+                                    <td colspan="7">— {{ $day['count'] }} {{ __('journées libres') }}</td>
                                 </tr>
                                 @continue
                             @endif
@@ -198,7 +201,7 @@
                                 <tr class="is-day is-free {{ $isWeekend ? 'is-we' : '' }}">
                                     <td class="tk-j">{{ $day['number'] }}</td>
                                     <td class="tk-d">{{ $dayLabel }}</td>
-                                    <td colspan="8">
+                                    <td colspan="7">
                                         @foreach ($flags as $flag)<span class="tk-flag">{{ $flag }}</span>@endforeach
                                         — {{ __('journée libre') }}
                                     </td>
@@ -222,8 +225,10 @@
                                             @if ($row['internal'])
                                                 <span class="tk-lock">🔒 {{ __('interne') }}</span>
                                             @endif
+                                            @if (filled($row['options']))
+                                                <span class="tk-opt">{{ $row['options'] }}</span>
+                                            @endif
                                         </td>
-                                        <td class="tk-opt">{{ $row['options'] }}</td>
                                         <td class="tk-c">{{ $row['quantity'] }}</td>
                                         <td>
                                             {{ $row['supplier'] ?? ($row['internal'] ? '' : '—') }}
@@ -234,16 +239,16 @@
                                                 <span class="tk-alert-supplier">⚠️ {{ __('SÉLECTIONNER UN FOURNISSEUR') }}</span>
                                             @endif
                                         </td>
-                                        <td><span class="tk-badge tk-{{ $row['status_tone'] }}">{{ $row['status_name'] }}</span></td>
+                                        <td class="tk-st"><span class="tk-badge tk-{{ $row['status_tone'] }}">{{ $row['status_name'] }}</span></td>
                                         <td class="tk-r tk-buy">{{ $fmtPrice($row['purchase']) }}</td>
                                         <td class="tk-r">{{ $row['internal'] ? '—' : $fmtPrice($row['price']) }}</td>
                                         <td class="tk-r" x-on:click.stop>
                                             <span class="tk-acts">
                                                 @if (! $row['internal'])
-                                                    <button type="button" title="{{ __('Aperçu de l\'email fournisseur') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'generateSupplierEmail')">{{ __('Mail') }}</button>
-                                                    <button type="button" title="{{ __('Ouvrir un nouveau FAX dans Google Sheets') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'generateGoogleSheetFax')">{{ __('Fax') }}</button>
+                                                    <button type="button" class="is-mail" title="{{ __('Aperçu de l\'email fournisseur') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'generateSupplierEmail')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"/></svg></button>
+                                                    <button type="button" class="is-fax" title="{{ __('Ouvrir un nouveau FAX dans Google Sheets') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'generateGoogleSheetFax')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg></button>
                                                 @endif
-                                                <button type="button" class="is-del" title="{{ __('Supprimer') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'delete')">{{ __('Suppr.') }}</button>
+                                                <button type="button" class="is-del" title="{{ __('Supprimer') }}" x-on:click="act(@js($row['repeater']), @js($row['key']), 'delete')"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg></button>
                                             </span>
                                         </td>
                                     </tr>
@@ -253,7 +258,7 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="7" class="tk-r">{{ __('Totaux (hors annulations)') }}</td>
+                            <td colspan="6" class="tk-r">{{ __('Totaux (hors annulations)') }}</td>
                             <td class="tk-r tk-buy">{{ $fmtPrice($purchaseTotal) }}</td>
                             <td class="tk-r">{{ $fmtPrice($billable) }}</td>
                             <td></td>
