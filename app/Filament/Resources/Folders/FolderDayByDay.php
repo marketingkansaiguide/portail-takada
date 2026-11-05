@@ -50,6 +50,11 @@ class FolderDayByDay
             if (! empty($item['product_option_id'])) {
                 $ids->push($item['product_option_id']);
             }
+            foreach ((array) data_get($item, 'custom_values.transport_routes', []) as $route) {
+                if (is_array($route) && ! empty($route['option_id'])) {
+                    $ids->push($route['option_id']);
+                }
+            }
 
             return $ids;
         })->filter()->map(fn ($id) => (int) $id)->unique()->values();
@@ -112,6 +117,7 @@ class FolderDayByDay
                 'invoice_received' => ! empty($state['invoice_received_at']),
                 'status' => ! empty($state['item_status_id']) ? $statuses->get((int) $state['item_status_id']) : null,
                 'price' => (float) ($state['total_price'] ?? 0),
+                'routes' => static::routes((array) data_get($state, 'custom_values.transport_routes', []), $options, static::parseDate($state['service_date'] ?? null)),
                 'purchase' => (float) ($state['purchase_total_price'] ?? 0),
             ];
         }
@@ -134,6 +140,7 @@ class FolderDayByDay
                 'invoice_received' => true,
                 'status' => ! empty($state['item_status_id']) ? $statuses->get((int) $state['item_status_id']) : null,
                 'price' => 0.0,
+                'routes' => [],
                 'purchase' => (float) ($state['purchase_total_price'] ?? 0),
             ];
         }
@@ -225,6 +232,45 @@ class FolderDayByDay
             'billable' => $billable,
             'purchaseTotal' => $purchaseTotal,
         ])->render());
+    }
+
+    /**
+     * Trajets d'un billet train / bus, résumés pour le tableau :
+     * « Gare A → Gare B », puis date, horaires, n° de train, classe et pax s'ils sont renseignés.
+     */
+    protected static function routes(array $routes, $options, ?Carbon $serviceDate = null): array
+    {
+        $lines = [];
+        foreach ($routes as $route) {
+            if (! is_array($route) || (blank($route['departure_station'] ?? null) && blank($route['arrival_station'] ?? null))) {
+                continue;
+            }
+            $details = [];
+            $date = static::parseDate($route['departure_date'] ?? null);
+            if ($date && ! ($serviceDate && $date->isSameDay($serviceDate))) {
+                $details[] = $date->format('d/m');
+            }
+            $times = trim(($route['departure_time'] ?? '') . (filled($route['arrival_time'] ?? null) ? '–' . $route['arrival_time'] : ''));
+            if ($times !== '') {
+                $details[] = $times;
+            }
+            if (filled($route['train_number'] ?? null)) {
+                $details[] = $route['train_number'];
+            }
+            if (! empty($route['option_id']) && ($class = $options->get((int) $route['option_id']))) {
+                $details[] = $class;
+            }
+            if (filled($route['pax_count'] ?? null)) {
+                $details[] = $route['pax_count'] . ' pax';
+            }
+            $lines[] = [
+                'from' => $route['departure_station'] ?? '?',
+                'to' => $route['arrival_station'] ?? '?',
+                'details' => implode(' · ', $details),
+            ];
+        }
+
+        return $lines;
     }
 
     protected static function parseDate($value): ?Carbon

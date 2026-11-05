@@ -101,10 +101,15 @@
         .tk-dbd tr.is-item:hover td:not(.tk-j):not(.tk-d) { background: color-mix(in srgb, var(--primary-500) 5%, transparent); }
         .tk-dbd .tk-name { font-weight: 500; color: var(--gray-950); }
         .tk-dbd td.tk-p { min-width: 9rem; }
+        .tk-dbd td.tk-p:has(.tk-route) { min-width: 11rem; }
         html.dark .tk-dbd .tk-name { color: var(--gray-50); }
         .tk-dbd .is-cancelled .tk-name { text-decoration: line-through; color: var(--tk-dbd-muted); }
         .tk-dbd .tk-opt { display: block; font-size: .72rem; color: var(--gray-500); margin-top: .1rem; }
-        .tk-dbd td.tk-st { min-width: 7.5rem; }
+        .tk-dbd td.tk-st { min-width: 6.5rem; }
+        .tk-dbd .tk-route { display: block; margin-top: .2rem; padding-left: .5rem; border-left: 2px solid var(--gray-300); font-size: .72rem; line-height: 1.35; color: var(--gray-600); }
+        .tk-dbd .tk-route b { font-weight: 600; color: var(--gray-800); }
+        html.dark .tk-dbd .tk-route { color: var(--gray-400); border-color: var(--gray-600); }
+        html.dark .tk-dbd .tk-route b { color: var(--gray-200); }
         .tk-dbd .tk-buy { color: var(--gray-500); }
         .tk-dbd .tk-c { text-align: center; white-space: nowrap; }
         .tk-dbd .tk-r { text-align: right; white-space: nowrap; }
@@ -316,9 +321,12 @@
                                             @if ($row['internal'])
                                                 <span class="tk-lock">🔒 {{ __('interne') }}</span>
                                             @endif
-                                            @if (filled($row['options']))
+                                            @if (filled($row['options']) && ! (! empty($row['routes']) && $row['options'] === __('Sans option')))
                                                 <span class="tk-opt">{{ $row['options'] }}</span>
                                             @endif
+                                            @foreach ($row['routes'] ?? [] as $route)
+                                                <span class="tk-route"><b>{{ $route['from'] }} → {{ $route['to'] }}</b>@if ($route['details'])<span> · {{ $route['details'] }}</span>@endif</span>
+                                            @endforeach
                                         </td>
                                         <td class="tk-c">{{ $row['quantity'] }}</td>
                                         <td>
