@@ -45,7 +45,6 @@
             this.close();
             li.classList.add('tk-dbd-open', 'tk-dbd-modal');
             li.dispatchEvent(new CustomEvent('expand'));
-            delete li.dataset.tkPtab;
             this.tag(li);
             li.scrollTop = 0;
             this.current = { repeater, key, name, sub };
@@ -60,53 +59,6 @@
                 if (col.querySelector('[id$=&quot;.service_date&quot;]')) grid.classList.add('tk-h-date');
                 else if (col.querySelector('[id$=&quot;.invoice_received_at&quot;]')) grid.classList.add('tk-h-facture');
                 else if (! col.querySelector('.fi-fo-repeater') && col.querySelectorAll('.fi-select-input').length >= 2) grid.classList.add('tk-h-prestation');
-            });
-            this.ptabs(li, root);
-        },
-        // Onglets de la popin : « Détails », « Facture » (si le champ existe) et « Options » (si la prestation en a).
-        ptabs(li, root) {
-            const content = li.querySelector(':scope > .fi-fo-repeater-item-content');
-            if (! content) return;
-            const cols = [...root.children].filter((c) => ! c.classList.contains('fi-hidden'));
-            cols.forEach((col) => {
-                let pane = 'details';
-                if (col.querySelector('[id$=&quot;.invoice_received_at&quot;]')) pane = 'facture';
-                else if (col.querySelector('[wire\\:key*=&quot;.selected_options.&quot;]')) pane = 'options';
-                col.setAttribute('data-tk-pane', pane);
-            });
-            const panes = (name) => cols.some((c) => c.dataset.tkPane === name);
-            const optionCount = cols.reduce((n, c) => n + (c.dataset.tkPane === 'options' ? c.querySelectorAll('[wire\\:key*=&quot;.selected_options.&quot;]').length : 0), 0);
-            const defs = [
-                ['details', @js(__('Détails')), true],
-                ['facture', @js(__('Facture')), panes('facture')],
-                ['options', @js(__('Options')) + (optionCount ? ' (' + optionCount + ')' : ''), panes('options')],
-            ];
-            let bar = content.querySelector(':scope > .tk-dbd-ptabs');
-            if (! bar) {
-                bar = document.createElement('div');
-                bar.className = 'tk-dbd-seg tk-dbd-ptabs';
-                content.insertBefore(bar, content.firstChild);
-            }
-            const visible = defs.filter((d) => d[2]).map((d) => d[0]);
-            const active = visible.includes(li.dataset.tkPtab) ? li.dataset.tkPtab : 'details';
-            li.dataset.tkPtab = active;
-            defs.forEach(([key, label, show]) => {
-                let btn = bar.querySelector(':scope > [data-ptab=' + key + ']');
-                if (! btn) {
-                    btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.dataset.ptab = key;
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        li.dataset.tkPtab = key;
-                        this.tag(li);
-                    });
-                    bar.appendChild(btn);
-                }
-                if (btn.textContent !== label) btn.textContent = label;
-                btn.style.display = show ? '' : 'none';
-                btn.classList.toggle('is-on', key === active);
             });
         },
         close() {
@@ -287,11 +239,6 @@
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions,
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions * { pointer-events: auto; }
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-collapsible-actions { display: none !important; }
-        /* Onglets de la popin : un seul bloc visible à la fois */
-        .tk-dbd-ptabs { margin: 0 0 .9rem; max-width: 100%; overflow-x: auto; }
-        .tk-dbd-modal[data-tk-ptab="details"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="details"]),
-        .tk-dbd-modal[data-tk-ptab="facture"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="facture"]),
-        .tk-dbd-modal[data-tk-ptab="options"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="options"]) { display: none !important; }
         /* Jours libres consécutifs regroupés */
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
         .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
