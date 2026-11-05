@@ -73,8 +73,7 @@
             { key: 'vol', label: 'Vol & séjour' },
             { key: 'facturation', label: 'Facturation' },
             { key: 'documents', label: 'Documents' },
-            { key: 'prestations', label: 'Prestations', count: {{ $countItems }} },
-            { key: 'internes', label: 'Internes', count: {{ $countInternal }} },
+            { key: 'prestations', label: 'Prestations', count: {{ $countItems + $countInternal }} },
             { key: 'suivi', label: 'Suivi & messagerie' },
         ],
         init() {
