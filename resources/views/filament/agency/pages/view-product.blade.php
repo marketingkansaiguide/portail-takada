@@ -10,7 +10,7 @@
         .calendar-cell-selected { background: var(--primary-600) !important; border-color: var(--primary-600) !important; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 40%, transparent); }
         .calendar-cell-disabled { background: #f8fafc; border-color: transparent; cursor: not-allowed; opacity: 0.4; }
         .calendar-day-number { font-weight: 700; font-size: 1rem; line-height: 1.1; }
-        .calendar-price-text { font-size: 0.65rem; font-weight: 700; line-height: 1.1; margin-top: 0.2rem; white-space: nowrap; }
+        .calendar-price-text { display: flex; flex-direction: column; font-size: 0.65rem; font-weight: 700; line-height: 1.1; margin-top: 0.2rem; white-space: nowrap; }
 
         .pax-tabs-row::-webkit-scrollbar { display: none; }
         .pax-tabs-row { -ms-overflow-style: none; scrollbar-width: none; }
