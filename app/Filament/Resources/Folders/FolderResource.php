@@ -940,6 +940,9 @@ class FolderResource extends Resource
                     ->description(__('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
                     ->columnSpanFull()
                     ->schema([
+                        // Vue « jour par jour » (façon tableau Excel) au-dessus de la liste des fiches
+                        FolderDayByDay::component(),
+
                         Repeater::make('folderItems')
                             ->relationship('folderItems')
                             ->hiddenLabel() 
