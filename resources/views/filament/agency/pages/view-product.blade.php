@@ -540,6 +540,11 @@
                             {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
                             <div class="product-config-section">
                                 <div class="product-config-section-title">{{ __('Date et participants') }}</div>
+                                @if($product->requires_guide)
+                                    <div style="margin-bottom: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-size: 0.9rem; font-weight: 700;">
+                                        {{ __('Cette activité doit obligatoirement se faire en présence d'un de nos guides (guidage à ajouter au prix global).') }}
+                                    </div>
+                                @endif
                                 @if($product->min_child_age)
                                     <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 0.85rem; font-weight: 600;">
                                         {{ __('Enfants de moins de :age ans non acceptés.', ['age' => $product->min_child_age]) }}
