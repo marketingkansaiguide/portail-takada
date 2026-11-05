@@ -74,16 +74,16 @@
                         <div style="position: absolute; top: 1rem; left: 1rem; background: color-mix(in srgb, var(--primary-600) 90%, transparent); color: white; padding: 0.2rem 0.75rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
                             {{ $product->category->name ?? __('Activité') }}
                         </div>
+                        @if($product->is_premium || $product->is_family_friendly)
+                            <div style="position: absolute; top: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
+                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Familles') }}</span>@endif
+                            </div>
+                        @endif
                     </div>
 
                     <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.3;">{{ $product->name }}</h3>
-                        @if($product->is_premium || $product->is_family_friendly)
-                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-                                @if($product->is_premium)<span style="padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d;">★ {{ __('Expérience premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.15rem 0.6rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
-                            </div>
-                        @endif
                         
                         <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; height: 3.8rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                             {{ trim(preg_replace('/\s+/u', ' ', str_replace(['**', '__'], '', explode('## ', strip_tags((string) $product->description))[0]))) }}

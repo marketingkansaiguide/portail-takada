@@ -131,12 +131,6 @@
                             @endif
                         </div>
                         <h1 class="product-title" style="font-weight: 800; color: #1e293b; letter-spacing: -0.02em; margin: 0;">{{ $product->name }}</h1>
-                        @if($product->is_premium || $product->is_family_friendly)
-                            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem;">
-                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: #fffbeb; color: #92400e; border: 1px solid #fcd34d;">★ {{ __('Expérience premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
-                            </div>
-                        @endif
                         
                     </div>
 
@@ -236,7 +230,13 @@
 
                     @if(count($images) > 0)
                         <div x-data="{ mainImage: '{{ $galleryUrls[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
+                            <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
+                        @if($product->is_premium || $product->is_family_friendly)
+                            <div style="position: absolute; top: 1rem; right: 1rem; z-index: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
+                                @if($product->is_premium)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Familles') }}</span>@endif
+                            </div>
+                        @endif
                                 <img :src="mainImage" src="{{ $galleryUrls[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
                             </div>
                             @if(count($images) > 1)
