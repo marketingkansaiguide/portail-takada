@@ -71,7 +71,7 @@ class ProductForm
                             Textarea::make('description')
                                 ->label(__('Description commerciale'))
                                 ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
-                                ->helperText(__('Mise en forme : « ## Titre », « - puce », **gras**, __souligné__, ligne vide = nouveau paragraphe.'))
+                                ->helperText(__('Mise en forme : « ## Titre », « - puce », « > information importante » (encadré coloré), **gras**, __souligné__, !!rouge!!, ==surligné==, ligne vide = nouveau paragraphe.'))
                                 ->rows(12)
                                 ->columnSpanFull(),
 
