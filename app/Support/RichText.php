@@ -24,9 +24,9 @@ class RichText
             $line = preg_replace('/\*\*(.+?)\*\*/su', '<strong>$1</strong>', $line);
 
             $line = preg_replace('/__(.+?)__/su', '<u>$1</u>', $line);
-            $line = preg_replace('/!!(.+?)!!/su', '<strong style="color:#b91c1c;">$1</strong>', $line);
+            $line = preg_replace('/!!(.+?)!!/su', '<strong style="color:#a32035;">$1</strong>', $line);
 
-            return preg_replace('/==(.+?)==/su', '<mark style="background:#fef08a;padding:0 0.2rem;border-radius:0.2rem;">$1</mark>', $line);
+            return preg_replace('/==(.+?)==/su', '<mark style="background:#fdecee;padding:0 0.2rem;border-radius:0.2rem;">$1</mark>', $line);
         };
 
         $html = '';
@@ -36,7 +36,7 @@ class RichText
 
         $flushNotes = function () use (&$html, &$notes): void {
             if ($notes) {
-                $html .= '<div style="margin:0.4rem 0 0.85rem;padding:0.6rem 0.85rem;border-left:4px solid #d97706;border-radius:0.4rem;background:#fffbeb;color:#92400e;font-weight:600;">'.implode('<br>', $notes).'</div>';
+                $html .= '<div style="margin:0.4rem 0 0.85rem;padding:0.6rem 0.85rem;border-left:4px solid #d97706;border-radius:0.4rem;background:#fffbeb;color:#92400e;font-weight:600;font-size:0.9rem;">'.implode('<br>', $notes).'</div>';
                 $notes = [];
             }
         };
@@ -69,7 +69,7 @@ class RichText
             } elseif (str_starts_with($line, '## ')) {
                 $flushList();
                 $flushPara();
-                $html .= '<h3 style="margin:1rem 0 0.35rem;font-size:0.95rem;font-weight:700;color:#1e293b;">'.$inline(substr($line, 3)).'</h3>';
+                $html .= '<h3 style="margin:1.1rem 0 0.35rem;font-size:0.78rem;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#a32035;">'.$inline(substr($line, 3)).'</h3>';
             } elseif (str_starts_with($line, '- ')) {
                 $flushPara();
                 $list[] = '<li style="margin-bottom:0.2rem;">'.$inline(substr($line, 2)).'</li>';
