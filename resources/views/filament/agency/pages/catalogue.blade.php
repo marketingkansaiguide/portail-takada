@@ -55,7 +55,7 @@
 
                 <div id="{{ $carouselId }}" style="{{ $carouselEnabled ? 'display: flex; gap: 1.25rem; overflow-x: auto; padding: 0.25rem 0.2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--tk-accent-border) transparent;' : 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;' }}">
                     @foreach($section['products'] as $product)
-                <div data-takada-page-link="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" style="{{ $carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : '' }} background: white; border-radius: 0.625rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
+                <div data-takada-page-link="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" style="{{ $carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : '' }} display: flex; flex-direction: column; background: white; border-radius: 0.625rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
                      onmouseover="this.style.transform='translateY(-4px)'; this.style.box-shadow='0 10px 15px -3px rgba(0,0,0,0.1)';" 
                      onmouseout="this.style.transform='translateY(0)'; this.style.box-shadow='0 4px 6px -1px rgba(0,0,0,0.05)';"
                      onclick="window.location.href='{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}'">
@@ -87,14 +87,14 @@
                         @endif
                     </div>
 
-                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; flex: 1;">
                         <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0; line-height: 1.3;">{{ $product->name }}</h3>
                         
                         <p style="font-size: 0.85rem; color: #64748b; line-height: 1.5; height: 3.8rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
                             {{ trim(preg_replace('/\s+/u', ' ', str_replace(['**', '__'], '', explode('## ', strip_tags((string) $product->description))[0]))) }}
                         </p>
 
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
                             @if(auth('agency')->check())
                                 @php
                                     $minPrice = null;
