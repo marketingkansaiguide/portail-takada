@@ -71,7 +71,8 @@ class ProductForm
                             Textarea::make('description')
                                 ->label(__('Description commerciale'))
                                 ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
-                                ->rows(5)
+                                ->helperText(__('Mise en forme : « ## Titre », « - puce », **gras**, __souligné__, ligne vide = nouveau paragraphe.'))
+                                ->rows(12)
                                 ->columnSpanFull(),
 
                             TextInput::make('culture_title')

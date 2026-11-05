@@ -256,7 +256,7 @@
                             <span style="width: 8px; height: 8px; background: var(--primary-600); border-radius: 50%; flex: none;"></span>
                             {{ __('Présentation de la prestation') }}
                         </h2>
-                        <div style="color: #475569; line-height: 1.7; font-size: 0.95rem; white-space: pre-line;">{{ $product->description }}</div>
+                        <div style="color: #475569; line-height: 1.7; font-size: 0.95rem;">{!! \App\Support\RichText::render($product->description) !!}</div>
                         @if(filled($product->culture_text))
                             <div style="margin-top: 1rem; padding: 0.85rem 1rem; border-left: 4px solid var(--tk-accent, #8b1a2b); border-radius: 0.5rem; background: var(--tk-accent-soft, #fdf2f4);">
                                 @if(filled($product->culture_title))
