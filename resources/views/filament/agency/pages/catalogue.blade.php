@@ -44,7 +44,7 @@
                     </div>
                 </div>
 
-                @if($loop->first)
+                @if(($section['categoryId'] ?? null) === \App\Filament\Agency\Pages\Catalogue::ACTIVITY_CATEGORY_ID || $section['name'] === __('Toutes les prestations'))
                     <div style="display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; margin-top: -0.25rem;">
                         <span style="font-size: 0.82rem; color: #64748b;">{{ __('Affiner :') }}</span>
                         <button type="button" wire:click="$toggle('premiumOnly')" style="padding: 0.3rem 0.8rem; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border: 1px solid #d97706; {{ $premiumOnly ? 'background:#d97706;color:#fff;' : 'background:#fffbeb;color:#92400e;' }}">★ {{ __('Expériences premium') }}</button>
