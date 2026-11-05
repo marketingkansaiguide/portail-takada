@@ -1640,11 +1640,25 @@ class FolderResource extends Resource
                                     })
                                     ->schema([
                                         Select::make('product_option_id')
-                                            ->label(__('Option proposée'))
+                                            ->label(function ($get) {
+                                                // Le libellé porte la déclinaison (groupe) de l'option choisie
+                                                $optionId = $get('product_option_id');
+                                                $group = $optionId ? \App\Models\ProductOption::find($optionId)?->group_name : null;
+                                                return filled($group) ? $group : __('Option proposée');
+                                            })
                                             ->options(function ($get) {
                                                 $productId = $get('../../product_id');
                                                 if (!$productId) return [];
-                                                return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
+                                                // Options regroupées par déclinaison (group_name) pour ne plus les mélanger
+                                                $options = \App\Models\ProductOption::where('product_id', $productId)
+                                                    ->orderBy('sort_order')->orderBy('id')->get();
+                                                if ($options->every(fn ($o) => blank($o->group_name))) {
+                                                    return $options->pluck('name', 'id')->toArray();
+                                                }
+                                                return $options
+                                                    ->groupBy(fn ($o) => filled($o->group_name) ? $o->group_name : __('Autres options'))
+                                                    ->map(fn ($g) => $g->pluck('name', 'id')->toArray())
+                                                    ->toArray();
                                             })
                                             ->searchable()
                                             ->preload()
