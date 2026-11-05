@@ -6,8 +6,14 @@
 
 <div
     class="tk-dbd"
+    x-bind:class="{ 'tk-show-free': showFree }"
     x-data="{
         mode: 'day',
+        showFree: (() => { try { return localStorage.getItem('tk-dbd-free') === '1' } catch (e) { return false } })(),
+        toggleFree() {
+            this.showFree = ! this.showFree;
+            try { localStorage.setItem('tk-dbd-free', this.showFree ? '1' : '0') } catch (e) {}
+        },
         init() {
             this.apply();
             clearInterval(window.tkDbdWatch);
@@ -289,6 +295,10 @@
         /* Jours libres consécutifs regroupés */
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
         .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
+        .tk-dbd:not(.tk-show-free) tr.tk-free-hide { display: none; }
+        .tk-dbd-freebox { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--gray-600); cursor: pointer; user-select: none; }
+        .tk-dbd-freebox input { width: 1rem; height: 1rem; border-radius: .25rem; accent-color: var(--primary-600); }
+        html.dark .tk-dbd-freebox { color: var(--gray-300); }
     </style>
 
     <div class="tk-dbd-bar">
@@ -302,6 +312,7 @@
         </div>
         <div x-show="mode !== 'day'"></div>
         <div style="display:flex;align-items:center">
+            <label class="tk-dbd-freebox"><input type="checkbox" x-bind:checked="showFree" x-on:change="toggleFree()"> {{ __('Afficher les jours libres') }}</label>
 
         </div>
     </div>
@@ -332,7 +343,7 @@
                                     $fromLabel = \Illuminate\Support\Str::ucfirst($day['from']['date']->copy()->locale($locale)->isoFormat('ddd DD/MM'));
                                     $toLabel = \Illuminate\Support\Str::ucfirst($day['to']['date']->copy()->locale($locale)->isoFormat('ddd DD/MM'));
                                 @endphp
-                                <tr class="is-day is-free is-free-range">
+                                <tr class="is-day is-free is-free-range tk-free-hide">
                                     <td class="tk-j">{{ $day['from']['number'] }}–{{ $day['to']['number'] }}</td>
                                     <td class="tk-d" style="white-space:normal">{{ $fromLabel }} → {{ $toLabel }}</td>
                                     <td colspan="7">— {{ $day['count'] }} {{ __('journées libres') }}</td>
@@ -352,7 +363,7 @@
                             @endphp
 
                             @if (empty($day['rows']))
-                                <tr class="is-day is-free {{ $isWeekend ? 'is-we' : '' }}">
+                                <tr class="is-day is-free {{ $isWeekend ? 'is-we' : '' }} {{ empty($flags) ? 'tk-free-hide' : '' }}">
                                     <td class="tk-j">{{ $day['number'] }}</td>
                                     <td class="tk-d">{{ $dayLabel }}</td>
                                     <td colspan="7">
