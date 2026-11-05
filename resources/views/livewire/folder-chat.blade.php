@@ -1,4 +1,4 @@
-<div class="fc-chat" style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; border-radius: 0.75rem; overflow: hidden;">
+<div class="fc-chat" style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; border-radius: 0.5rem; overflow: hidden;">
     {{-- Couleurs du chat : reprises des palettes du panel (thème clair « papier », thème foncé « marine »). --}}
     <style>
         .fc-chat {
@@ -27,7 +27,7 @@
         .fc-empty-icon { color: var(--fc-empty-icon); }
         .fc-bubble-staff { background-color: var(--fc-staff-bg); color: var(--fc-staff-text); border: 1px solid var(--fc-staff-border); }
         .fc-bubble-client { background-color: var(--primary-600); color: #ffffff; --fc-attachment-sep: rgba(255, 255, 255, 0.2); }
-        .fc-attachment { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; }
+        .fc-attachment { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.375rem; text-decoration: none; font-weight: 600; }
         .fc-attachment:hover { opacity: 0.8; }
         .fc-bubble-staff .fc-attachment { background-color: var(--fc-attach-bg); color: var(--fc-accent); border: 1px solid var(--fc-staff-border); }
         .fc-bubble-client .fc-attachment { background-color: rgba(255, 255, 255, 0.15); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); }
@@ -95,7 +95,7 @@
                         <span class="fc-muted" style="font-size: 0.65rem;">• {{ $msg->created_at->format('d/m/Y H:i') }}</span>
                     </div>
 
-                    <div class="{{ $isTakadaStaff ? 'fc-bubble-staff' : 'fc-bubble-client' }}" style="padding: 0.85rem 1.15rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'border-top-left-radius: 0;' : 'border-top-right-radius: 0;' }}">
+                    <div class="{{ $isTakadaStaff ? 'fc-bubble-staff' : 'fc-bubble-client' }}" style="padding: 0.85rem 1.15rem; border-radius: 0.625rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'border-top-left-radius: 0;' : 'border-top-right-radius: 0;' }}">
                         
                         @if($msg->is_action_required ?? false)
                             <div class="fc-action" style="display: inline-block; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 99px; margin-bottom: 0.5rem;">

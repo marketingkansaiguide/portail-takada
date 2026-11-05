@@ -1,4 +1,4 @@
-<div style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.75rem; overflow: hidden;">
+<div style="display: flex; flex-direction: column; height: 500px; width: 100%; font-family: inherit; margin-bottom: 0.5rem; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden;">
     
     <div style="padding: 1rem; background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #374151; display: flex; align-items: center; justify-content: space-between;">
         <span>💬 {{ __('Discussion du dossier') }}</span>
@@ -39,7 +39,7 @@
                         <span style="font-size: 0.65rem; color: #9ca3af;">• {{ $msg->created_at->format('d/m/Y H:i') }}</span>
                     </div>
 
-                    <div style="padding: 0.85rem 1.15rem; border-radius: 1rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'background-color: #ffffff; color: #1f2937; border-top-left-radius: 0; border: 1px solid #e2e8f0;' : 'background-color: #096a61; color: #ffffff; border-top-right-radius: 0;' }}">
+                    <div style="padding: 0.85rem 1.15rem; border-radius: 0.625rem; font-size: 0.9rem; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); {{ $isTakadaStaff ? 'background-color: #ffffff; color: #1f2937; border-top-left-radius: 0; border: 1px solid #e2e8f0;' : 'background-color: #096a61; color: #ffffff; border-top-right-radius: 0;' }}">
                         
                         @if($msg->is_action_required ?? false)
                             <div style="display: inline-block; background-color: #fef2f2; color: #dc2626; border: 1px solid #f87171; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 99px; margin-bottom: 0.5rem;">
@@ -53,7 +53,7 @@
                         
                         @if(!empty($msg->attachment_path))
                             <div style="margin-top: {{ !empty($msg->message) ? '0.75rem' : '0' }}; border-top: {{ !empty($msg->message) ? ($isTakadaStaff ? '1px solid #f1f5f9' : '1px solid rgba(255,255,255,0.2)') : 'none' }}; padding-top: {{ !empty($msg->message) ? '0.75rem' : '0' }};">
-                                <a href="{{ Storage::url($msg->attachment_path) }}" download target="_blank" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-weight: 600; {{ $isTakadaStaff ? 'background-color: #f8fafc; color: #096a61; border: 1px solid #e2e8f0;' : 'background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);' }}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                <a href="{{ Storage::url($msg->attachment_path) }}" download target="_blank" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; padding: 0.5rem 0.75rem; border-radius: 0.375rem; text-decoration: none; font-weight: 600; {{ $isTakadaStaff ? 'background-color: #f8fafc; color: #096a61; border: 1px solid #e2e8f0;' : 'background-color: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);' }}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                                     <svg style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>

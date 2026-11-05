@@ -1,10 +1,10 @@
 <x-filament-panels::page>
     <style>
-        .gallery-thumb { flex-shrink: 0; width: 84px; height: 112px; border-radius: 0.75rem; overflow: hidden; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.2s ease-in-out; }
+        .gallery-thumb { flex-shrink: 0; width: 84px; height: 112px; border-radius: 0.5rem; overflow: hidden; cursor: pointer; border: 3px solid transparent; opacity: 0.6; transition: all 0.2s ease-in-out; }
         .gallery-thumb:hover { opacity: 1; }
         .gallery-thumb.active { border-color: var(--primary-600); opacity: 1; transform: scale(1.05); }
 
-        .calendar-cell { min-height: 60px; border-radius: 0.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0.25rem 0; border: 1px solid transparent; transition: all 0.15s ease-in-out; overflow: hidden; }
+        .calendar-cell { min-height: 60px; border-radius: 0.375rem; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 0.25rem 0; border: 1px solid transparent; transition: all 0.15s ease-in-out; overflow: hidden; }
         .calendar-cell-available { background: #ffffff; border-color: #e2e8f0; cursor: pointer; }
         .calendar-cell-available:hover { border-color: var(--primary-600); background: var(--tk-accent-soft); }
         .calendar-cell-selected { background: var(--primary-600) !important; border-color: var(--primary-600) !important; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 40%, transparent); }
@@ -19,7 +19,7 @@
             flex: 1;
             min-width: 80px;
             padding: 0.5rem;
-            border-radius: 0.5rem;
+            border-radius: 0.375rem;
             border: 1px solid #cbd5e1;
             background: #ffffff;
             color: #475569;
@@ -50,7 +50,7 @@
         .animate-spin-custom { animation: spin 1s linear infinite; }
 
         /* Étapes compactes : la fiche reste volontairement sur une seule colonne. */
-        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 0.85rem 1rem; margin-bottom: 0.75rem; }
+        .product-config-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.85rem 1rem; margin-bottom: 0.75rem; }
         .product-config-section-title { display: flex; align-items: center; gap: 0.45rem; margin: 0 0 0.6rem; color: var(--tk-accent); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.055em; text-transform: uppercase; }
         .product-config-section-title::before { content: ''; width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--primary-600); flex: 0 0 auto; }
         .product-variant-group { padding: 0; border: 0; background: transparent; }
@@ -230,11 +230,11 @@
 
                     @if(count($images) > 0)
                         <div x-data="{ mainImage: '{{ $galleryUrls[0] }}' }" style="display: flex; flex-direction: column; gap: 1rem;">
-                            <div class="product-gallery" style="border-radius: 1.25rem; overflow: hidden; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
+                            <div class="product-gallery" style="border-radius: 0.75rem; overflow: hidden; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.05); background: #f1f5f9;">
                         @if($product->is_premium || $product->is_family_friendly)
                             <div style="position: absolute; top: 1rem; right: 1rem; z-index: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
-                                @if($product->is_premium)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
+                                @if($product->is_premium)<span style="padding: 0.3rem 0.8rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.3rem 0.8rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
                             </div>
                         @endif
                                 <img :src="mainImage" src="{{ $galleryUrls[0] }}" style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease-in-out;" alt="{{ $product->name }}">
@@ -250,11 +250,11 @@
                             @endif
                         </div>
                     @else
-                        <div class="product-gallery-empty" style="border-radius: 1rem; background: #f1f5f9; position: relative; display: flex; align-items: center; justify-content: center; gap: 0.6rem; color: #94a3b8; font-weight: 500; font-size: 0.85rem; padding: 1.75rem 1rem;">
+                        <div class="product-gallery-empty" style="border-radius: 0.625rem; background: #f1f5f9; position: relative; display: flex; align-items: center; justify-content: center; gap: 0.6rem; color: #94a3b8; font-weight: 500; font-size: 0.85rem; padding: 1.75rem 1rem;">
                             @if($product->is_premium || $product->is_family_friendly)
                             <div style="position: absolute; top: 0.75rem; right: 0.75rem; z-index: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
-                                @if($product->is_premium)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.3rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
+                                @if($product->is_premium)<span style="padding: 0.3rem 0.8rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.3rem 0.8rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
                             </div>
                         @endif
                             <svg style="width: 1.4rem; height: 1.4rem; flex: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" /></svg>
@@ -263,14 +263,14 @@
                     @endif
 
                     {{-- DESCRIPTIF DU PRODUIT --}}
-                    <div class="product-card-lg" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div class="product-card-lg" style="background: white; border-radius: 0.75rem; border: 1px solid #f1f5f9; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                         <h2 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-top:0; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="width: 8px; height: 8px; background: var(--primary-600); border-radius: 50%; flex: none;"></span>
                             {{ __('Présentation de la prestation') }}
                         </h2>
                         <div style="color: #475569; line-height: 1.7; font-size: 0.95rem;">{!! \App\Support\RichText::render($product->description) !!}</div>
                         @if(filled($product->culture_text))
-                            <div style="margin-top: 1rem; padding: 0.85rem 1rem; border-left: 4px solid var(--tk-accent, #8b1a2b); border-radius: 0.5rem; background: var(--tk-accent-soft, #fdf2f4);">
+                            <div style="margin-top: 1rem; padding: 0.85rem 1rem; border-left: 4px solid var(--tk-accent, #8b1a2b); border-radius: 0.375rem; background: var(--tk-accent-soft, #fdf2f4);">
                                 @if(filled($product->culture_title))
                                     <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.35rem; color: var(--tk-accent, #8b1a2b);">{{ $product->culture_title }}</div>
                                 @endif
@@ -289,7 +289,7 @@
                 
                 {{-- BLOC 1 : PANNEAU AGENCE PARTEANIRE --}}
                 @if($this->activeAgencyId)
-                    <div class="product-card-side" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
+                    <div class="product-card-side" style="background: white; border-radius: 0.75rem; border: 1px solid #f1f5f9; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.03);">
                         {{-- Contraintes de réservation : affichées avant le formulaire pour être lues avant de le remplir --}}
                         @if($product->days_before_opening || $product->days_before_request_deadline || $product->is_lottery)
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
@@ -319,7 +319,7 @@
                         
                         {{-- CAS PRODUIT DE TYPE TRANSPORT --}}
                         @if($product->isTransport())
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                 
                                 <div style="margin-bottom: 1.25rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.75rem;">
                                     <h3 style="font-size: 0.95rem; font-weight: 600; color: #0f172a; margin: 0 0 0.25rem 0; display: flex; align-items: center; gap: 0.5rem;">
@@ -333,7 +333,7 @@
                                 @if(!empty($customValues['transport_routes']))
                                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                                         @foreach($customValues['transport_routes'] as $index => $route)
-                                            <div wire:key="route-step-{{ $index }}" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.75rem; padding: 1rem; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                                            <div wire:key="route-step-{{ $index }}" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.5rem; padding: 1rem; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
                                                 
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
                                                     <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -382,11 +382,11 @@
                                                                    @focus="open = true"
                                                                    @click.away="open = false"
                                                                    placeholder="{{ __('Sélectionner...') }}"
-                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
+                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
                                                         </div>
 
                                                         <div x-show="open && filtered.length > 0" 
-                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
+                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
                                                             <template x-for="st in filtered" :key="st.name">
                                                                 <div @click="select(st)" 
                                                                      style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
@@ -438,11 +438,11 @@
                                                                    @focus="open = true"
                                                                    @click.away="open = false"
                                                                    placeholder="{{ __('Sélectionner...') }}"
-                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
+                                                                   style="width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.85rem; outline: none; background: #ffffff;" />
                                                         </div>
 
                                                         <div x-show="open && filtered.length > 0" 
-                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.375rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
+                                                             style="position: absolute; z-index: 50; width: 100%; margin-top: 2px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.25rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto;">
                                                             <template x-for="st in filtered" :key="st.name">
                                                                 <div @click="select(st)" 
                                                                      style="padding: 0.45rem 0.65rem; font-size: 0.8rem; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: #1e293b;"
@@ -469,7 +469,7 @@
                                                 <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.6rem;">
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Date du trajet<span style="color: #dc2626;">*</span></label>
-                                                        <input type="date" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
+                                                        <input type="date" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;" />
                                                         @error("customValues.transport_routes.{$index}.departure_date")
                                                             <span style="color: #dc2626; font-size: 0.7rem;">{{ $message }}</span>
                                                         @enderror
@@ -477,12 +477,12 @@
 
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Heure / N° Train ou Bus</label>
-                                                        <input type="text" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="Ex: 09:30 / Hikari 502 / Indications" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;" />
+                                                        <input type="text" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="Ex: 09:30 / Hikari 502 / Indications" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;" />
                                                     </div>
 
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Classe<span style="color: #ef4444;">*</span></label>
-                                                        <select required="required" wire:model.live="customValues.transport_routes.{{ $index }}.option_id" style="width: 100%; padding: 0.45rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; color: #1e293b; font-weight: 600;">
+                                                        <select required="required" wire:model.live="customValues.transport_routes.{{ $index }}.option_id" style="width: 100%; padding: 0.45rem 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff; color: #1e293b; font-weight: 600;">
                                                             <option value="">-- {{ __('Sélectionnez') }} --</option>
                                                             @foreach($product->productOptions as $opt)
                                                                 <option value="{{ $opt->id }}">
@@ -493,12 +493,12 @@
                                                     </div>
                                                     <div>
                                                         <label style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">Nombre de Passagers<span style="color: #dc2626;">*</span></label>
-                                                        <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
+                                                        <input type="number" min="1" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.pax_count" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff; text-align: center; font-weight: 700;" />
                                                     </div>
 
                                                     <div style="grid-column: 1 / -1;">
                                                         <label for="route-specific-requests-{{ $index }}" style="font-size: 0.75rem; font-weight: 700; color: #374151; display: block; margin-bottom: 0.2rem;">{{ __('Demandes spécifiques/indication complémentaire') }}</label>
-                                                        <textarea id="route-specific-requests-{{ $index }}" wire:model="customValues.transport_routes.{{ $index }}.specific_requests" rows="3" maxlength="5000" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.8rem; background: #ffffff;"></textarea>
+                                                        <textarea id="route-specific-requests-{{ $index }}" wire:model="customValues.transport_routes.{{ $index }}.specific_requests" rows="3" maxlength="5000" style="width: 100%; padding: 0.45rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size: 0.8rem; background: #ffffff;"></textarea>
                                                         @error("customValues.transport_routes.{$index}.specific_requests")
                                                             <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
                                                         @enderror
@@ -510,14 +510,14 @@
                                     </div>
 
                                     <div style="text-align: center; margin-top: 1.25rem;">
-                                        <button type="button" wire:click="addTransportRoute" style="background: #ffffff; color: #374151; border: 1px solid #d1d5db; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#9ca3af';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#d1d5db';">
+                                        <button type="button" wire:click="addTransportRoute" style="background: #ffffff; color: #374151; border: 1px solid #d1d5db; padding: 0.5rem 1.25rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 700; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s;" onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#9ca3af';" onmouseout="this.style.background='#ffffff'; this.style.borderColor='#d1d5db';">
                                             Ajouter un trajet
                                         </button>
                                     </div>
                                 @endif
 
                                 @php $estimate = $this->getEstimatedPrice(); @endphp
-                                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.75rem; padding: 1.25rem; margin-top: 1.25rem;">
+                                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 0.5rem; padding: 1.25rem; margin-top: 1.25rem;">
                                     <h4 style="font-size: 0.95rem; font-weight: 600; color: #b45309; margin: 0 0 0.75rem 0;">
                                         {{ __('Estimation de vos frais d’émission :') }}
                                     </h4>
@@ -561,12 +561,12 @@
                             <div class="product-config-section">
                                 <div class="product-config-section-title">{{ __('Date et participants') }}</div>
                                 @if($product->requires_guide)
-                                    <div style="margin-bottom: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-size: 0.9rem; font-weight: 700;">
+                                    <div style="margin-bottom: 0.5rem; padding: 0.6rem 0.75rem; border-radius: 0.375rem; background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; font-size: 0.9rem; font-weight: 700;">
                                         {{ __('Cette activité doit obligatoirement se faire en présence d’un de nos guides.') }}
                                     </div>
                                 @endif
                                 @if($product->min_child_age)
-                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 0.85rem; font-weight: 600;">
+                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.375rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 0.85rem; font-weight: 600;">
                                         {{ __('Enfants de moins de :age ans non acceptés.', ['age' => $product->min_child_age]) }}
                                     </div>
                                 @endif
@@ -627,7 +627,7 @@
                                      }">
                                     
                                     <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ __('Date d’activité') }}</label>
-                                    <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                                    <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                                         <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : @js(__('Sélectionner...'))" :style="!selectedDate && 'color: #9ca3af'"></span>
                                         <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                     </button>
@@ -635,7 +635,7 @@
 
                                     <div x-show="open" style="display: none;">
                                         <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.7); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 1rem; backdrop-filter: blur(4px);">
-                                            <div @click.away="open = false" style="background: white; border-radius: 1.25rem; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative;">
+                                            <div @click.away="open = false" style="background: white; border-radius: 0.75rem; width: 100%; max-width: 440px; padding: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative;">
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                                                     <h3 style="margin: 0; font-size: 1.15rem; font-weight: 600; color: #1e293b;">{{ __('Sélectionnez une date') }}</h3>
                                                     <button type="button" @click="open = false" style="background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#64748b'">
@@ -643,11 +643,11 @@
                                                     </button>
                                                 </div>
                                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                                                    <button type="button" @click="prevMonth()" style="padding: 0.5rem; border-radius: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
+                                                    <button type="button" @click="prevMonth()" style="padding: 0.5rem; border-radius: 0.375rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
                                                         <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
                                                     </button>
                                                     <div x-text="currentMonthName" style="font-weight: 700; font-size: 1.1rem; color: var(--tk-accent); text-transform: capitalize;"></div>
-                                                    <button type="button" @click="nextMonth()" style="padding: 0.5rem; border-radius: 0.5rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
+                                                    <button type="button" @click="nextMonth()" style="padding: 0.5rem; border-radius: 0.375rem; background: #f8fafc; border: 1px solid #e2e8f0; cursor: pointer; color: #475569;">
                                                         <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
                                                     </button>
                                                 </div>
@@ -688,7 +688,7 @@
                                 </div>
                                 
                                 @if($product->usesAgeSelector())
-                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: var(--tk-accent-soft); border: 1px solid var(--tk-accent-border); border-radius: 0.6rem; padding: 0.6rem 0.75rem;">
+                                    <div style="grid-column: span 2; display: flex; flex-direction: column; gap: 0.45rem; background: var(--tk-accent-soft); border: 1px solid var(--tk-accent-border); border-radius: 0.4rem; padding: 0.6rem 0.75rem;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem;">
                                             <label style="font-size: 0.85rem; font-weight: 700; color: var(--tk-accent);">{{ __('Répartition des participants') }}</label>
                                             <span style="font-size: 0.75rem; color: var(--tk-accent);">@if($product->hasChildSelector()){{ __('Enfant jusqu’à') }} {{ $product->child_age_limit ?? 11 }} {{ __('ans inclus') }}@endif@if($product->hasChildSelector() && $product->hasTeenSelector()) · @endif@if($product->hasTeenSelector()){{ __('Adolescent de :min à :max ans', ['min' => ($product->child_age_limit ?? 11) + 1, 'max' => $product->teen_age_limit]) }}@endif</span>
@@ -696,21 +696,21 @@
                                         <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.65rem;">
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adultes') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorAdults" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>
                                             @if($product->hasChildSelector())<div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Enfants') }}</label>
-                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                <input type="number" wire:model.live.debounce.300ms="ageSelectorChildren" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                             </div>@endif
                                             @if($product->hasTeenSelector())
                                                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                     <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Adolescents') }}</label>
-                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                                    <input type="number" wire:model.live.debounce.300ms="ageSelectorTeenagers" min="0" style="width: 100%; padding: 0.4rem; border: 1px solid var(--tk-accent-border); border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                                 </div>
                                             @endif
                                             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                                                 <label style="font-size: 0.75rem; font-weight: 700; color: #374151;">{{ __('Total Pax') }}</label>
-                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: var(--tk-accent);">
+                                                <input type="number" value="{{ $quantity }}" readonly style="width: 100%; padding: 0.4rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: #f8fafc; text-align: center; font-weight: 700; color: var(--tk-accent);">
                                             </div>
                                         </div>
                                         @error('ageSelectorAdults') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
@@ -721,7 +721,7 @@
                                 @else
                                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
                                         <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Pax</label>
-                                        <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
+                                        <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                         @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                                     </div>
                                 @endif
@@ -761,7 +761,7 @@
                                             </div>
 
                                             <select wire:change="selectGroupVariant('{{ addslashes($groupName) }}', $event.target.value)" 
-                                                    style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
+                                                    style="width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; outline: none; background: #ffffff; color: #1e293b; cursor: pointer; transition: border-color 0.2s;"
                                                     onfocus="this.style.borderColor='var(--primary-600)';" onblur="this.style.borderColor='#d1d5db';">
                                                 @foreach($groupOptions as $option)
                                                     @php
@@ -798,7 +798,7 @@
                                                 $teenQuantity = $product->usesAgeSelector() ? $ageSelectorTeenagers : $quantity;
                                                 $optionBillingQty = $option->billableQuantityForDate($serviceDate, $adultQuantity, 'adult');
                                             @endphp
-                                            <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                                            <div wire:key="option-{{ $option->id }}" style="background: #f8fafc; border: 1px solid #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
                                                 <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                                                     <input type="checkbox" wire:model.live="selectedOptions.{{ $option->id }}.enabled" id="opt_{{ $option->id }}" style="margin-top: 0.2rem; accent-color: var(--primary-600);">
                                                     <label for="opt_{{ $option->id }}" style="font-size: 0.85rem; font-weight: 600; color: #374151; cursor: pointer; flex-grow: 1;">
@@ -814,7 +814,7 @@
                                                 </div>
 
                                                 @if(($selectedOptions[$option->id]['enabled'] ?? false) && $option->billing_type === 'manual')
-                                                    <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.35rem 0.5rem; border-radius: 0.375rem; border: 1px solid #e2e8f0; margin-left: 1.25rem;">
+                                                    <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.35rem 0.5rem; border-radius: 0.25rem; border: 1px solid #e2e8f0; margin-left: 1.25rem;">
                                             <span style="font-size: 0.75rem; color: #64748b;">{{ __('Quantité :') }}</span>
                                                         <input type="number" wire:model.live.debounce.300ms="selectedOptions.{{ $option->id }}.quantity" min="1" style="width: 50px; border: none; padding: 0; outline: none; text-align: center; font-size: 0.85rem; font-weight: 600;">
                                                     </div>
@@ -865,18 +865,18 @@
                                                         </label>
 
                                                         @if($def['type'] === 'textarea')
-                                                            <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
+                                                            <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
                                                         @elseif($def['type'] === 'select')
-                                                            <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
+                                                            <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none; background:white;">
                                                             <option value="">{{ $def['placeholder'] ?? __('Sélectionnez...') }}</option>
                                                                 @foreach($def['choices'] ?? [] as $choice)
                                                                     <option value="{{ $choice }}">{{ $choice }}</option>
                                                                 @endforeach
                                                             </select>
                                                         @elseif($def['type'] === 'date')
-                                                            <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                            <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                         @elseif($def['type'] === 'number')
-                                                            <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                            <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                         @elseif($def['type'] === 'client_hotel')
                                                             <div x-data="{
                                                                 manualHotel: false,
@@ -895,7 +895,7 @@
                                                                 <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''">
                                                                     <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 {{ __('Rechercher dans la base d’hébergements') }}</label>
                                                                     <div style="position:relative;">
-                                                                        <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                        <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:0.85rem; outline:none;">
                                                                         <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:calc(100% - 1px); left:0; right:0; max-height:15rem; overflow-y:auto; border:1px solid #cbd5e1; border-radius:0 0 0.5rem 0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
                                                                         <template x-for="hotel in results" :key="hotel.name">
                                                                             <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
@@ -911,11 +911,11 @@
                                                                 </div>
                                                                 <div x-show="manualHotel" style="display:none;">
                                                                     <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
-                                                                    <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                    <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:0.85rem; outline:none;">
                                                                     <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Adresse de l’hébergement') }}</label>
-                                                                    <textarea x-model="address" rows="2" placeholder="{{ __('Adresse complète (optionnel)') }}" style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none; font-family:inherit;"></textarea>
+                                                                    <textarea x-model="address" rows="2" placeholder="{{ __('Adresse complète (optionnel)') }}" style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:.85rem; outline:none; font-family:inherit;"></textarea>
                                                                     <label style="display:block; margin:.65rem 0 .35rem; font-size:.78rem; font-weight:700; color:#475569;">{{ __('Lien Google Maps') }} <span style="font-weight:500; color:#64748b;">({{ __('optionnel') }})</span></label>
-                                                                    <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:.375rem; font-size:.85rem; outline:none;">
+                                                                    <input type="url" x-model="mapsUrl" placeholder="https://maps.google.com/..." style="width:100%; padding:.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:.85rem; outline:none;">
                                                                     <a x-show="mapsUrl" x-bind:href="mapsUrl" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:.35rem; margin-top:.55rem; color:#2563eb; font-size:.78rem; font-weight:700; text-decoration:underline;">📍 {{ __('Vérifier sur Google Maps') }}</a>
                                                                     <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
                                                                 </div>
@@ -932,7 +932,7 @@
                                                                  x-on:livewire-upload-error="isUploading = false"
                                                                  style="position: relative; margin-top: 0.25rem;">
 
-                                                                <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.5rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
                                                                        onmouseover="this.style.borderColor='var(--primary-600)'; this.style.background='var(--tk-accent-soft)';"
                                                                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
 
@@ -969,7 +969,7 @@
                                                                 @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
                                                             </div>
                                                         @else
-                                                            <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                            <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                         @endif
                                                         @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
                                                     </div>
@@ -996,7 +996,7 @@
                                                     @endfor
                                                 </div>
 
-                                                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
+                                                <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.02);">
                                                     @for($i = 0; $i < $qty; $i++)
                                                         <div x-show="activeTab === {{ $i }}" style="display:none; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;" :style="activeTab === {{ $i }} ? 'display:grid;' : 'display:none;'">
                                                             @foreach($paxFields as $def)
@@ -1012,18 +1012,18 @@
                                                                     </label>
 
                                                                     @if($def['type'] === 'textarea')
-                                                                        <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
+                                                                        <textarea wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" rows="2" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none; font-family:inherit;"></textarea>
                                                                     @elseif($def['type'] === 'select')
-                                                                        <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none; background:white;">
+                                                                        <select wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none; background:white;">
                                                                                     <option value="">{{ $def['placeholder'] ?? __('Sélectionnez...') }}</option>
                                                                             @foreach($def['choices'] ?? [] as $choice)
                                                                                 <option value="{{ $choice }}">{{ $choice }}</option>
                                                                             @endforeach
                                                                         </select>
                                                                     @elseif($def['type'] === 'date')
-                                                                        <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                        <input type="date" wire:model="{{ $modelKey }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                                     @elseif($def['type'] === 'number')
-                                                                        <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                        <input type="number" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                                     @elseif($def['type'] === 'client_hotel')
                                                                         <div x-data="{
                                                                             manualHotel: false,
@@ -1039,8 +1039,8 @@
                                                                         }" x-init="query = selected || ''" style="display:flex; flex-direction:column; gap:0.5rem;">
                                                                             <div x-show="!manualHotel" x-effect="if (!manualHotel) query = selected || ''" style="position:relative;">
                                                                                 <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">🏢 {{ __('Rechercher dans la base d’hébergements') }}</label>
-                                                                                <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
-                                                                                <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:100%; left:0; right:0; max-height:15rem; overflow-y:auto; margin-top:0.25rem; border:1px solid #cbd5e1; border-radius:0.5rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
+                                                                                <input type="text" x-model="query" x-on:click.stop="open = true" x-on:focus="open = true" x-on:input="open = true" x-on:keydown.escape="open = false" placeholder="{{ __('Tapez le nom d’un hébergement…') }}" autocomplete="off" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:0.85rem; outline:none;">
+                                                                                <div x-show="open" x-on:click.outside="open = false" style="position:absolute; z-index:30; top:100%; left:0; right:0; max-height:15rem; overflow-y:auto; margin-top:0.25rem; border:1px solid #cbd5e1; border-radius:0.375rem; background:#fff; box-shadow:0 10px 20px rgba(15,23,42,.12);" x-cloak>
                                                                                     <template x-for="hotel in results" :key="hotel.name">
                                                                                         <button type="button" x-on:click="choose(hotel)" style="display:block; width:100%; padding:0.65rem 0.75rem; border:0; border-bottom:1px solid #f1f5f9; background:#fff; text-align:left; cursor:pointer;">
                                                                                             <span x-text="hotel.name" style="display:block; color:#1e293b; font-size:.85rem; font-weight:700;"></span>
@@ -1053,7 +1053,7 @@
                                                                             </div>
                                                                             <div x-show="manualHotel" style="display:none;">
                                                                                 <label style="display:block; margin-bottom:0.35rem; font-size:0.78rem; font-weight:700; color:#475569;">{{ __('Nom de l’hébergement') }}</label>
-                                                                                <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.375rem; font-size:0.85rem; outline:none;">
+                                                                                <input type="text" x-model="selected" placeholder="{{ $def['placeholder'] ?? __('Saisissez le nom de l’hébergement…') }}" style="width:100%; padding:0.6rem; border:1px solid #cbd5e1; border-radius:0.25rem; font-size:0.85rem; outline:none;">
                                                                                 <button type="button" x-on:click="manualHotel = false" style="margin-top:0.55rem; padding:0; border:0; background:transparent; color:var(--tk-accent); font-size:0.78rem; font-weight:700; text-align:left; cursor:pointer;">{{ __('Revenir à la recherche dans la base') }}</button>
                                                                             </div>
                                                                         </div>
@@ -1069,7 +1069,7 @@
                                                                              x-on:livewire-upload-error="isUploading = false"
                                                                              style="position: relative; margin-top: 0.25rem;">
 
-                                                                            <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
+                                                                            <label style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; border: 2px dashed #cbd5e1; border-radius: 0.5rem; padding: 1.25rem 1rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease-in-out;"
                                                                                    onmouseover="this.style.borderColor='var(--primary-600)'; this.style.background='var(--tk-accent-soft)';"
                                                                                    onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='#ffffff';">
 
@@ -1106,7 +1106,7 @@
                                                                         @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500; margin-top:0.25rem; display:block;">{{ $message }}</span> @enderror
                                                                     </div>
                                                                 @else
-                                                                    <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-size:0.85rem; outline:none;">
+                                                                    <input type="text" wire:model="{{ $modelKey }}" placeholder="{{ $def['placeholder'] ?? '' }}" style="width:100%; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 0.25rem; font-size:0.85rem; outline:none;">
                                                                 @endif
                                                                 @error($modelKey) <span style="color:#dc2626; font-size:0.75rem; font-weight:500;">{{ $message }}</span> @enderror
                                                             </div>
@@ -1128,7 +1128,7 @@
                             @endphp
 
                             @if($estimate['is_on_demand'])
-                                <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.75rem; text-align: center;">
+                                <div style="background: #fff7ed; border: 1px solid #ffedd5; color: #c2410c; padding: 1.5rem; border-radius: 0.5rem; text-align: center;">
                                     <h4 style="margin:0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">⚠️ {{ __('Tarif sur Devis') }}</h4>
                                     <p style="margin:0; font-size: 0.85rem; opacity: 0.9;">{{ __('Cette prestation nécessite une cotation personnalisée.') }}</p>
                                 </div>
@@ -1237,7 +1237,7 @@
                                     
                                     <div>
                                         @if(!$estimate['has_date'])
-                                            <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.5rem 0.6rem; border-radius: 0.5rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
+                                            <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.5rem 0.6rem; border-radius: 0.375rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
                                                 <svg style="width:16px; height:16px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                 {{ __('Veuillez sélectionner une date d’activité pour obtenir le tarif exact.') }}
                                             </div>
@@ -1257,7 +1257,7 @@
                                     {{ $this->createFolderAction }}
                                 </div>
                                 
-                                <select wire:model="selectedFolderId" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: white; color: #111827;">
+                                <select wire:model="selectedFolderId" style="width: 100%; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; color: #111827;">
                                     <option value="">-- Choisir un dossier voyage --</option>
                                     @foreach($this->foldersList as $folder)
                                         <option value="{{ $folder->id }}">
@@ -1273,7 +1273,7 @@
 
                             @php $importantDocs = $product->importantDocumentLinks(); @endphp
                             @if(count($importantDocs) > 0)
-                                <div role="alert" style="margin-bottom: 0.75rem; background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.6rem; padding: 0.75rem 0.85rem;">
+                                <div role="alert" style="margin-bottom: 0.75rem; background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.4rem; padding: 0.75rem 0.85rem;">
                                     <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 800; color: #991b1b; font-size: 0.9rem; margin-bottom: 0.4rem;">
                                         <svg style="width:18px; height:18px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
                                         {{ __('Informations importantes à lire') }}
@@ -1287,7 +1287,7 @@
                                 </div>
                             @endif
 
-                            <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.7rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
+                            <button type="button" wire:click="addToFolder" style="width: 100%; background: var(--primary-600); color: white; border: none; padding: 0.7rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: center; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
                                 Ajouter cette prestation au dossier
                             </button>
                         </div>
@@ -1307,7 +1307,7 @@
                             </div>
                             <button type="button"
                                     onclick="document.querySelector('.product-final-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
-                                    style="flex: none; background: var(--primary-600); color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+                                    style="flex: none; background: var(--primary-600); color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
                                 {{ __('Ajouter au dossier') }}
                             </button>
                         </div>
@@ -1324,7 +1324,7 @@
                         @endphp
 
                         @if($hasPolicyToDisplay)
-                        <div x-data="{ expanded: false }" style="background: white; border-radius: 1.25rem; border: 1px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03); overflow: hidden;">
+                        <div x-data="{ expanded: false }" style="background: white; border-radius: 0.75rem; border: 1px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03); overflow: hidden;">
                             <button @click="expanded = !expanded" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem; background: transparent; border: none; cursor: pointer; text-align: left; outline: none;">
                                 <span style="font-size: 0.95rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 0.5rem;">
                                     <svg width="20" height="20" style="width: 20px !important; height: 20px !important; flex-shrink: 0 !important; color: #94a3b8; display: block;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1350,7 +1350,7 @@
 
                 {{-- BLOC 2 : VUE ADMINISTRATEUR --}}
                 @if(!$this->activeAgencyId && $this->isAdmin)
-                    <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #e0f2fe; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
+                    <div style="background: white; border-radius: 0.75rem; padding: 2.25rem 2rem; border: 1px solid #e0f2fe; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
                         <div style="color: #0284c7; background: #e0f2fe; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #bae6fd;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
@@ -1361,14 +1361,14 @@
 
                 {{-- BLOC 3 : PROMO CONNEXION POUR UTILISATEUR NON-MEMBRE --}}
                 @if(!$this->activeAgencyId && !$this->isAdmin)
-                    <div style="background: white; border-radius: 1.25rem; padding: 2.25rem 2rem; border: 1px solid #f1f5f9; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
+                    <div style="background: white; border-radius: 0.75rem; padding: 2.25rem 2rem; border: 1px solid #f1f5f9; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.04);">
                         <div style="color: #d97706; background: #fffbeb; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; border: 1px solid #fde68a;">
                             <svg style="width: 26px; height: 26px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                         </div>
                         <h3 style="font-size: 1.3rem; font-weight: 600; color: #1e293b; margin: 0 0 0.5rem 0;">{{ __('Tarifs et Réservations Pro') }}</h3>
                         <p style="color: #64748b; font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.75rem 0;">{{ __('Les grilles tarifaires japonaises (saisonnières/enfants) ainsi que les modules de devis direct sont réservés aux agences de voyages partenaires.') }}</p>
                         
-                        <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: var(--primary-600); color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.5rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
+                        <a href="{{ route('filament.agency.auth.login') }}" style="display: block; width: 100%; background: var(--primary-600); color: white; text-decoration: none; padding: 0.9rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.9rem; text-align: center; box-sizing: border-box; box-shadow: 0 4px 6px -1px color-mix(in srgb, var(--primary-600) 20%, transparent); transition: background 0.2s;" onmouseover="this.style.background='var(--primary-700)'" onmouseout="this.style.background='var(--primary-600)'">
                             {{ __('S’identifier sur le portail') }}
                         </a>
                     </div>

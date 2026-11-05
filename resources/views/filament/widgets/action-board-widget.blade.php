@@ -31,7 +31,7 @@
                         $folderTitle = $folder->folder_name ?: $folder->lead_traveler_name ?: $folder->reference;
                     @endphp
 
-                    <div style="border: 1px solid rgba(148,163,184,.45); border-left: 4px solid {{ $criticalCount ? '#dc2626' : '#2563eb' }}; border-radius: .75rem; overflow: hidden; background: rgba(255,255,255,.35);">
+                    <div style="border: 1px solid rgba(148,163,184,.45); border-left: 4px solid {{ $criticalCount ? '#dc2626' : '#2563eb' }}; border-radius: 0.5rem; overflow: hidden; background: rgba(255,255,255,.35);">
                         <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1rem .75rem; border-bottom: 1px solid rgba(148,163,184,.22);">
                             <div style="min-width: 0;">
                                 <div style="display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;">

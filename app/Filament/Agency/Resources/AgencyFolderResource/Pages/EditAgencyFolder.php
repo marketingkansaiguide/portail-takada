@@ -98,7 +98,7 @@ class EditAgencyFolder extends EditRecord
                                         </tfoot>
                                     </table>
 
-                                    <div style='background-color: #fffbebfb; border: 1px solid #fcd34d; border-radius: 8px; padding: 14px; color: #92400e;'>
+                                    <div style='background-color: #fffbebfb; border: 1px solid #fcd34d; border-radius: 6px; padding: 14px; color: #92400e;'>
                                         <p style='font-weight: bold; margin-top: 0; margin-bottom: 8px; font-size: 0.95rem; color: #b45309;'>
                                             ⚠️ Attention : Engagement de validation
                                         </p>

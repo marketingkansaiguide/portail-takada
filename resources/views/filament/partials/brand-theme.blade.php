@@ -13,6 +13,11 @@
         --tk-accent: var(--primary-700);
         --tk-accent-soft: #f3f1ec;
         --tk-accent-border: #e4e0d6;
+        /* Arrondis un peu plus sobres sur l'ensemble du site */
+        --radius-lg: 0.375rem;
+        --radius-xl: 0.5rem;
+        --radius-2xl: 0.75rem;
+        --radius-3xl: 1rem;
     }
 
     /* Palette nuit : remplace les gris en thème foncé */

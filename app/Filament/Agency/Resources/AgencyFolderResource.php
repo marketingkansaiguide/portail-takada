@@ -129,7 +129,7 @@ class AgencyFolderResource extends Resource
                     Placeholder::make('draft_notice')
                         ->hiddenLabel()
                         ->content(new HtmlString("
-                            <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 8px; color: #92400e;'>
+                            <div style='display: flex; align-items: center; justify-content: space-between; background-color: #fef3c7; border: 1px solid #f59e0b; padding: 12px 16px; border-radius: 6px; color: #92400e;'>
                                 <div>
                                     <strong style='font-size: 1rem;'>" . e(__('✏️ Dossier en cours de rédaction (Brouillon)')) . "</strong>
                                     <p style='margin: 4px 0 0 0; font-size: 0.875rem;'>" . e(__('Vous pouvez modifier ou supprimer vos prestations et informations passagers librement. Une fois votre sélection finalisée, cliquez sur le bouton')) . " <b>\"🚀 " . e(__('Valider et transmettre le dossier')) . "\"</b> " . e(__('en haut à droite.')) . "</p>
@@ -264,7 +264,7 @@ class AgencyFolderResource extends Resource
                                 if (!$url) return '';
                                 return new HtmlString("
                                     <div style='margin-top: 4px;'>
-                                        <a href='{$url}' target='_blank' style='display: inline-flex; align-items: center; gap: 8px; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 0.875rem; text-decoration: none;'>
+                                        <a href='{$url}' target='_blank' style='display: inline-flex; align-items: center; gap: 8px; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 8px 14px; border-radius: 4px; font-weight: 600; font-size: 0.875rem; text-decoration: none;'>
                                             📍 Ouvrir la localisation sur Google Maps ↗
                                         </a>
                                     </div>
@@ -410,7 +410,7 @@ class AgencyFolderResource extends Resource
 
                                         $items = collect($links)->map(fn (array $doc): string => '<li style="margin-bottom: 0.2rem;"><a href="'.e($doc['url']).'" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">'.e($doc['label']).'</a></li>')->implode('');
 
-                                        return new HtmlString('<div role="alert" style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.6rem; padding: 0.75rem 0.85rem;">'
+                                        return new HtmlString('<div role="alert" style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.4rem; padding: 0.75rem 0.85rem;">'
                                             .'<div style="font-weight: 800; color: #991b1b; font-size: 0.9rem; margin-bottom: 0.4rem;">'.e(__('Informations importantes à lire')).'</div>'
                                             .'<ul style="margin: 0 0 0.5rem 0; padding-left: 1.1rem; font-size: 0.82rem; color: #7f1d1d;">'.$items.'</ul>'
                                             .'<p style="margin: 0; font-size: 0.75rem; color: #7f1d1d; line-height: 1.4;">'.e(__('En ajoutant cette prestation au dossier, vous reconnaissez avoir pris connaissance de ces informations.')).'</p>'
@@ -640,7 +640,7 @@ Repeater::make('transport_routes')
                                                 $totalFee = $feePerPax * $totalPax;
 
                                                 return new \Illuminate\Support\HtmlString("
-                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #fff7ed; border: 1px solid #ffedd5; margin-top: 1rem;'>
+                                                    <div style='padding: 1rem; border-radius: 0.375rem; background-color: #fff7ed; border: 1px solid #ffedd5; margin-top: 1rem;'>
                                                         <div style='font-weight:600; color:#c2410c; font-size:0.9rem; margin-bottom:0.35rem;'>" . e(__('Estimation de vos frais d’émission :')) . "</div>
                                                         <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#9a3412;'>
                                                             <span>• Frais de service de l'agence (" . number_format($feePerPax, 0, '.', ' ') . " ¥ × {$totalPax} trajet(s) total)</span>
@@ -1124,7 +1124,7 @@ Repeater::make('transport_routes')
                                                 $grandTotal = $baseTotal + $optionsTotal;
                                                 
                                                 return new HtmlString("
-                                                    <div style='padding: 1rem; border-radius: 0.5rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 1rem;'>
+                                                    <div style='padding: 1rem; border-radius: 0.375rem; background-color: #f0fdf4; border: 1px solid #bbf7d0; margin-top: 1rem;'>
                                                         <div style='font-weight:600; color:#166534; font-size:0.9rem; margin-bottom:0.35rem;'>Calcul estimatif du prix :</div>
                                                         <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#15803d;'>
                                                             <span>• Tarif de base / Frais de service ({$baseLabel})</span>
@@ -1461,7 +1461,7 @@ Repeater::make('transport_routes')
                                                     </div>";
                                                 }
                                                 $routesHtml = "
-                                                    <div style='margin-top:0.5rem; padding:0.75rem; padding-bottom: 0.15rem; background:#f0f9ff; border-radius:0.5rem; border:1px solid #bae6fd; font-size:0.85rem; color:#0369a1; line-height:1.4;'>
+                                                    <div style='margin-top:0.5rem; padding:0.75rem; padding-bottom: 0.15rem; background:#f0f9ff; border-radius:0.375rem; border:1px solid #bae6fd; font-size:0.85rem; color:#0369a1; line-height:1.4;'>
                                                         " . implode('', $routeLines) . "
                                                     </div>
                                                 ";
@@ -1475,7 +1475,7 @@ Repeater::make('transport_routes')
 
                                             $priceDetailsHtml = $isAwaitingValidation
                                                 ? ''
-                                                : "<div style='display:flex; flex-direction:column; gap:0.35rem; margin-top:0.5rem; padding:0.75rem; background:#f8fafc; border-radius:0.5rem; font-size:0.85rem;'>
+                                                : "<div style='display:flex; flex-direction:column; gap:0.35rem; margin-top:0.5rem; padding:0.75rem; background:#f8fafc; border-radius:0.375rem; font-size:0.85rem;'>
                                                     <div style='display:flex; justify-content:space-between; gap:1rem; color:#475569;'>
                                                         <span>" . e(__('Frais d’émission / réservation')) . "</span>
                                                         <span style='font-weight:700; color:#0f172a; white-space:nowrap;'>" . number_format($bookingFees, 0, '.', ' ') . " ¥</span>
@@ -1572,7 +1572,7 @@ Repeater::make('transport_routes')
                                         if (count($optRows) > 0) {
                                             $list = implode('<br>', array_map(fn($r) => "• $r", $optRows));
                                             $optionsHtml = "
-                                                <div style='margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:0.5rem; border:1px solid #e2e8f0;'>
+                                                <div style='margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:0.375rem; border:1px solid #e2e8f0;'>
                                                     <div style='font-size:0.75rem; font-weight:700; color:#475569; margin-bottom:0.25rem; text-transform:uppercase;'>Déclinaisons & Options sélectionnées :</div>
                                                     <div style='font-size:0.8rem; color:#334155; line-height:1.4;'>{$list}</div>
                                                 </div>
@@ -1697,7 +1697,7 @@ Repeater::make('transport_routes')
                                     $name = $storage->fileName($document);
                                     
                                     $html .= "
-                                    <div style=\"display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.375rem;\">
+                                    <div style=\"display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.25rem;\">
                                         <div style=\"display: flex; align-items: center; gap: 0.75rem; overflow: hidden;\">
                                             <svg style=\"width: 1.25rem; height: 1.25rem; color: #9ca3af; flex-shrink: 0;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke-width=\"1.5\" stroke=\"currentColor\">
                                                 <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z\" />

@@ -55,7 +55,7 @@
 
                 <div id="{{ $carouselId }}" style="{{ $carouselEnabled ? 'display: flex; gap: 1.25rem; overflow-x: auto; padding: 0.25rem 0.2rem 1rem; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--tk-accent-border) transparent;' : 'display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;' }}">
                     @foreach($section['products'] as $product)
-                <div data-takada-page-link="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" style="{{ $carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : '' }} background: white; border-radius: 1rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
+                <div data-takada-page-link="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" style="{{ $carouselEnabled ? 'flex: 0 0 min(320px, 82vw); scroll-snap-align: start;' : '' }} background: white; border-radius: 0.625rem; overflow: hidden; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;"
                      onmouseover="this.style.transform='translateY(-4px)'; this.style.box-shadow='0 10px 15px -3px rgba(0,0,0,0.1)';" 
                      onmouseout="this.style.transform='translateY(0)'; this.style.box-shadow='0 4px 6px -1px rgba(0,0,0,0.05)';"
                      onclick="window.location.href='{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}'">
@@ -76,13 +76,13 @@
                             </div>
                         @endif
                         
-                        <div style="position: absolute; top: 1rem; left: 1rem; background: color-mix(in srgb, var(--primary-600) 90%, transparent); color: white; padding: 0.2rem 0.75rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
+                        <div style="position: absolute; top: 1rem; left: 1rem; background: color-mix(in srgb, var(--primary-600) 90%, transparent); color: white; padding: 0.2rem 0.75rem; border-radius: 0.375rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
                             {{ $product->category->name ?? __('Activité') }}
                         </div>
                         @if($product->is_premium || $product->is_family_friendly)
                             <div style="position: absolute; top: 1rem; right: 1rem; display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem;">
-                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
-                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.5rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
+                                @if($product->is_premium)<span style="padding: 0.2rem 0.7rem; border-radius: 0.375rem; font-size: 0.7rem; font-weight: 800; background: #d97706; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">★ {{ __('Expérience premium') }}</span>@endif
+                                @if($product->is_family_friendly)<span style="padding: 0.2rem 0.7rem; border-radius: 0.375rem; font-size: 0.7rem; font-weight: 800; background: #059669; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);">👨‍👩‍👧 {{ __('Conseillée aux familles') }}</span>@endif
                             </div>
                         @endif
                     </div>
@@ -149,11 +149,11 @@
                                     @endif
                                 </div>
                             @else
-                                <span style="font-size: 0.75rem; font-weight: 600; color: #d97706; background: #fffbeb; padding: 0.25rem 0.6rem; border-radius: 0.375rem;">{{ __('Tarifs pro sur connexion') }}</span>
+                                <span style="font-size: 0.75rem; font-weight: 600; color: #d97706; background: #fffbeb; padding: 0.25rem 0.6rem; border-radius: 0.25rem;">{{ __('Tarifs pro sur connexion') }}</span>
                             @endif
 
                             <a href="{{ route('filament.agency.pages.view-product', ['record' => $product->id]) }}" 
-                               style="background: var(--primary-600); color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 700; transition: background 0.2s;">
+                               style="background: var(--primary-600); color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.8rem; font-weight: 700; transition: background 0.2s;">
                                 {{ __('Découvrir') }}
                             </a>
                         </div>
@@ -165,7 +165,7 @@
         @endforeach
 
         @if($this->products->isEmpty())
-            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 1rem; border: 2px dashed #e2e8f0;">
+            <div style="text-align: center; padding: 4rem 2rem; background: #f9fafb; border-radius: 0.625rem; border: 2px dashed #e2e8f0;">
                 <p style="color: #94a3b8; font-size: 1.1rem;">{{ __('Aucun produit ne correspond à votre recherche.') }}</p>
             </div>
         @endif
