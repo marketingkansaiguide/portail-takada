@@ -179,6 +179,12 @@
         .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-label,
         .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-start-actions,
         .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-collapsible-actions { display: none !important; }
+        /* Listes déroulantes dans la popin : la ligne ouverte passe au-dessus des suivantes, panneau opaque et lisible */
+        .tk-dbd-modal .fi-fo-repeater-item:focus-within, .tk-dbd-modal .fi-fo-field:focus-within { position: relative; z-index: 40; }
+        .tk-dbd-modal .fi-dropdown-panel { z-index: 60; opacity: 1; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.14); }
+        html.dark .tk-dbd-modal .fi-dropdown-panel { background: var(--gray-900); }
+        .tk-dbd-modal .fi-dropdown-panel .fi-select-input-option, .tk-dbd-modal .fi-dropdown-panel li { opacity: 1; color: var(--gray-950); }
+        html.dark .tk-dbd-modal .fi-dropdown-panel .fi-select-input-option, html.dark .tk-dbd-modal .fi-dropdown-panel li { color: var(--gray-50); }
 
         .tk-dbd-modal > .fi-fo-repeater-item-content { display: block !important; padding: 1rem 1.25rem 1.25rem; background: var(--tk-paper, #f7f6f3); border: 0; }
         html.dark .tk-dbd-modal > .fi-fo-repeater-item-content { background: var(--gray-950); }
