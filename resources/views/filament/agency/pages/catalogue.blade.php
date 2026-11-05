@@ -98,6 +98,7 @@
                             @if(auth('agency')->check())
                                 @php
                                     $minPrice = null;
+                                    $minUnit = 'pax';
                                     $isGuiding = (int) $product->category_id === 4 || $product->usesAgeSelector();
                                     // En guidage, les lignes enfants peuvent être gratuites : elles ne
                                     // constituent jamais un prix d'appel. On cherche donc une ligne
@@ -123,6 +124,7 @@
 
                                                     if ($minPrice === null || $price->price < $minPrice) {
                                                         $minPrice = $price->price;
+                                                        $minUnit = $product->usesGlobalRate($price) ? 'groupe' : 'pax';
                                                     }
                                                 }
                                             }
@@ -134,6 +136,9 @@
                                         $optionMin = \App\Models\ProductOptionSeasonPrice::where('product_id', $product->id)
                                             ->where('price_modifier', '>', 0)
                                             ->min('price_modifier');
+                                        if ($optionMin) {
+                                            $minUnit = (int) $product->category_id === 6 ? 'groupe' : 'pax';
+                                        }
                                         $minPrice = $optionMin ?: $minPrice;
                                     }
                                 @endphp
@@ -143,7 +148,7 @@
                                         <span style="font-size: 0.85rem; font-weight: 800; color: #c2410c; margin-top:0.5rem;">{{ __('Sur Devis') }}</span>
                                     @elseif($minPrice !== null)
                                         <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">{{ __('À partir de') }}</span>
-                                        <span style="font-size: 1.25rem; font-weight: 800; color: var(--tk-accent);">{{ number_format($minPrice, 0, '.', ' ') }} ¥</span>
+                                        <span style="font-size: 1.25rem; font-weight: 800; color: var(--tk-accent);">{{ number_format($minPrice, 0, '.', ' ') }} ¥<span style="font-size: 0.8rem; font-weight: 700;">/{{ $minUnit }}</span></span>
                                     @else
                                         <span style="font-size: 0.85rem; font-weight: 800; color: var(--tk-accent); margin-top:0.5rem;">{{ __('Prix saisonnier') }}</span>
                                     @endif
