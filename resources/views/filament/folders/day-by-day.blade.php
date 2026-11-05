@@ -25,14 +25,14 @@
             );
         },
         current: null,
-        open(repeater, key, name = '') {
+        open(repeater, key, name = '', sub = '') {
             const li = this.item(repeater, key);
             if (! li) return;
             this.close();
             li.classList.add('tk-dbd-open', 'tk-dbd-modal');
             li.dispatchEvent(new CustomEvent('expand'));
             li.scrollTop = 0;
-            this.current = { repeater, key, name };
+            this.current = { repeater, key, name, sub };
             document.documentElement.style.overflow = 'hidden';
         },
         close() {
@@ -129,6 +129,21 @@
         .tk-dbd-mbar button.is-primary { background: var(--primary-600); border-color: var(--primary-600); color: #fff; }
         .fi-fo-repeater-item.tk-dbd-modal { display: block !important; position: fixed !important; z-index: 36; top: calc(4vh + 3.25rem); max-height: calc(92vh - 3.25rem); overflow-y: auto; margin: 0 !important; background: #fff; border-radius: 0 0 .75rem .75rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .4); }
         html.dark .fi-fo-repeater-item.tk-dbd-modal { background: var(--gray-900); }
+        .tk-dbd-mbar .tk-mtitle { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+        .tk-dbd-mbar .tk-mtitle span { font-size: .75rem; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Popin : fiche toujours dépliée, sans libellé replié ni bouton plier/déplier ; seules les actions restent dans une barre d'outils. */
+        .tk-dbd-modal > .fi-fo-repeater-item-header { pointer-events: none; cursor: default; justify-content: flex-end; gap: .5rem; padding: .45rem 1.25rem; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+        html.dark .tk-dbd-modal > .fi-fo-repeater-item-header { background: var(--gray-800); border-color: var(--gray-700); }
+        .tk-dbd-modal > .fi-fo-repeater-item-header::before { content: 'Actions'; margin-right: auto; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-500); }
+        .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions { pointer-events: auto; }
+        .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-label,
+        .tk-dbd-modal > .fi-fo-repeater-item-header > .fi-fo-repeater-item-header-start-actions,
+        .tk-dbd-modal > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-collapsible-actions { display: none !important; }
+        .tk-dbd-modal > .fi-fo-repeater-item-content { display: block !important; padding: 1.25rem 1.5rem 1.5rem; }
+        /* Options tarifaires imbriquées : une ligne compacte (champ à gauche, actions à droite). */
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] { display: flex !important; flex-direction: row-reverse; align-items: center; }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header { border: 0; padding: .25rem .6rem; gap: .25rem; }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-content { flex: 1; min-width: 0; padding: .55rem .75rem; border: 0; }
         /* Jours libres consécutifs regroupés */
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
         .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
@@ -210,7 +225,7 @@
                                 @foreach ($day['rows'] as $i => $row)
                                     <tr
                                         class="is-item {{ $i === 0 ? 'is-day' : '' }} {{ $isWeekend ? 'is-we' : '' }} {{ $row['cancelled'] ? 'is-cancelled' : '' }}"
-                                        x-on:click="open(@js($row['repeater']), @js($row['key']), @js($row['name']))"
+                                        x-on:click="open(@js($row['repeater']), @js($row['key']), @js($row['name']), @js(($day['date'] ? $dayLabel : __('Sans date')) . ' · ' . $row['status_name']))"
                                         title="{{ __('Ouvrir la fiche de la prestation') }}"
                                     >
                                         @if ($i === 0)
@@ -273,7 +288,10 @@
         <div x-show="current" x-cloak>
             <div class="tk-dbd-backdrop" x-on:click="close()"></div>
             <div class="tk-dbd-mbar">
-                <strong x-text="current ? current.name : ''"></strong>
+                <div class="tk-mtitle">
+                    <strong x-text="current ? current.name : ''"></strong>
+                    <span x-text="current ? current.sub : ''"></span>
+                </div>
                 <div class="tk-mbtns">
                     <button type="button" class="is-primary" x-on:click="save()">{{ __('Enregistrer le dossier') }}</button>
                     <button type="button" x-on:click="close()">{{ __('Fermer') }} ✕</button>
