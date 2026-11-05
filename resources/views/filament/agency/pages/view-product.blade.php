@@ -540,8 +540,14 @@
                             {{-- PRODUIT CLASSIQUE (SANS TRANSPORT) --}}
                             <div class="product-config-section">
                                 <div class="product-config-section-title">{{ __('Date et participants') }}</div>
+                                @if($product->min_child_age)
+                                    <div style="margin-bottom: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 0.85rem; font-weight: 600;">
+                                        {{ __('Enfants de moins de :age ans non acceptés.', ['age' => $product->min_child_age]) }}
+                                    </div>
+                                @endif
                                 <div class="product-config-two-columns" style="display: grid; grid-template-columns: 1fr 0.6fr; gap: 0.75rem;">
                                 <div wire:key="calendar-picker" style="display: flex; flex-direction: column; gap: 0.35rem;{{ $product->usesAgeSelector() ? ' grid-column: 1 / -1;' : '' }}" 
+                                     @calendar-map-updated.window="map = $event.detail.map"
                                      x-data="{ 
                                         open: false,
                                         currentDate: new Date(),
@@ -699,10 +705,12 @@
 
                             @php
                                 $requiredGrouped = $product->productOptions
+                                    ->filter(fn($o) => $o->code !== 'GUIDE')
                                     ->filter(fn($o) => $o->is_required || !empty($o->group_name))
                                     ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
                                 $optionalOptions = $product->productOptions
+                                    ->filter(fn($o) => $o->code !== 'GUIDE')
                                     ->filter(fn($o) => !$o->is_required && empty($o->group_name));
                             @endphp
 

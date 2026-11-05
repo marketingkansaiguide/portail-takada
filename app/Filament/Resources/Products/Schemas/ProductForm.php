@@ -68,7 +68,7 @@ class ProductForm
                                 ->visible(fn (Get $get): bool => (int) $get('category_id') === 4 && ! $get('guide_all_day'))
                                 ->columnSpan(1),
 
-                                                        Textarea::make('description')
+                            Textarea::make('description')
                                 ->label(__('Description commerciale'))
                                 ->placeholder(__('Décrivez précisément l\'activité ou les spécificités du produit...'))
                                 ->rows(5)
@@ -82,8 +82,36 @@ class ProductForm
                                 ->panelLayout('grid')
                                 ->disk('public')
                                 ->directory('products')
+                                ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string => \App\Support\ImageOptimizer::storeUpload($file, 'public', 'products'))
                                 ->columnSpanFull(),
                         ]),
+
+                    Section::make(__('Informations importantes'))
+                        ->description(__('Documents à lire par l\'agence avant d\'ajouter la prestation à un dossier (optionnel).'))
+                        ->schema([
+                            Repeater::make('important_documents')
+                                ->hiddenLabel()
+                                ->addActionLabel(__('Ajouter un document'))
+                                ->itemLabel(fn (array $state): ?string => $state['label'] ?? __('Nouveau document'))
+                                ->collapsible()
+                                ->collapsed()
+                                ->schema([
+                                    TextInput::make('label')
+                                        ->label(__('Libellé du document'))
+                                        ->placeholder(__('Ex: Conditions de l\'activité'))
+                                        ->required(),
+
+                                    FileUpload::make('file')
+                                        ->label(__('Fichier (PDF ou autre)'))
+                                        ->disk('public')
+                                        ->directory('products/important-documents')
+                                        ->preserveFilenames()
+                                        ->required(),
+                                ])
+                                ->columns(2),
+                        ])
+                        ->collapsible()
+                        ->collapsed(),
 
                     Section::make(__('Informations importantes'))
                         ->description(__('Documents à lire par l\'agence avant d\'ajouter la prestation à un dossier (optionnel).'))
@@ -233,6 +261,20 @@ class ProductForm
                                         ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
                                         ->required(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
                                         ->columnSpan(['default' => 6, 'md' => 2]),
+
+                                    CheckboxList::make('available_days')
+                                        ->label(__('Jours propres à cette option (vide = ceux du produit)'))
+                                        ->options([
+                                            'mon' => __('Lun'),
+                                            'tue' => __('Mar'),
+                                            'wed' => __('Mer'),
+                                            'thu' => __('Jeu'),
+                                            'fri' => __('Ven'),
+                                            'sat' => __('Sam'),
+                                            'sun' => __('Dim'),
+                                        ])
+                                        ->columns(7)
+                                        ->columnSpanFull(),
 
                                     TextInput::make('price_modifier')
                                         ->label(__('Supplément (¥)'))
@@ -805,6 +847,16 @@ class ProductForm
                                 ->default(null)
                                 ->dehydrateStateUsing(fn ($state): ?int => blank($state) ? null : max(1, (int) $state))
                                 ->minValue(1),
+
+                            TextInput::make('min_child_age')
+                                ->label(__('Âge minimum des participants (ans)'))
+                                ->placeholder(__('Ex: 6 (laissez vide si aucune limite)'))
+                                ->helperText(__('Affiche aux agences « enfants de moins de X ans non acceptés ».'))
+                                ->numeric()
+                                ->default(null)
+                                ->dehydrateStateUsing(fn ($state): ?int => blank($state) ? null : max(1, (int) $state))
+                                ->minValue(1)
+                                ->maxValue(99),
 
                             Toggle::make('is_public')
                                 ->label(__('Produit actif'))

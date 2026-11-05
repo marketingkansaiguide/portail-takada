@@ -285,24 +285,29 @@ class ViewProduct extends Page
                     ->send();
             }
         }
+
+        $this->refreshCalendar();
     }
 
     public function updatedAgeSelectorAdults($value): void
     {
         $this->ageSelectorAdults = max(0, (int) $value);
         $this->syncAgeSelectorQuantity();
+        $this->refreshCalendar();
     }
 
     public function updatedAgeSelectorChildren($value): void
     {
         $this->ageSelectorChildren = max(0, (int) $value);
         $this->syncAgeSelectorQuantity();
+        $this->refreshCalendar();
     }
 
     public function updatedAgeSelectorTeenagers($value): void
     {
         $this->ageSelectorTeenagers = max(0, (int) $value);
         $this->syncAgeSelectorQuantity();
+        $this->refreshCalendar();
     }
 
     protected function syncAgeSelectorQuantity(): void
@@ -537,9 +542,19 @@ class ViewProduct extends Page
 
             $price = 0;
             if (!$isOnDemand && $isAvailable) {
-                $matchedPrice = $this->product->periodForDate($date)?->productPrices
-                    ->reject(fn ($price): bool => $price->isExtraPaxRate())
-                    ->min('price');
+                $rates = $this->product->periodForDate($date)?->productPrices
+                    ->reject(fn ($price): bool => $price->isExtraPaxRate());
+                // Prix d'appel = tarif adulte par personne pour le nombre de pax choisi.
+                $qty = max(1, (int) $this->quantity);
+                $adultRates = $rates?->filter(fn ($price): bool => (int) $price->max_age >= 99 && $price->price > 0);
+                if ($adultRates === null || $adultRates->isEmpty()) {
+                    $adultRates = $rates?->filter(fn ($price): bool => $price->price > 0);
+                }
+                $row = $adultRates?->first(fn ($price): bool => $price->min_pax <= $qty && $price->max_pax >= $qty)
+                    ?? $adultRates?->sortByDesc('max_pax')->first();
+                $matchedPrice = $row
+                    ? ($this->product->usesGlobalRate($row) ? $row->price / $qty : $row->price)
+                    : null;
                 if ($matchedPrice !== null) {
                     $price = $matchedPrice;
                 }

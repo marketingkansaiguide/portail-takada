@@ -248,7 +248,14 @@ class Product extends Model
         };
 
         $usePerAgePaxCount = (int) $this->category_id === 4;
-        $childPrice = $children > 0 ? $findPrice($childAge, $usePerAgePaxCount ? $children : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
+        $childPrice = ['unit' => 0.0, 'total' => 0.0];
+        if ($children > 0) {
+            $childPax = $usePerAgePaxCount ? $children : $totalPax;
+            // Sans tranche « 0 an » (âge minimum du produit), on cherche la
+            // tranche enfant la plus haute plutôt que de facturer au tarif adulte.
+            $childPrice = $findPrice($childAge, $childPax)
+                ?? $findPrice(max(0, (int) ($this->child_age_limit ?? 11)), $childPax);
+        }
         $teenPrice = $teenagers > 0 ? $findPrice($teenAge, $usePerAgePaxCount ? $teenagers : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
         $adultPrice = $adults > 0 ? $findPrice($adultAge, $usePerAgePaxCount ? $adults : $totalPax) : ['unit' => 0.0, 'total' => 0.0];
 
