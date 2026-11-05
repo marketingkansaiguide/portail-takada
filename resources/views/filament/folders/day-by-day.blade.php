@@ -7,7 +7,7 @@
 <div
     class="tk-dbd"
     x-data="{
-        mode: (() => { try { return localStorage.getItem('tk-dbd-mode') || 'day' } catch (e) { return 'day' } })(),
+        mode: 'day',
         init() {
             this.apply();
             clearInterval(window.tkDbdWatch);
@@ -39,6 +39,7 @@
             this.close();
             li.classList.add('tk-dbd-open', 'tk-dbd-modal');
             li.dispatchEvent(new CustomEvent('expand'));
+            delete li.dataset.tkPtab;
             this.tag(li);
             li.scrollTop = 0;
             this.current = { repeater, key, name, sub };
@@ -53,6 +54,53 @@
                 if (col.querySelector('[id$=&quot;.service_date&quot;]')) grid.classList.add('tk-h-date');
                 else if (col.querySelector('[id$=&quot;.invoice_received_at&quot;]')) grid.classList.add('tk-h-facture');
                 else if (! col.querySelector('.fi-fo-repeater') && col.querySelectorAll('.fi-select-input').length >= 2) grid.classList.add('tk-h-prestation');
+            });
+            this.ptabs(li, root);
+        },
+        // Onglets de la popin : « Détails », « Facture » (si le champ existe) et « Options » (si la prestation en a).
+        ptabs(li, root) {
+            const content = li.querySelector(':scope > .fi-fo-repeater-item-content');
+            if (! content) return;
+            const cols = [...root.children].filter((c) => ! c.classList.contains('fi-hidden'));
+            cols.forEach((col) => {
+                let pane = 'details';
+                if (col.querySelector('[id$=&quot;.invoice_received_at&quot;]')) pane = 'facture';
+                else if (col.querySelector('[wire\\:key*=&quot;.selected_options.&quot;]')) pane = 'options';
+                col.setAttribute('data-tk-pane', pane);
+            });
+            const panes = (name) => cols.some((c) => c.dataset.tkPane === name);
+            const optionCount = cols.reduce((n, c) => n + (c.dataset.tkPane === 'options' ? c.querySelectorAll('[wire\\:key*=&quot;.selected_options.&quot;]').length : 0), 0);
+            const defs = [
+                ['details', @js(__('Détails')), true],
+                ['facture', @js(__('Facture')), panes('facture')],
+                ['options', @js(__('Options')) + (optionCount ? ' (' + optionCount + ')' : ''), panes('options')],
+            ];
+            let bar = content.querySelector(':scope > .tk-dbd-ptabs');
+            if (! bar) {
+                bar = document.createElement('div');
+                bar.className = 'tk-dbd-seg tk-dbd-ptabs';
+                content.insertBefore(bar, content.firstChild);
+            }
+            const visible = defs.filter((d) => d[2]).map((d) => d[0]);
+            const active = visible.includes(li.dataset.tkPtab) ? li.dataset.tkPtab : 'details';
+            li.dataset.tkPtab = active;
+            defs.forEach(([key, label, show]) => {
+                let btn = bar.querySelector(':scope > [data-ptab=' + key + ']');
+                if (! btn) {
+                    btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.dataset.ptab = key;
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        li.dataset.tkPtab = key;
+                        this.tag(li);
+                    });
+                    bar.appendChild(btn);
+                }
+                if (btn.textContent !== label) btn.textContent = label;
+                btn.style.display = show ? '' : 'none';
+                btn.classList.toggle('is-on', key === active);
             });
         },
         close() {
@@ -140,7 +188,9 @@
         .tk-dbd tfoot td { font-weight: 700; background: var(--tk-dbd-head); }
         .tk-dbd-empty { padding: 1rem; text-align: center; color: var(--gray-500); font-size: .85rem; border: 1px dashed var(--tk-dbd-line); border-radius: .5rem; }
         /* Mode jour par jour : les fiches du repeater restent repliées et masquées, sauf celles ouvertes depuis le tableau ou pas encore enregistrées. */
-        .tk-dbd-on .fi-fo-repeater-item[x-sortable-item^="record-"]:not(.tk-dbd-open) { display: none; }
+        /* Les prestations (et prestations internes) enregistrées ne s'affichent que dans le tableau : leur fiche n'apparaît qu'en popin. */
+        li.fi-fo-repeater-item[x-sortable-item^="record-"][wire\:key*=".folderItems.record-"]:not(.tk-dbd-open),
+        li.fi-fo-repeater-item[x-sortable-item^="record-"][wire\:key*=".internalItems.record-"]:not(.tk-dbd-open) { display: none; }
         /* Popin : la fiche du repeater est affichée par-dessus la page, sans la déplacer dans le DOM (les champs restent liés au formulaire). */
         .tk-dbd-backdrop { position: fixed; inset: 0; z-index: 35; background: rgba(12, 10, 9, .55); }
         .tk-dbd-mbar, .fi-fo-repeater-item.tk-dbd-modal { left: calc(50% - min(520px, 47vw)); width: min(1040px, 94vw); }
@@ -225,6 +275,17 @@
         html.dark .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] { background: var(--gray-800); }
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header { border: 0; padding: .25rem .6rem; gap: .25rem; background: transparent; }
         .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-content { flex: 1; min-width: 0; padding: .55rem .75rem; border: 0; }
+        /* Options : toujours dépliées, l'en-tête ne bascule plus rien (seules les actions restent cliquables) */
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-content { display: block !important; }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header { pointer-events: none; }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions,
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-end-actions * { pointer-events: auto; }
+        .tk-dbd-modal .fi-fo-repeater-item[wire\:key*=".selected_options."] > .fi-fo-repeater-item-header .fi-fo-repeater-item-header-collapsible-actions { display: none !important; }
+        /* Onglets de la popin : un seul bloc visible à la fois */
+        .tk-dbd-ptabs { margin: 0 0 .9rem; max-width: 100%; overflow-x: auto; }
+        .tk-dbd-modal[data-tk-ptab="details"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="details"]),
+        .tk-dbd-modal[data-tk-ptab="facture"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="facture"]),
+        .tk-dbd-modal[data-tk-ptab="options"] > .fi-fo-repeater-item-content > .fi-grid > [data-tk-pane]:not([data-tk-pane="options"]) { display: none !important; }
         /* Jours libres consécutifs regroupés */
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
         .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
@@ -241,10 +302,7 @@
         </div>
         <div x-show="mode !== 'day'"></div>
         <div style="display:flex;align-items:center">
-            <div class="tk-dbd-seg">
-                <button type="button" x-bind:class="{ 'is-on': mode === 'list' }" x-on:click="setMode('list')">{{ __('Liste') }}</button>
-                <button type="button" x-bind:class="{ 'is-on': mode === 'day' }" x-on:click="setMode('day')">{{ __('Jour par jour') }}</button>
-            </div>
+
         </div>
     </div>
 
