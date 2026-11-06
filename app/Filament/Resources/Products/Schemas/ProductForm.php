@@ -344,7 +344,7 @@ class ProductForm
                                         ->relationship()
                                         ->label(__('Tarifs par saison'))
                                         ->helperText(__('Guidage uniquement : choisissez une saison, puis renseignez le supplément de chaque tranche affichée automatiquement.'))
-                                        ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')) === 4)
+                                        ->visible(fn (Get $get, $livewire): bool => in_array((int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')), [3, 4], true))
                                         ->table([
                                             TableColumn::make(__('Saison'))->width('135px')->markAsRequired(),
                                             TableColumn::make(__('Tranche tarifaire'))->width('190px')->markAsRequired(),
@@ -603,7 +603,7 @@ class ProductForm
                                                     : __('Information interne, non visible par les agences.'))
                                                 ->numeric()
                                                 ->minValue(0)
-                                                ->visible(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 4),
+                                                ->visible(fn (Get $get, $livewire): bool => in_array((int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')), [3, 4], true)),
 
                                         ])->columns(3)
                                 ])
