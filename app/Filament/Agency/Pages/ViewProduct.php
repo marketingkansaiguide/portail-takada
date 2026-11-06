@@ -126,6 +126,10 @@ class ViewProduct extends Page
             }
         }
 
+        if ($this->product->usesMultiplier()) {
+            $this->customValues['_multiplier'] = 1;
+        }
+
         if ($this->product->product_type === 'transport') {
             if (empty($this->customValues['transport_routes'])) {
                 $this->customValues['transport_routes'] = [
@@ -579,7 +583,7 @@ class ViewProduct extends Page
     {
         if (!$this->product) return [];
 
-        $memoKey = md5(json_encode([$this->selectedOptions, $this->customValues['transport_routes'] ?? null, $this->quantity, $this->serviceDate, $this->ageSelectorAdults, $this->ageSelectorChildren, $this->ageSelectorTeenagers]));
+        $memoKey = md5(json_encode([$this->selectedOptions, $this->customValues['transport_routes'] ?? null, $this->quantity, $this->customValues['_multiplier'] ?? null, $this->serviceDate, $this->ageSelectorAdults, $this->ageSelectorChildren, $this->ageSelectorTeenagers]));
 
         return $this->estimateMemo[$memoKey] ??= $this->computeEstimatedPrice();
     }
@@ -740,7 +744,9 @@ class ViewProduct extends Page
         $totalBase = $ageBaseTotal !== null
             ? $ageBaseTotal
             : $this->product->baseRateTotal($basePriceRow, $qty, $basePricePeriod);
-        $basePricePerUnit = $totalBase / max(1, $qty);
+        $multiplier = $this->product->multiplierFrom($this->customValues);
+        $totalBase *= $multiplier;
+        $basePricePerUnit = $totalBase / max(1, $qty * $multiplier);
         
         $optionsPrice = 0;
         $feeTotal = 0;
@@ -823,6 +829,7 @@ class ViewProduct extends Page
             'base_teen_total' => $ageBaseBreakdown['teen_total'] ?? null,
             'total_options' => $optionsPrice,
             'fee_total' => $feeTotal,
+            'multiplier' => $multiplier,
             'fee_label' => $feeLabel,
             'options_adult_total' => $optionsAdultTotal,
             'options_child_total' => $optionsChildTotal,

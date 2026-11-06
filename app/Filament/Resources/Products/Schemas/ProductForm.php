@@ -859,6 +859,12 @@ class ProductForm
                                 ->placeholder(__('Ex: Nombre de jours'))
                                 ->maxLength(80),
 
+                            TextInput::make('multiplier_label')
+                                ->label(__('Libellé du multiplicateur (optionnel)'))
+                                ->placeholder(__('Ex: Nombre de boîtiers'))
+                                ->helperText(__('Si renseigné, l\'agence saisit ce nombre (min 1) et le tarif de base est multiplié. Vide = pas de champ.'))
+                                ->maxLength(80),
+
                             TextInput::make('max_pax')
                                 ->label(__('Capacité maximale (Pax)'))
                                 ->placeholder(__('Ex: 10 (Laissez vide si illimité)'))

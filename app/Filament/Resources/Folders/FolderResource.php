@@ -263,10 +263,17 @@ class FolderResource extends Resource
             $hasGuidePurchasePrice = true;
         }
 
+        $multiplier = $product ? $product->multiplierFrom(is_array($customValues) ? $customValues : null) : 1;
+        if ($product && (int) $product->category_id === 3 && $basePriceRow && $basePriceRow->purchase_price !== null) {
+            $guidePurchaseTotal += (float) $basePriceRow->purchase_price * max(1, $itemQuantity) * $multiplier;
+            $hasGuidePurchasePrice = true;
+        }
+
         // --- NOUVELLE LOGIQUE DE CALCUL ---
         $baseTotal = $ageBaseTotal !== null
             ? (float) $ageBaseTotal
             : $product?->baseRateTotal($basePriceRow, $itemQuantity, $basePricePeriod) ?? ((float) $basePrice * (float) $itemQuantity);
+        $baseTotal *= $multiplier;
         $baseUnitPrice = $ageBaseTotal !== null
             ? (float) $ageBaseTotal / max(1, $itemQuantity)
             : $baseTotal / max(1, $itemQuantity);
@@ -297,7 +304,7 @@ class FolderResource extends Resource
             // Prestation normale (Hotel, Guide, Activité...)
             $set('unit_price', $unitPrice);
             $set('total_price', $fraisFixesBase);
-            if ((int) ($product?->category_id ?? 0) === 4 && $hasGuidePurchasePrice) {
+            if (in_array((int) ($product?->category_id ?? 0), [3, 4], true) && $hasGuidePurchasePrice) {
                 $set('purchase_unit_price', $guidePurchaseTotal);
                 $set('purchase_total_price', $guidePurchaseTotal);
             }

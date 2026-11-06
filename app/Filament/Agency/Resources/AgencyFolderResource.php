@@ -788,6 +788,16 @@ Repeater::make('transport_routes')
                                             return (bool) \App\Models\Product::find($productId)?->enable_age_selector;
                                         })
                                         ->required(),
+
+                                    TextInput::make('custom_multiplier')
+                                        ->label(fn (Get $get): string => \App\Models\Product::find($get('product_id'))?->multiplier_label ?? __('Multiplicateur'))
+                                        ->numeric()
+                                        ->integer()
+                                        ->default(1)
+                                        ->minValue(1)
+                                        ->live()
+                                        ->required()
+                                        ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesMultiplier()),
                                 ])->columns(2)->visible(function (Get $get, $livewire) {
                                     $productId = $get('product_id')
                                               ?? data_get($livewire, 'mountedTableActionData.product_id')
@@ -1064,7 +1074,9 @@ Repeater::make('transport_routes')
                                                 $baseTotal = $ageBaseTotal !== null
                                                     ? $ageBaseTotal
                                                     : $product->baseRateTotal($matchedPriceRow, $qty, $matchedPricePeriod);
-                                                $baseUnitPrice = $baseTotal / max(1, $qty);
+                                                $multiplier = $product->usesMultiplier() ? max(1, (int) ($get('custom_multiplier') ?? 1)) : 1;
+                                                $baseTotal *= $multiplier;
+                                                $baseUnitPrice = $baseTotal / max(1, $qty * $multiplier);
                                                 if ($ageBaseBreakdown !== null) {
                                                     $ageParts = [];
                                                     if ($ageAdults > 0) {
@@ -1082,7 +1094,9 @@ Repeater::make('transport_routes')
                                                 } else {
                                                     $baseLabel = $product->usesGlobalRate($matchedPriceRow)
                                                         ? __('Forfait global')
-                                                        : number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} pax";
+                                                        : ($multiplier > 1
+                                                            ? number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$multiplier} " . $product->multiplierNoun() . " × {$qty} " . mb_strtolower($product->quantityLabel('pax'))
+                                                            : number_format($baseUnitPrice, 0, '.', ' ') . " ¥ × {$qty} " . mb_strtolower($product->quantityLabel('pax')));
                                                 }
                                                 
                                                 $optionsTotal = 0;
@@ -1287,6 +1301,10 @@ Repeater::make('transport_routes')
                                             }
                                         }
                                     }
+                                }
+
+                                if ($product && $product->usesMultiplier()) {
+                                    $customValues['_multiplier'] = max(1, (int) ($mergedData['custom_multiplier'] ?? 1));
                                 }
 
                                 $lateRequestDate = null;

@@ -710,6 +710,12 @@
                                         @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                                     </div>
                                 @endif
+                                @if($product->usesMultiplier())
+                                    <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                                        <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ $product->multiplier_label }} <span style="color: #dc2626;">*</span></label>
+                                        <input type="number" wire:model.live.debounce.500ms="customValues._multiplier" min="1" required style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none;">
+                                    </div>
+                                @endif
                                 </div>
                             </div>
 
@@ -1182,7 +1188,7 @@
                                     @else
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                                {{ __('Prestation') }} {{ $estimate['has_date'] ? '('.$estimate['qty'].' '.(filled($product->quantity_label) ? mb_strtolower($product->quantity_label) : __('pax')).')' : '('.__('À partir de').')' }}
+                                                {{ __('Prestation') }} {{ $estimate['has_date'] ? (($estimate['multiplier'] ?? 1) > 1 ? '('.$estimate['multiplier'].' '.$product->multiplierNoun().' × '.$estimate['qty'].' '.(filled($product->quantity_label) ? mb_strtolower($product->quantity_label) : __('pax')).')' : '('.$estimate['qty'].' '.(filled($product->quantity_label) ? mb_strtolower($product->quantity_label) : __('pax')).')') : '('.__('À partir de').')' }}
                                             </span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ ($estimate['has_date'] || $estimate['total_base'] > 0) ? number_format($estimate['total_base'], 0, '.', ' ') . ' ¥' : '—' }}</span>
                                         </div>

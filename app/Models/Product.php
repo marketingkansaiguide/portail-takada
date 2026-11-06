@@ -44,6 +44,23 @@ class Product extends Model
         return filled($this->quantity_label) ? $this->quantity_label : $default;
     }
 
+    /** Multiplicateur facultatif (ex. « Nombre de boîtiers » pour une location). */
+    public function usesMultiplier(): bool
+    {
+        return filled($this->multiplier_label);
+    }
+
+    /** Nom affiché dans le détail du prix (« Nombre de boîtiers » → « boîtiers »). */
+    public function multiplierNoun(): string
+    {
+        return mb_strtolower(trim(preg_replace("/^nombre\\s+(de|d')\\s*/iu", '', (string) $this->multiplier_label)));
+    }
+
+    public function multiplierFrom(?array $customValues): int
+    {
+        return $this->usesMultiplier() ? max(1, (int) ($customValues['_multiplier'] ?? 1)) : 1;
+    }
+
     public function isTransport(): bool
     {
         return $this->product_type === 'transport';
