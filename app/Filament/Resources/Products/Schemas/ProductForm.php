@@ -343,11 +343,11 @@ class ProductForm
                                     Repeater::make('seasonalPrices')
                                         ->relationship()
                                         ->label(__('Tarifs par saison'))
-                                        ->helperText(__('Guidage uniquement : choisissez une saison, puis renseignez le supplément de chaque tranche affichée automatiquement.'))
+                                        ->helperText(__('Guidage : choisissez une saison, puis renseignez le supplément de chaque tranche affichée automatiquement. Extras : une seule ligne par saison (vente et coût d’achat), sans tranche.'))
                                         ->visible(fn (Get $get, $livewire): bool => in_array((int) ($get('../../category_id') ?? data_get($livewire, 'record.category_id')), [3, 4], true))
                                         ->table([
                                             TableColumn::make(__('Saison'))->width('135px')->markAsRequired(),
-                                            TableColumn::make(__('Tranche tarifaire'))->width('190px')->markAsRequired(),
+                                            TableColumn::make(__('Tranche tarifaire (guidage)'))->width('190px'),
                                             TableColumn::make(__('Vente & coût d’achat')),
                                         ])
                                         ->compact()
@@ -365,8 +365,13 @@ class ProductForm
                                                 ->searchable()
                                                 ->preload()
                                                 ->live()
-                                                ->afterStateUpdated(function ($state, Get $get, Set $set): void {
+                                                ->afterStateUpdated(function ($state, Get $get, Set $set, $livewire): void {
                                                     if (! $state) {
+                                                        return;
+                                                    }
+
+                                                    // Extras : le supplément ne dépend pas de la tranche tarifaire.
+                                                    if ((int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 3) {
                                                         return;
                                                     }
 
@@ -436,7 +441,8 @@ class ProductForm
                                                 })
                                                 ->searchable()
                                                 ->preload()
-                                                ->required(),
+                                                ->hidden(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) === 3)
+                                                ->required(fn (Get $get, $livewire): bool => (int) ($get('../../../../category_id') ?? data_get($livewire, 'record.category_id')) !== 3),
                                             Group::make()
                                                 ->schema([
                                                     TextInput::make('adult_price_modifier')
