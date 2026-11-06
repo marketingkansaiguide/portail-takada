@@ -408,7 +408,7 @@ class AgencyFolderResource extends Resource
                                     ->content(function (Get $get): HtmlString {
                                         $links = \App\Models\Product::find($get('product_id'))?->importantDocumentLinks() ?? [];
 
-                                        $items = collect($links)->map(fn (array $doc): string => '<li style="margin-bottom: 0.2rem;"><a href="'.e($doc['url']).'" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">'.e($doc['label']).'</a></li>')->implode('');
+                                        $items = collect($links)->map(fn (array $doc): string => '<li style="margin-bottom: 0.2rem;">'.($doc['url'] ? '<a href="'.e($doc['url']).'" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">'.e($doc['label']).'</a>' : '<span style="color: #991b1b; font-weight: 700;">'.e($doc['label']).'</span>').'</li>')->implode('');
 
                                         return new HtmlString('<div role="alert" style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 0.4rem; padding: 0.75rem 0.85rem;">'
                                             .'<div style="font-weight: 800; color: #991b1b; font-size: 0.9rem; margin-bottom: 0.4rem;">'.e(__('Informations importantes à lire')).'</div>'
@@ -822,6 +822,9 @@ Repeater::make('transport_routes')
 
                                         if ($requiredGrouped->count() > 0) {
                                             foreach ($requiredGrouped as $groupName => $groupOptions) {
+                                                if ($groupOptions->every(fn ($o) => $o->code === 'FRAIS')) {
+                                                    continue; // frais fixes : appliqués d'office, affichés dans le détail du prix
+                                                }
                                                 $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
                                                 
                                                 $selectOptions = [];
@@ -1113,7 +1116,7 @@ Repeater::make('transport_routes')
                                                             $optionsTotal += $optTotal;
                                                             $optRows[] = "
                                                                 <div style='display:flex; justify-content:space-between; color:#475569; padding-left:12px; margin-top:2px; font-size:0.825rem;'>
-                                                                    <span>└ <i>Option : " . e($opt->name) . "</i> ({$calcText})</span>
+                                                                    <span>└ <i>" . ($opt->code === 'FRAIS' ? '' : 'Option : ') . e($opt->name) . "</i> ({$calcText})</span>
                                                                     <span style='color:#0284c7; font-weight:600;'>+ " . number_format($optTotal, 0, '.', ' ') . " ¥</span>
                                                                 </div>
                                                             ";

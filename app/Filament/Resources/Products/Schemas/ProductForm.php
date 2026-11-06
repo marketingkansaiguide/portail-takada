@@ -114,11 +114,10 @@ class ProductForm
                                         ->required(),
 
                                     FileUpload::make('file')
-                                        ->label(__('Fichier (PDF ou autre)'))
+                                        ->label(__('Fichier (PDF ou autre, facultatif, sans fichier le libellé sert de message)'))
                                         ->disk('public')
                                         ->directory('products/important-documents')
-                                        ->preserveFilenames()
-                                        ->required(),
+                                        ->preserveFilenames(),
                                 ])
                                 ->columns(2),
                         ])
@@ -141,11 +140,10 @@ class ProductForm
                                         ->required(),
 
                                     FileUpload::make('file')
-                                        ->label(__('Fichier (PDF ou autre)'))
+                                        ->label(__('Fichier (PDF ou autre, facultatif, sans fichier le libellé sert de message)'))
                                         ->disk('public')
                                         ->directory('products/important-documents')
-                                        ->preserveFilenames()
-                                        ->required(),
+                                        ->preserveFilenames(),
                                 ])
                                 ->columns(2),
                         ])

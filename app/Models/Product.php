@@ -166,10 +166,10 @@ class Product extends Model
     public function importantDocumentLinks(): array
     {
         return collect($this->important_documents ?? [])
-            ->filter(fn ($doc): bool => ! empty($doc['file']))
+            ->filter(fn ($doc): bool => ! empty($doc['file']) || filled($doc['label'] ?? null))
             ->map(fn ($doc): array => [
                 'label' => filled($doc['label'] ?? null) ? $doc['label'] : basename($doc['file']),
-                'url' => Storage::disk('public')->url($doc['file']),
+                'url' => ! empty($doc['file']) ? Storage::disk('public')->url($doc['file']) : null,
             ])
             ->values()
             ->all();

@@ -743,6 +743,8 @@ class ViewProduct extends Page
         $basePricePerUnit = $totalBase / max(1, $qty);
         
         $optionsPrice = 0;
+        $feeTotal = 0;
+        $feeLabel = null;
         $optionsAdultTotal = 0;
         $optionsChildTotal = 0;
         $optionsTeenTotal = 0;
@@ -783,6 +785,10 @@ class ViewProduct extends Page
                     }
 
                     $optionsPrice += $optionTotal;
+                    if ($option->code === 'FRAIS') {
+                        $feeTotal += $optionTotal;
+                        $feeLabel = $option->name;
+                    }
 
                     if ((int) $this->product->category_id === 4) {
                         if ($option->is_required || filled($option->group_name)) {
@@ -816,6 +822,8 @@ class ViewProduct extends Page
             'base_child_total' => $ageBaseBreakdown['child_total'] ?? null,
             'base_teen_total' => $ageBaseBreakdown['teen_total'] ?? null,
             'total_options' => $optionsPrice,
+            'fee_total' => $feeTotal,
+            'fee_label' => $feeLabel,
             'options_adult_total' => $optionsAdultTotal,
             'options_child_total' => $optionsChildTotal,
             'options_teen_total' => $optionsTeenTotal,

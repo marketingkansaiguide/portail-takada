@@ -715,12 +715,12 @@
 
                             @php
                                 $requiredGrouped = $product->productOptions
-                                    ->filter(fn($o) => $o->code !== 'GUIDE')
+                                    ->filter(fn($o) => ! in_array($o->code, ['GUIDE', 'FRAIS'], true))
                                     ->filter(fn($o) => $o->is_required || !empty($o->group_name))
                                     ->groupBy(fn($o) => !empty($o->group_name) ? $o->group_name : 'default_required');
 
                                 $optionalOptions = $product->productOptions
-                                    ->filter(fn($o) => $o->code !== 'GUIDE')
+                                    ->filter(fn($o) => ! in_array($o->code, ['GUIDE', 'FRAIS'], true))
                                     ->filter(fn($o) => !$o->is_required && empty($o->group_name));
                             @endphp
 
@@ -1192,7 +1192,7 @@
                                         @if(($estimate['is_guiding'] ?? false) && ($estimate['guiding_optional_total'] ?? 0) > 0)
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Options complémentaires') }}</span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['guiding_optional_total'], 0, '.', ' ') }} ¥</span>
-                                        @elseif(!($estimate['is_guiding'] ?? false) && $estimate['total_options'] > 0)
+                                        @elseif(!($estimate['is_guiding'] ?? false) && ($estimate['total_options'] - ($estimate['fee_total'] ?? 0)) > 0)
                                             @if($product->usesAgeSelector())
                                                 <div style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; font-weight:600; color:#64748b;">
                                                     <span>{{ __('Options adultes') }}</span>
@@ -1206,10 +1206,16 @@
                                                 </div>
                                             @else
                                                 <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Déclinaisons / Options') }}</span>
-                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'] - ($estimate['fee_total'] ?? 0), 0, '.', ' ') }} ¥</span>
                                             @endif
                                         @endif
                                     </div>
+                                    @if(($estimate['fee_total'] ?? 0) > 0)
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                                            <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ $estimate['fee_label'] }}</span>
+                                            <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['fee_total'], 0, '.', ' ') }} ¥</span>
+                                        </div>
+                                    @endif
                                     
                                     <div style="height: 1px; background: #e2e8f0; margin: 0.25rem 0 0.6rem;"></div>
                                     
@@ -1265,7 +1271,7 @@
                                     </div>
                                     <ul style="margin: 0 0 0.5rem 0; padding-left: 1.1rem; font-size: 0.82rem; color: #7f1d1d;">
                                         @foreach($importantDocs as $doc)
-                                            <li style="margin-bottom: 0.2rem;"><a href="{{ $doc['url'] }}" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">{{ $doc['label'] }}</a></li>
+                                            <li style="margin-bottom: 0.2rem;">@if($doc['url'])<a href="{{ $doc['url'] }}" target="_blank" rel="noopener" style="color: #991b1b; font-weight: 700; text-decoration: underline;">{{ $doc['label'] }}</a>@else<span style="color: #991b1b; font-weight: 700;">{{ $doc['label'] }}</span>@endif</li>
                                         @endforeach
                                     </ul>
                                     <p style="margin: 0; font-size: 0.75rem; color: #7f1d1d; line-height: 1.4;">{{ __('En ajoutant cette prestation au dossier, vous reconnaissez avoir pris connaissance de ces informations.') }}</p>
