@@ -657,7 +657,7 @@ Repeater::make('transport_routes')
                                 // CHAMPS GLOBAUX S'IL S'AGIT D'UN PRODUIT STANDARD
                                 Group::make()->schema([
                                     DatePicker::make('service_date')
-                                        ->label(__('Date souhaitée'))
+                                        ->label(fn (Get $get, $livewire): string => (($get('product_id') ?? data_get($livewire, 'mountedTableActionData.product_id') ?? data_get($livewire, 'mountedActionData.product_id')) ? \App\Models\Product::find($get('product_id') ?? data_get($livewire, 'mountedTableActionData.product_id') ?? data_get($livewire, 'mountedActionData.product_id'))?->dateLabel(__('Date souhaitée')) : null) ?? __('Date souhaitée'))
                                         ->required(function (Get $get, $livewire) {
                                             $productId = $get('product_id')
                                                       ?? data_get($livewire, 'mountedTableActionData.product_id')
@@ -765,7 +765,7 @@ Repeater::make('transport_routes')
                                         ->columnSpan(2),
 
                                     TextInput::make('quantity')
-                                        ->label(__('Participants (Nombre de Pax)'))
+                                        ->label(fn (Get $get): string => \App\Models\Product::find($get('product_id'))?->quantityLabel(__('Participants (Nombre de Pax)')) ?? __('Participants (Nombre de Pax)'))
                                         ->numeric()
                                         ->default(1)
                                         ->minValue(1)

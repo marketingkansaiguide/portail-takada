@@ -32,6 +32,18 @@ class Product extends Model
         'enable_teen_selector' => 'boolean',
     ];
 
+    /** Libellé de la date de prestation (ex. « Date de récupération » pour une location). */
+    public function dateLabel(string $default): string
+    {
+        return filled($this->date_label) ? $this->date_label : $default;
+    }
+
+    /** Libellé de la quantité (ex. « Nombre de jours » pour une location). */
+    public function quantityLabel(string $default): string
+    {
+        return filled($this->quantity_label) ? $this->quantity_label : $default;
+    }
+
     public function isTransport(): bool
     {
         return $this->product_type === 'transport';

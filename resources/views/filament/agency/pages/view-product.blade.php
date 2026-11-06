@@ -611,7 +611,7 @@
                                         }
                                      }">
                                     
-                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ __('Date d’activité') }}</label>
+                                    <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ $product->dateLabel(__('Date d’activité')) }}</label>
                                     <button type="button" @click="open = true" style="width: 100%; padding: 0.55rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: left; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                                         <span x-text="selectedDate ? selectedDate.split('-').reverse().join('/') : @js(__('Sélectionner...'))" :style="!selectedDate && 'color: #9ca3af'"></span>
                                         <svg style="width: 16px; height: 16px; color: #9ca3af;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -705,7 +705,7 @@
                                     </div>
                                 @else
                                     <div style="display: flex; flex-direction: column; gap: 0.35rem;">
-                                        <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">Pax</label>
+                                        <label style="font-size: 0.85rem; font-weight: 700; color: #374151;">{{ $product->quantityLabel('Pax') }}</label>
                                         <input type="number" wire:model.live.debounce.500ms="quantity" min="1" style="width: 100%; padding: 0.55rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; outline: none; background: white; text-align: center;">
                                         @error('quantity') <span style="color: #dc2626; font-size: 0.75rem; font-weight: 500;">{{ $message }}</span> @enderror
                                     </div>
@@ -1182,7 +1182,7 @@
                                     @else
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                                {{ __('Prestation') }} {{ $estimate['has_date'] ? '('.$estimate['qty'].' '.__('pax').')' : '('.__('À partir de').')' }}
+                                                {{ __('Prestation') }} {{ $estimate['has_date'] ? '('.$estimate['qty'].' '.(filled($product->quantity_label) ? mb_strtolower($product->quantity_label) : __('pax')).')' : '('.__('À partir de').')' }}
                                             </span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ ($estimate['has_date'] || $estimate['total_base'] > 0) ? number_format($estimate['total_base'], 0, '.', ' ') . ' ¥' : '—' }}</span>
                                         </div>

@@ -849,6 +849,16 @@ class ProductForm
 
                     Section::make(__('Paramètres de Vente'))
                         ->schema([
+                            TextInput::make('date_label')
+                                ->label(__('Libellé de la date (optionnel)'))
+                                ->placeholder(__('Ex: Date de récupération'))
+                                ->maxLength(80),
+
+                            TextInput::make('quantity_label')
+                                ->label(__('Libellé de la quantité (optionnel)'))
+                                ->placeholder(__('Ex: Nombre de jours'))
+                                ->maxLength(80),
+
                             TextInput::make('max_pax')
                                 ->label(__('Capacité maximale (Pax)'))
                                 ->placeholder(__('Ex: 10 (Laissez vide si illimité)'))
