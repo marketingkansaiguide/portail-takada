@@ -19,10 +19,10 @@ Documents liés : `docs/LOT3-preparation-commande.md` (lot 3b, architecture B va
 | 1 | Tests de référence B2B : tarifs (6 200 scénarios sur le catalogue prod), rémunération guide (477 combinaisons), accès agence, parcours de validation agence, automatismes (guides, clôture, tâches), matrice des droits des 9 profils | Oui | Oui (voir §3) | `237cd51`, `303870d` |
 | 2 | Origine des dossiers `b2b`/`internal` (obligatoire, sans défaut), `client_agency_id`, contraintes CHECK MySQL, `FolderAccess` branché sur policies, panel agence, fichiers, chat, Contact, fiche produit ; commande `folders:origin-report` | Oui | Oui ; migration jouée et annulée sur une copie de la prod (visibilité agence identique) | `525e129` |
 | 3a | Dossiers internes : création distincte, type, avancement, responsable, contact, type de vente, politique tarifaire, notes, droits `folder.internal.*`, visibilité tous commerciaux, verrou optimiste, cron et tâches limités au B2B, PDF sans agence, liste et filtres | Oui | Oui | `7407bca` |
-| 3b | Préparation puis commande (option B) et les garanties du §12 | **Non : planifié** | — | — |
+| 3b | Préparation puis commande (option B), garanties §12-13 : triggers, idempotence, revalidation des prix, traçabilité, Calendar en file avec reprise, guides internes désactivés par défaut | Oui | Oui (22 tests + recette navigateur) | `a0532b4`, `b34f553` |
 | 4 et suivants | Données sensibles et 2FA, vols, hébergements, finances, tâches manuelles, tableau de bord, calendrier, devis | **Non : planifié** | — | — |
 
-Non vérifié : aucune recette visuelle dans un navigateur (les écrans sont rendus par les tests Livewire et HTTP). Rien n'est déployé.
+Recette navigateur (Chrome, base de démonstration locale, 2026-11-07) : lots 2, 3a et 3b, 24 contrôles OK ; 6 écrans B2B (agence et admin) au texte identique à la version actuelle `master`. Rien n'est déployé.
 
 ## 3. Tests
 
@@ -37,7 +37,7 @@ Les données de référence sont dans `tests/Fixtures/` : catalogue prod sans co
 
 ## 4. Lots suivants (ordre)
 
-1. **Recette visuelle des lots 2 et 3a**, puis **déploiement des lots 2 et 3a** si autorisé (procédure de `DEPLOIEMENT.md`).
+1. **Déploiement des lots 2, 3a et 3b** si autorisé (procédure de `DEPLOIEMENT.md`) ; avant activation des missions guides internes : vérifier la déduplication côté WordPress.
 2. **Lot 3b** : préparation et commande des prestations internes (`docs/LOT3-preparation-commande.md`, §1 à 12).
 3. **2FA staff**, puis **lot 4** : données sensibles des voyageurs.
 4. Lots 5 à 8 : vols, hébergements et finances, tâches manuelles et tableau de bord, calendrier.
