@@ -248,3 +248,42 @@ Service `FolderFinanceSummary` (implémentation au lot 6, structure fixée ici),
 
 ## 11. Ordre de réalisation
 Lot 1 (tests de référence) → lot 2 (origine et accès) → lot 3a (socle des dossiers internes) → **lot 3b** (ce document, après ta validation).
+
+---
+
+## 12. Garanties complémentaires (validées le 2026-11-07, à intégrer au lot 3b)
+
+**1. Aucun contournement de la préparation**
+- Côté serveur : `FolderItem::creating` refuse toute création sur un dossier `internal` qui ne vient pas de `PlannedItemOrderService` (jeton interne au service). C'est une exception et pas un bouton masqué.
+- Déjà en place (lot 3a) : sur une fiche interne, les répéteurs « Prestations commandées » et « Prestations internes » ne sont pas rendus ; les surfaces agence (catalogue, Contact) ne peuvent pas atteindre un dossier interne (lot 2).
+- `FolderItemPolicy::create` / `update` : pour un dossier interne, la création directe est refusée ; la modification des prestations déjà commandées reste permise selon les règles actuelles.
+- Tests : `FolderItem::create` direct sur un interne → exception ; état Livewire `data.folderItems` forcé sur une fiche interne → rien n'est créé ; B2B inchangé (suite de référence).
+
+**2. Effets externes après commit uniquement**
+- Inventaire [C] : missions guides (`SyncGuideMission` et `CancelGuideMission`, déjà `afterCommit`) ; Google Calendar (synchrone, passera par `DB::afterCommit`) ; notifications Filament et historique (écritures en base, annulées avec la transaction) ; aucun email n'est envoyé par les hooks de `FolderItem`/`Folder` [C].
+- Suivi et reprise : missions guides avec `guide_sync_status`, 4 tentatives avec délais progressifs, commande `RetryGuideMissionSync` ; le payload envoie `external_reference = folder_item_<id>` [C]. Le fait que WordPress mette à jour au lieu de recréer à partir de cette référence est **à vérifier** côté extension guides [H] avant le lot 3b. Calendar est idempotent par `google_calendar_event_id` [C].
+- La commande groupée est validée en base même si un service externe est indisponible ; l'état externe de chaque ligne est stocké dans `folder_order_batches.result` et affiché, avec relance possible.
+
+**3. Politique tarifaire indépendante de l'agence associée**
+- Fait au lot 3a : `client_agency_id` (information), `sale_type` (B2B/B2C) et `pricing_client_group_id` (politique explicite) sont trois champs distincts. Une politique non définie est signalée et n'est jamais déduite de l'agence associée.
+- [C] Le moteur actuel ne fait pas varier les prix par groupe client : le groupe sert à la **disponibilité** des produits (`isAvailableForAgency`) et aux frais de dossier. Au lot 3b, la disponibilité est contrôlée avec `pricing_client_group_id`. **La commande est refusée tant que le type de vente et la politique tarifaire ne sont pas définis** ; la préparation reste libre.
+
+**4. Fiabilité de la commande**
+- Revalidation complète (prix, produit actif, disponibilité, date, pax, champs obligatoires) **dans la transaction de confirmation**, pas seulement à l'ouverture du récapitulatif.
+- Autorisation : `update` sur le dossier interne + nouveau droit `folder.internal.order` ; chaque prestation est verrouillée avec `where folder_id = dossier`. Une ligne d'un autre dossier rend l'opération entière refusée.
+- Clé d'idempotence liée à l'opération : empreinte de (dossier, liste triée des prestations, utilisateur) stockée avec la clé. Une même clé avec une autre sélection est refusée.
+- Conflit (version du dossier ou d'une ligne, tarif modifié non accepté) : **rien n'est enregistré**.
+- Instantané de commande sans données personnelles : identifiants produit et option, date, nombre de pax par âge, prix préparés et retenus, écarts. Pas de noms de voyageurs, pas de `custom_values` (qui peuvent contenir des informations par passager), pas de données alimentaires ou de santé.
+- Test de parité : il compare les **colonnes réellement présentes en base** (`Schema::getColumnListing`) des deux tables, puis vérifie un aller-retour avec toutes les colonnes métier remplies (valeur préparée = valeur commandée).
+
+**5. Annulations et statuts globaux (aucune suppression silencieuse)**
+
+| Situation | Comportement |
+|---|---|
+| Dossier sans aucune commande, passé à « Annulé » | `status = cancelled`. Les prestations préparées restent en l'état (inertes, conservées, visibles). Réouverture possible. *(lot 3a, testé)* |
+| Dossier avec prestations commandées, passé à « Annulé » | `status = cancelled` → `CancelGuideMission` pour les missions transmises (existant). Les statuts fournisseurs des prestations **ne sont pas modifiés automatiquement** (comportement B2B actuel) : une tâche « annuler auprès du fournisseur » est créée pour chaque prestation commandée non annulée. Les coûts non remboursables sont conservés. |
+| Une prestation commandée annulée, les autres actives | Statut « Annulé » sur la ligne → `CancelGuideMission` si une mission existe, total recalculé ; les autres lignes et le dossier sont inchangés. |
+| Dossier « Terminé » avec des prestations encore en préparation | Confirmation demandée avec la liste des prestations concernées ; elles restent en préparation (exclues de l'opérationnel), rien n'est supprimé. |
+| Mission guide déjà transmise à WordPress | Annulation par l'API existante ; en cas d'échec : `guide_sync_status = failed`, visible et relançable ; la prestation et son historique sont conservés. |
+
+Un changement de statut global ne supprime jamais de ligne ni d'historique.
