@@ -52,6 +52,19 @@ final class FolderAccess
         return self::agencyMayView($user, $folder);
     }
 
+    /**
+     * Droits d'un collaborateur sur les dossiers internes (indépendants du segment).
+     * Un compte agence n'a jamais ces droits, même mal configuré.
+     */
+    public static function staffMay(?User $user, string $action): bool
+    {
+        if (! $user || $user->hasRole(User::ROLE_AGENCY) || ! $user->isStaff()) {
+            return false;
+        }
+
+        return $user->hasRole(User::ROLE_SUPER_ADMIN) || $user->hasPermission("folder.internal.{$action}");
+    }
+
     /** Suppression par l'agence : uniquement en brouillon (règle existante). */
     public static function agencyMayDelete(?User $user, ?Folder $folder): bool
     {

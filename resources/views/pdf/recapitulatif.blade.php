@@ -75,6 +75,7 @@
         <tr>
             <td>
                 <div class="info-box" style="padding-right: 15px;">
+                    @if ($agency)
                     <h2>{{ __('Agence Cliente') }}</h2>
                     <div><strong>{{ __('Nom :') }}</strong> {{ $agency->name }}</div>
                     <div><strong>{{ __('Contact :') }}</strong> {{ $agency->email ?? '---' }}</div>
@@ -83,6 +84,12 @@
                     <div style="color: #475569; font-style: italic; padding-left: 5px;">
                         {!! nl2br(e($agency->address)) !!}
                     </div>
+                    @else
+                    <h2>{{ __('Client') }}</h2>
+                    <div><strong>{{ __('Nom :') }}</strong> {{ $folder->client_contact_name ?? '---' }}</div>
+                    <div><strong>{{ __('Contact :') }}</strong> {{ $folder->client_contact_email ?? '---' }}</div>
+                    <div><strong>{{ __('Téléphone :') }}</strong> {{ $folder->client_contact_phone ?? '---' }}</div>
+                    @endif
                 </div>
             </td>
             <td>

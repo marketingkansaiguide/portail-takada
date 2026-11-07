@@ -26,6 +26,10 @@ final class PermissionCatalog
                 'folder.segment.billetterie' => 'Périmètre : dossiers Billetterie (agences partenaires)',
                 'folder.segment.all' => 'Périmètre : tous les dossiers (y compris non classés)',
             ],
+            'Dossiers internes (commerciaux)' => $crud('folder.internal', 'dossiers internes') + [
+                'folder.finance.view' => 'Voir les finances internes (coûts, marges)',
+                'folder.sensitive.view' => 'Voir les données sensibles des voyageurs (santé, alimentation)',
+            ],
             'Catalogue produits' => $crud('product', 'produits') + $crud('category', 'catégories'),
             'Agences' => $crud('agency', 'agences'),
             'Utilisateurs & système' => $crud('user', 'utilisateurs') + $crud('setting', 'paramètres globaux') + $crud('client_group', 'groupes clients & prix'),

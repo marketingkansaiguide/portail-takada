@@ -61,6 +61,8 @@ class EditFolder extends EditRecord
                     ]),
 
                 Section::make(__('Messagerie Agence'))
+                    // Aucune messagerie agence sur un dossier interne.
+                    ->visible(fn ($record) => ! $record?->isInternal())
                     ->extraAttributes(['data-tk-anchor' => 'suivi'])
                     ->description(__('Échangez directement avec l\'agence en temps réel.'))
                     ->columnSpan(1)
@@ -76,8 +78,34 @@ class EditFolder extends EditRecord
         return $schema->components($components);
     }
 
+    /** Version du dossier chargée dans ce formulaire (protection contre l'écrasement silencieux). */
+    public ?int $loadedLockVersion = null;
+
+    protected function afterFill(): void
+    {
+        $this->loadedLockVersion = (int) $this->getRecord()->lock_version;
+    }
+
     protected function beforeSave(): void
     {
+        // Exécuté dans la transaction d'enregistrement : le verrou de ligne sérialise
+        // deux enregistrements simultanés du même dossier.
+        $current = (int) \App\Models\Folder::query()->whereKey($this->getRecord()->getKey())->lockForUpdate()->value('lock_version');
+        if ($this->loadedLockVersion !== null && $current !== $this->loadedLockVersion) {
+            $lastChange = \App\Models\FolderHistory::query()->where('folder_id', $this->getRecord()->getKey())->latest('id')->first();
+            \Filament\Notifications\Notification::make()
+                ->title(__('Le dossier a été modifié entre-temps'))
+                ->body(__('Dernière modification : :who le :when. Rechargez la page pour récupérer la version à jour : vos changements n’ont pas été enregistrés.', [
+                    'who' => $lastChange?->user?->name ?? __('un autre utilisateur'),
+                    'when' => $lastChange?->created_at?->format('d/m/Y H:i') ?? '—',
+                ]))
+                ->danger()
+                ->persistent()
+                ->send();
+
+            $this->halt();
+        }
+
         $record = $this->getRecord();
         $formState = $this->form->getRawState();
         $this->historyNote = $formState['history_note'] ?? null;
@@ -95,6 +123,10 @@ class EditFolder extends EditRecord
 
     protected function afterSave(): void
     {
+        // Toute sauvegarde du formulaire (dossier ou prestations) change la version.
+        \App\Models\Folder::query()->whereKey($this->getRecord()->getKey())->increment('lock_version');
+        $this->loadedLockVersion = (int) \App\Models\Folder::query()->whereKey($this->getRecord()->getKey())->value('lock_version');
+
         if (!empty($this->historyNote)) {
             \App\Models\FolderHistory::logConsolidated(
                 $this->getRecord()->id,

@@ -47,7 +47,8 @@ class ActionBoardTaskGenerator
         foreach ($folders as $folder) {
             
             $newFolderTaskCode = "new_folder_{$folder->id}";
-            if (in_array($folder->status, ['pending', 'new', 'draft'], true)) {
+            // Règle réservée aux demandes d'agence : un brouillon interne n'est pas un dossier « à analyser ».
+            if ($folder->origin === Folder::ORIGIN_B2B && in_array($folder->status, ['pending', 'new', 'draft'], true)) {
                 $this->createTaskIfMissing($folder->id, $newFolderTaskCode, __('Nouveau dossier à analyser et deviser.'), 'heroicon-m-document-plus', 'text-primary-500');
             } else {
                 $this->completeTaskByCode($newFolderTaskCode);

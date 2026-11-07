@@ -33,6 +33,9 @@ final class Catalogue
                 DB::table($table)->insert($chunk);
             }
         }
+
+        // Les profils de la fixture datent d'avant le lot 3a : on rejoue l'ajout des droits.
+        (require database_path('migrations/2026_11_07_110100_grant_internal_folder_permissions.php'))->up();
     }
 
     /** @return array<string, mixed> */

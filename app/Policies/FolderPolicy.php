@@ -28,6 +28,10 @@ class FolderPolicy
             return FolderAccess::agencyMayView($user, $folder);
         }
 
+        if ($folder->isInternal()) {
+            return FolderAccess::staffMay($user, 'view');
+        }
+
         return $user->hasPermission('folder.view');
     }
 
@@ -37,10 +41,20 @@ class FolderPolicy
         return $user->hasRole(User::ROLE_AGENCY) || $user->hasPermission('folder.create');
     }
 
+    /** Création d'un dossier interne (formulaire commercial distinct). */
+    public function createInternal(User $user): bool
+    {
+        return FolderAccess::staffMay($user, 'create');
+    }
+
     public function update(User $user, Folder $folder): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
             return FolderAccess::agencyMayEdit($user, $folder);
+        }
+
+        if ($folder->isInternal()) {
+            return FolderAccess::staffMay($user, 'update');
         }
 
         return $user->hasPermission('folder.update');
@@ -51,6 +65,10 @@ class FolderPolicy
         // 💡 AUTORISE LA SUPPRESSION par l'agence UNIQUEMENT si le dossier est en BROUILLON
         if ($user->hasRole(User::ROLE_AGENCY)) {
             return FolderAccess::agencyMayDelete($user, $folder);
+        }
+
+        if ($folder->isInternal()) {
+            return FolderAccess::staffMay($user, 'delete');
         }
 
         return $user->hasPermission('folder.delete');

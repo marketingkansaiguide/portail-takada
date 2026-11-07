@@ -44,9 +44,45 @@ class Folder extends Model
         'google_drive_folder_id',
         'segment',
         'label_exported_at',
+        // Dossiers internes (lot 3a)
+        'kind',
+        'ops_status',
+        'owner_user_id',
+        'created_by_user_id',
+        'client_contact_name',
+        'client_contact_email',
+        'client_contact_phone',
+        'sale_type',
+        'pricing_client_group_id',
+        'internal_notes',
+    ];
+
+    public const KIND_FULL_TRIP = 'full_trip';
+    public const KIND_SERVICES_ONLY = 'services_only';
+
+    public const KINDS = [
+        self::KIND_FULL_TRIP => 'Voyage complet',
+        self::KIND_SERVICES_ONLY => 'Prestations seules',
+    ];
+
+    /** Cycle commercial d'un dossier interne. Changer ce statut ne commande aucune prestation. */
+    public const OPS_STATUSES = [
+        'brouillon' => 'Brouillon',
+        'en_preparation' => 'En préparation',
+        'reservations_en_cours' => 'Réservations en cours',
+        'pret_au_depart' => 'Prêt au départ',
+        'en_voyage' => 'En voyage',
+        'termine' => 'Terminé',
+        'annule' => 'Annulé',
+    ];
+
+    public const SALE_TYPES = [
+        'b2b' => 'B2B (agence)',
+        'b2c' => 'B2C (client direct)',
     ];
 
     protected $casts = [
+        'lock_version' => 'integer',
         'contact_phones' => 'array',
         'documents' => 'array',
         'start_date' => 'date',
@@ -78,9 +114,36 @@ class Folder extends Model
                 $folder->reference = $reference;
             }
 
-            if (blank($folder->segment)) {
+            if ($folder->origin === self::ORIGIN_INTERNAL) {
+                // Les dossiers internes sont visibles par tous les commerciaux : pas de segment.
+                $folder->status ??= 'draft';
+                $folder->ops_status ??= 'brouillon';
+                $folder->kind ??= self::KIND_FULL_TRIP;
+                $folder->ticket_dispatch_method ??= 'hotel'; // même valeur par défaut que le parcours agence
+                $actorId = \App\Models\FolderHistory::resolveActorId();
+                $folder->created_by_user_id ??= $actorId;
+                $folder->owner_user_id ??= $actorId;
+            } elseif (blank($folder->segment)) {
                 $user = \Filament\Facades\Filament::auth()->user() ?? auth()->user();
                 $folder->segment = $user?->defaultFolderSegment();
+            }
+        });
+
+        // Le statut technique d'un dossier interne suit son cycle commercial seulement
+        // pour la clôture et l'annulation. Le passage à « confirmed » est réservé à la
+        // première commande effective de prestation (lot 3b).
+        static::saving(function (Folder $folder): void {
+            if ($folder->origin !== self::ORIGIN_INTERNAL || ! $folder->isDirty('ops_status')) {
+                return;
+            }
+
+            if ($folder->ops_status === 'annule') {
+                $folder->status = 'cancelled';
+            } elseif ($folder->ops_status === 'termine') {
+                $folder->status = 'completed';
+            } elseif (in_array($folder->getOriginal('ops_status'), ['annule', 'termine'], true)) {
+                // Réouverture : on revient à l'état technique d'avant (brouillon tant que rien n'est commandé).
+                $folder->status = $folder->allFolderItems()->exists() ? 'confirmed' : 'draft';
             }
         });
 
@@ -131,12 +194,51 @@ class Folder extends Model
         return $this->belongsTo(Agency::class, 'client_agency_id');
     }
 
-    /** Restreint aux segments autorisés pour l'utilisateur (null = tout, y compris non classés). */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_user_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /** Politique tarifaire explicite (groupe client). Jamais déduite de l'agence associée. */
+    public function pricingClientGroup(): BelongsTo
+    {
+        return $this->belongsTo(ClientGroup::class, 'pricing_client_group_id');
+    }
+
+    /** Un dossier interne sans politique tarifaire doit être signalé, pas complété arbitrairement. */
+    public function hasUndeterminedPricingPolicy(): bool
+    {
+        return $this->isInternal() && ($this->sale_type === null || $this->pricing_client_group_id === null);
+    }
+
+    /**
+     * Dossiers visibles par un collaborateur :
+     * - B2B : selon ses segments (null = tous, y compris non classés) — inchangé ;
+     * - internes : tous, s'il a le droit folder.internal.viewAny (indépendant du segment).
+     */
     public function scopeVisibleTo($query, ?User $user)
     {
+        $table = $query->getModel()->getTable();
         $segments = $user?->visibleFolderSegments();
+        $seesInternal = (bool) $user?->hasPermission('folder.internal.viewAny');
 
-        return $segments === null ? $query : $query->whereIn($query->getModel()->getTable() . '.segment', $segments);
+        return $query->where(function ($q) use ($table, $segments, $seesInternal) {
+            $q->where(function ($b2b) use ($table, $segments) {
+                $b2b->where("{$table}.origin", self::ORIGIN_B2B);
+                if ($segments !== null) {
+                    $b2b->whereIn("{$table}.segment", $segments);
+                }
+            });
+
+            if ($seesInternal) {
+                $q->orWhere("{$table}.origin", self::ORIGIN_INTERNAL);
+            }
+        });
     }
 
     public function agency(): BelongsTo

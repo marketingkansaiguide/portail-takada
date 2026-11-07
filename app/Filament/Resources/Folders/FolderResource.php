@@ -67,7 +67,7 @@ class FolderResource extends Resource
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['reference', 'folder_name', 'lead_traveler_name', 'hotel_booking_name', 'agency.name', 'mainSeller.name'];
+        return ['reference', 'folder_name', 'lead_traveler_name', 'hotel_booking_name', 'agency.name', 'mainSeller.name', 'client_contact_name', 'clientAgency.name'];
     }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
@@ -78,7 +78,7 @@ class FolderResource extends Resource
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
         return [
-            __('Agence') => $record->agency?->name ?? __('Non renseignée'),
+            __('Agence') => $record->agency?->name ?? ($record->clientAgency?->name ? $record->clientAgency->name . ' ' . __('(info)') : __('Non renseignée')),
             __('Voyageur principal') => $record->lead_traveler_name ?? __('Non renseigné'),
             __('Séjour') => collect([$record->start_date?->format('d/m/Y'), $record->end_date?->format('d/m/Y')])->filter()->implode(' → '),
         ];
@@ -425,6 +425,8 @@ class FolderResource extends Resource
                 // 1. COLONNE DE GAUCHE (Span 2)
                 // -------------------------------------------------------------
                 Group::make()->schema([
+                    InternalFolderFields::section(),
+
                     Section::make(__('Informations Générales'))->extraAttributes(['data-tk-anchor' => 'informations'])
                         ->columns(4)
                         ->schema([
@@ -436,13 +438,14 @@ class FolderResource extends Resource
                             TextInput::make('lead_traveler_name')
                                 ->label(__('Pax Leader'))
                 ->placeholder(__('Ex: Jean Dupont'))
-                                ->required(),
+                                ->required(fn (?Folder $record): bool => ! $record?->isInternal()),
 
                             TextInput::make('hotel_booking_name')
                                 ->label(__('Nom réservation hôtel'))
                                 ->placeholder(__('Si différent')),
 
                             Select::make('segment')
+                                ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                                 ->label(__('Segment'))
                                 ->options(function () {
                                     $user = auth('web')->user();
@@ -456,7 +459,9 @@ class FolderResource extends Resource
                                 ->helperText(__('Défini automatiquement selon votre profil si unique.'))
                                 ->default(fn () => auth('web')->user()?->defaultFolderSegment()),
 
+                            // Dossier interne : jamais d'agence propriétaire ni de vendeur agence (lot 2).
                             Select::make('agency_id')
+                                ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                                 ->relationship('agency', 'name')
                                 ->label(__('Agence émettrice'))
                                 ->required()
@@ -466,6 +471,7 @@ class FolderResource extends Resource
                                 ->afterStateUpdated(fn ($set) => $set('main_seller_id', null)),
 
                             Select::make('main_seller_id')
+                                ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                                 ->label(__('Vendeur principal'))
                                 ->options(function ($get) {
                                     $agencyId = $get('agency_id');
@@ -749,9 +755,9 @@ class FolderResource extends Resource
                                 DatePicker::make('start_date')
                                     ->label(__('Date d\'arrivée au Japon'))
                                     ->native(false)
-                                    ->required()
+                                    ->required(fn (?Folder $record): bool => ! $record?->isInternal())
                                     ->live()
-                                    ->beforeOrEqual('end_date')
+                                    ->beforeOrEqual(fn ($get) => filled($get('end_date')) ? 'end_date' : null)
                                     ->validationMessages([
                                         'before_or_equal' => __('L\'arrivée doit être avant ou le jour du départ.'),
                                     ])
@@ -760,9 +766,9 @@ class FolderResource extends Resource
                                 DatePicker::make('end_date')
                                     ->label(__('Date de départ'))
                                     ->native(false)
-                                    ->required()
+                                    ->required(fn (?Folder $record): bool => ! $record?->isInternal())
                                     ->live()
-                                    ->afterOrEqual('start_date')
+                                    ->afterOrEqual(fn ($get) => filled($get('start_date')) ? 'start_date' : null)
                                     ->validationMessages([
                                         'after_or_equal' => __('Le départ doit être après ou le jour de l\'arrivée.'),
                                     ])
@@ -776,7 +782,9 @@ class FolderResource extends Resource
                                 ->columnSpanFull(),
                         ]),
 
+                    // Facturation agence : sans objet pour un dossier interne (finances internes au lot 6).
                     Section::make(__('Statut & Facturation'))->extraAttributes(['data-tk-anchor' => 'facturation'])
+                        ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                         ->schema([
                             Select::make('status')
                                 ->label(__('Statut du dossier'))
@@ -929,6 +937,7 @@ class FolderResource extends Resource
                         ->collapsible(),
 
                     Section::make(__('📥 Documents reçus de l’agence'))->extraAttributes(['data-tk-anchor' => 'documents'])
+                        ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                         ->description(__('Tous les fichiers ajoutés par l’agence via les prestations ou la messagerie.'))
                         ->schema([
                             Placeholder::make('agency_submitted_documents')
@@ -945,7 +954,9 @@ class FolderResource extends Resource
                 // -------------------------------------------------------------
                 
                 // PRESTATIONS CLIENTS / AGENCE
+                // Dossiers internes : les prestations passent par la préparation puis la commande (lot 3b).
                 Section::make(__('Prestations commandées'))->extraAttributes(['data-tk-anchor' => 'prestations'])
+                    ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                     ->description(__('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
                     ->columnSpanFull()
                     ->schema([
@@ -2046,6 +2057,7 @@ Repeater::make('transport_routes')
 
                 // PRESTATIONS INTERNES (CONFIDENTIELLES - MASQUÉES AUX AGENCE)
                 Section::make(__('🔒 Prestations Internes (Masquées aux agences)'))->extraAttributes(['data-tk-anchor' => 'internes'])
+                    ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
                     ->description(__('Saisissez des prestations ou frais internes. Ces éléments n\'apparaissent PAS côté agence ni sur les pré-factures, mais sont comptabilisés dans la marge Admin.'))
                     ->columnSpanFull()
                     ->collapsible()
@@ -2120,9 +2132,23 @@ Repeater::make('transport_routes')
                     ->sortable()
                     ->weight('bold'),
 
+                TextColumn::make('origin')
+                    ->label(__('Origine'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? __('Interne') : __('Agence'))
+                    ->color(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? 'warning' : 'gray'),
+
                 TextColumn::make('agency.name')
                     ->label(__('Agence'))
+                    // Dossier interne : agence associée à titre informatif.
+                    ->getStateUsing(fn (Folder $record) => $record->isInternal()
+                        ? ($record->clientAgency?->name ? $record->clientAgency->name . ' ' . __('(info)') : null)
+                        : $record->agency?->name)
                     ->sortable(),
+
+                TextColumn::make('owner.name')
+                    ->label(__('Responsable'))
+                    ->toggleable(),
 
                 TextColumn::make('folder_name')
                     ->label(__('Nom du dossier'))
@@ -2138,6 +2164,12 @@ Repeater::make('transport_routes')
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => Folder::SEGMENTS[$state] ?? __('Non classé'))
                     ->color(fn (?string $state) => $state ? 'info' : 'gray'),
+
+                TextColumn::make('ops_status')
+                    ->label(__('Avancement (interne)'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => Folder::OPS_STATUSES[$state] ?? '')
+                    ->toggleable(),
 
                 TextColumn::make('status')
                     ->label(__('Statut'))
@@ -2171,6 +2203,32 @@ Repeater::make('transport_routes')
                 \Filament\Tables\Filters\SelectFilter::make('segment')
                     ->label(__('Segment'))
                     ->options(Folder::SEGMENTS),
+                \Filament\Tables\Filters\SelectFilter::make('origin')
+                    ->label(__('Origine'))
+                    ->options([Folder::ORIGIN_INTERNAL => __('Interne'), Folder::ORIGIN_B2B => __('Agence (B2B)')]),
+                \Filament\Tables\Filters\SelectFilter::make('kind')
+                    ->label(__('Type'))
+                    ->options(Folder::KINDS),
+                \Filament\Tables\Filters\SelectFilter::make('ops_status')
+                    ->label(__('Avancement (interne)'))
+                    ->options(Folder::OPS_STATUSES),
+                \Filament\Tables\Filters\SelectFilter::make('owner_user_id')
+                    ->label(__('Commercial responsable'))
+                    ->relationship('owner', 'name'),
+                \Filament\Tables\Filters\SelectFilter::make('any_agency')
+                    ->label(__('Agence (propriétaire ou associée)'))
+                    ->options(fn () => \App\Models\Agency::orderBy('name')->pluck('name', 'id'))
+                    ->query(fn ($query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where(fn ($q) => $q->where('agency_id', $data['value'])->orWhere('client_agency_id', $data['value']))
+                        : $query),
+                \Filament\Tables\Filters\Filter::make('period')
+                    ->schema([
+                        DatePicker::make('from')->label(__('Voyage à partir du')),
+                        DatePicker::make('until')->label(__('Voyage jusqu’au')),
+                    ])
+                    ->query(fn ($query, array $data) => $query
+                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('end_date', '>=', $d))
+                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('start_date', '<=', $d))),
             ])
             ->recordActions([
                 Action::make('download_pdf')
@@ -2201,6 +2259,7 @@ Repeater::make('transport_routes')
         return [
             'index' => Pages\ListFolders::route('/'),
             'create' => Pages\CreateFolder::route('/create'),
+            'create-internal' => Pages\CreateInternalFolder::route('/nouveau-dossier-interne'),
             'edit' => Pages\EditFolder::route('/{record}/edit'),
         ];
     }

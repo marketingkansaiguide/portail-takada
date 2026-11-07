@@ -77,8 +77,11 @@ class FolderObserver
             // Qui doit-on prévenir ?
             $notifiables = collect();
 
-            // Si un agent (main_seller) est assigné à ce dossier, on le prévient lui en priorité
-            if ($folder->main_seller_id) {
+            // Dossier interne : on prévient le commercial responsable (jamais un compte agence).
+            if ($folder->isInternal() && $folder->owner_user_id) {
+                $notifiables->push($folder->owner);
+            } elseif ($folder->main_seller_id) {
+                // Si un agent (main_seller) est assigné à ce dossier, on le prévient lui en priorité
                 $notifiables->push($folder->mainSeller);
             } else {
                 // Sinon, on prévient tous les admins pour que quelqu'un prenne le relais

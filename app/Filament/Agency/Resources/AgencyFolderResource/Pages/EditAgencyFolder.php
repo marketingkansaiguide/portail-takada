@@ -249,7 +249,13 @@ class EditAgencyFolder extends EditRecord
         }
 
         $data['total_price'] = $totalItems + $folderFee;
-        
+
         return $data;
+    }
+
+    /** Signale la modification aux formulaires admin ouverts sur ce dossier (verrou optimiste). */
+    protected function afterSave(): void
+    {
+        \App\Models\Folder::query()->whereKey($this->record->getKey())->increment('lock_version');
     }
 }
