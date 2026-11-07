@@ -116,7 +116,7 @@ class Catalogue extends Page
                     'total' => $products->count(),
                 ];
             })
-            ->sortBy('name')
+            ->sortBy(fn (array $section) => [array_search($section['categoryId'], [1, 4, 2, 6, 3], true) === false ? 99 : array_search($section['categoryId'], [1, 4, 2, 6, 3], true), $section['name']])
             ->values();
     }
 
