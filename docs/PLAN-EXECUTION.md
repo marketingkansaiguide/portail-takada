@@ -49,3 +49,9 @@ Chaque lot passe par : une branche, des tests verts (SQLite et MySQL), un rejeu 
 - `folders.agency_id` est en `ON DELETE CASCADE` : supprimer une agence supprime tous ses dossiers.
 - `ActionBoardTaskGenerator::completeTaskByCode` attribue les tâches clôturées automatiquement à l'utilisateur n° 1 (erreur si ce compte n'existe plus).
 - `agencies.email` et `agencies.client_group_id` sont obligatoires : la fiche agence créée depuis un dossier les demande.
+
+## 6. Déploiement en production (2026-11-07, 06:15 UTC, autorisé par Maxime)
+- Lots 2, 3a et 3b déployés (43 fichiers, sans le seeder de recette) ; 5 migrations jouées ; 3 triggers créés.
+- Sauvegarde vérifiée avant intervention : `~/backups/20261107-deploiement-lots-2-3/` sur le serveur (base `db.sql.gz`, code `code.tgz` sans secrets, `marqueurs.txt`, `release.tgz`), plus une copie sur le poste de Maxime. Répétition générale sur une copie restaurée de la prod avant le déploiement.
+- Contrôles après déploiement : comptages identiques (5 dossiers, 26 prestations, 5 voyageurs, 200 historiques, 26 messages, 113 tâches, 2 agences, 9 utilisateurs, 108 produits) ; 5 dossiers classés `b2b` ; visibilité des comptes agence identique (empreinte `5cd0be14…`) ; pages publiques, de connexion et d'administration OK ; tableau d'actions et supervision sans erreur ; `GUIDE_SYNC_INTERNAL_ORDERS` désactivé.
+- Retour arrière : `DEPLOIEMENT.md` §4 (code d'abord, avec la valeur par défaut temporaire de `origin` ; jamais de restauration de base après des saisies).
