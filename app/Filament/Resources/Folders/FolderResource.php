@@ -894,7 +894,9 @@ class FolderResource extends Resource
                         ]),
                         
                     Section::make(__('📂 Documents du dossier'))->extraAttributes(['data-tk-anchor' => 'documents'])
-                        ->description(__('Fichiers partagés avec l\'agence'))
+                        ->description(fn (?Folder $record) => $record?->isInternal()
+                            ? __('Fichiers internes du dossier (jamais visibles par une agence)')
+                            : __('Fichiers partagés avec l\'agence'))
                         ->schema([
                             FileUpload::make('documents')
                                 ->hiddenLabel()
