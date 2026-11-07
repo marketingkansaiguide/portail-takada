@@ -72,12 +72,19 @@ class RecetteSeeder extends Seeder
             'ticket_dispatch_method' => 'hotel',
         ]);
 
-        Folder::create([
+        $martin = Folder::create([
             'origin' => Folder::ORIGIN_INTERNAL, 'kind' => Folder::KIND_FULL_TRIP, 'folder_name' => 'Famille Martin — Japon printemps 2027',
+            'sale_type' => 'b2c', 'pricing_client_group_id' => $groupId,
             'owner_user_id' => $fit->id, 'client_agency_id' => $voyages->id, 'client_contact_name' => 'Claire Martin',
             'client_contact_email' => 'claire.martin@exemple.test', 'ops_status' => 'en_preparation', 'start_date' => '2027-04-01',
             'end_date' => '2027-04-15', 'pax_adults' => 2, 'pax_children' => 2, 'internal_notes' => 'Demande via Voyages Lumière, facturation directe à confirmer.',
         ]);
+
+        // Prestations préparées (budget prévisionnel, rien de commandé).
+        $dates = ['2027-04-03', '2027-04-05', '2027-04-07', '2027-04-09', '2027-04-11'];
+        foreach (\App\Models\Product::where('category_id', 1)->orderBy('id')->take(4)->get() as $i => $product) {
+            \Tests\Support\World::plannedItem($martin, $product, ['service_date' => $dates[$i], 'quantity' => 4]);
+        }
 
         Folder::create([
             'origin' => Folder::ORIGIN_INTERNAL, 'kind' => Folder::KIND_SERVICES_ONLY, 'folder_name' => 'Billets Ghibli — Roux',

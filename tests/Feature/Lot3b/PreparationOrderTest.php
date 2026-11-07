@@ -289,3 +289,29 @@ it("couvre toutes les colonnes réelles de folder_items dans la correspondance p
         expect([$column => $item->getAttribute($column)])->toEqual([$column => $planned->fresh()->getAttribute($column)]);
     }
 });
+
+it("affiche la fiche interne avec préparation, commandes et historique (sans suppression des lignes commandées)", function () {
+    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+    $planned = prepareFive($this);
+    ($this->order)([$planned[0]->id]);
+
+    \Livewire\Livewire::test(\App\Filament\Resources\Folders\Pages\EditFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->assertOk()
+        ->assertSee(__('Prestations en préparation'))
+        ->assertSee(__('Budget prévisionnel (préparation)'))
+        ->assertSee(__('Historique des commandes'))
+        ->assertSee(__('Commander les prestations sélectionnées'))
+        ->assertDontSeeHtml('class="is-del"');
+});
+
+it("commande depuis l'interface (action Filament) uniquement les prestations cochées", function () {
+    \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+    $planned = prepareFive($this);
+
+    \Livewire\Livewire::test(\App\Filament\Resources\Folders\Pages\EditFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->callAction('orderPlannedItems', data: ['planned_ids' => [$planned[1]->id, $planned[3]->id]])
+        ->assertHasNoActionErrors();
+
+    expect(FolderItem::where('folder_id', $this->folder->id)->pluck('planned_item_id')->sort()->values()->all())
+        ->toBe([$planned[1]->id, $planned[3]->id]);
+});

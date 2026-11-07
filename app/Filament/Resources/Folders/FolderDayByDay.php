@@ -31,15 +31,17 @@ class FolderDayByDay
             ->hiddenLabel()
             ->columnSpanFull()
             ->dehydrated(false)
-            ->content(fn (Get $get): HtmlString => static::render(
+            ->content(fn (Get $get, $record): HtmlString => static::render(
                 $get('folderItems') ?? [],
                 $get('internalItems') ?? [],
                 $get('start_date'),
                 $get('end_date'),
+                // Dossier interne : une prestation commandée s'annule par son statut, sans suppression.
+                canDelete: ! ($record?->isInternal() ?? false),
             ));
     }
 
-    public static function render(array $items, array $internalItems, $startDate, $endDate): HtmlString
+    public static function render(array $items, array $internalItems, $startDate, $endDate, bool $canDelete = true): HtmlString
     {
         $items = is_array($items) ? $items : [];
         $internalItems = is_array($internalItems) ? $internalItems : [];
@@ -235,6 +237,7 @@ class FolderDayByDay
             'cancelledCount' => collect($rows)->where('cancelled', true)->count(),
             'billable' => $billable,
             'purchaseTotal' => $purchaseTotal,
+            'canDelete' => $canDelete,
         ])->render());
     }
 

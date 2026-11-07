@@ -92,6 +92,15 @@ class FolderPlannedItem extends Model
         return $this->belongsTo(ProductOption::class);
     }
 
+    /**
+     * Le formulaire partagé déclare le champ « statut fournisseur » (masqué en préparation) :
+     * Filament exige la relation. Une prestation préparée n'a jamais de statut fournisseur.
+     */
+    public function itemStatus(): BelongsTo
+    {
+        return $this->belongsTo(ItemStatus::class, 'item_status_id');
+    }
+
     public function folderItem(): BelongsTo
     {
         return $this->belongsTo(FolderItem::class);
