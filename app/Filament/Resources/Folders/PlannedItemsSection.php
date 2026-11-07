@@ -16,7 +16,7 @@ use Illuminate\Support\HtmlString;
  */
 final class PlannedItemsSection
 {
-    public static function make(): Section
+    public static function make(bool $commercial = false): Section
     {
         return Section::make(__('Prestations en préparation'))
             ->extraAttributes(['data-tk-anchor' => 'prestations'])
@@ -47,14 +47,58 @@ final class PlannedItemsSection
                         return "📝 {$date} · {$name} · " . (int) ($state['quantity'] ?? 1) . " pax · {$sale} ¥ · " . __('En préparation');
                     })
                     ->schema([
-                        ...FolderResource::folderItemSchema('planned'),
-                        Textarea::make('notes')->label(__('Notes opérationnelles'))->rows(2)->columnSpanFull(),
+                        ...FolderResource::folderItemSchema($commercial ? 'commercial' : 'planned'),
+                        ...($commercial
+                            ? self::commercialFields()
+                            : [Textarea::make('notes')->label(__('Notes opérationnelles'))->rows(2)->columnSpanFull()]),
                     ]),
 
                 Placeholder::make('order_history')
                     ->label(__('Historique des commandes'))
                     ->content(fn (?Folder $record) => self::history($record)),
             ]);
+    }
+
+    /**
+     * Champs propres au commercial : rendez-vous (réutilisant hôtels et vols déjà saisis dans le dossier)
+     * et consignes pour la billetterie. Aucun envoi externe n'en découle.
+     *
+     * @return array<int, mixed>
+     */
+    private static function commercialFields(): array
+    {
+        return [
+            \Filament\Forms\Components\Select::make('meeting_suggestion')
+                ->label(__('Lieu de rendez-vous : choisir dans le dossier'))
+                ->helperText(__('Hôtels et vols déjà saisis, le plus proche de la date de la prestation en premier. Vous pouvez toujours saisir un autre lieu ci-contre.'))
+                ->placeholder(__('Hôtel ou vol du dossier…'))
+                ->options(fn ($get) => \App\Support\MeetingSuggestions::options($get('service_date'), $get('../../stays') ?? [], $get('../../flightSegments') ?? []))
+                ->searchable()
+                ->live()
+                ->dehydrated(false)
+                ->afterStateUpdated(function ($state, $set) {
+                    if (filled($state)) {
+                        $set('meeting_point', $state);
+                    }
+                })
+                ->columnSpan(1),
+            \Filament\Forms\Components\TextInput::make('meeting_point')
+                ->label(__('Rendez-vous / point de prise en charge'))
+                ->helperText(__('Valeur conservée telle quelle sur la commande, même si la fiche hôtel change ensuite.'))
+                ->maxLength(500)
+                ->columnSpan(1),
+            \Filament\Forms\Components\TextInput::make('meeting_time')
+                ->label(__('Heure'))
+                ->placeholder('09:30')
+                ->rule('regex:/^([01]\d|2[0-3]):[0-5]\d$/')
+                ->maxLength(5)
+                ->columnSpan(1),
+            Textarea::make('ticketing_notes')
+                ->label(__('Informations complémentaires pour la billetterie'))
+                ->helperText(__('Facultatif. Horaire souhaité, hôtel de prise en charge, préférences du client, contraintes, consignes de réservation. Visible de la billetterie sur la prestation commandée ; jamais transmis automatiquement à un fournisseur, un guide ou une agence.'))
+                ->rows(4)
+                ->columnSpanFull(),
+        ];
     }
 
     private static function budget(array $items): HtmlString

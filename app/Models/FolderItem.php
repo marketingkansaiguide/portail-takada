@@ -22,6 +22,7 @@ class FolderItem extends Model
         // Lot 3b : commande depuis la préparation et suivi Calendar
         'planned_item_id', 'ordered_by_user_id', 'order_batch_id',
         'calendar_sync_status', 'calendar_sync_error', 'calendar_synced_at',
+        'ticketing_notes', 'meeting_point', 'meeting_time',
     ];
 
     protected $casts = [

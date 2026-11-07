@@ -228,11 +228,15 @@ class EditFolder extends EditRecord
         $newData = $this->form->getState();
         unset($newData['history_note']);
 
-        $totalItems = \App\Models\FolderItem::sumBillableFormItems($formState['folderItems'] ?? []);
-        $fee = (float) ($newData['folder_fee'] ?? 0);
-        
-        $newData['total_price'] = $totalItems + $fee;
-        $record->total_price = $newData['total_price'];
+        // L'espace commercial n'affiche pas la liste des prestations commandées : son total
+        // n'est alors pas recalculé depuis le formulaire (il l'est à la commande).
+        if (array_key_exists('folderItems', $formState)) {
+            $totalItems = \App\Models\FolderItem::sumBillableFormItems($formState['folderItems'] ?? []);
+            $fee = (float) ($newData['folder_fee'] ?? 0);
+
+            $newData['total_price'] = $totalItems + $fee;
+            $record->total_price = $newData['total_price'];
+        }
 
     }
 

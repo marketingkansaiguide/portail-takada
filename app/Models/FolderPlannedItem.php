@@ -22,7 +22,7 @@ class FolderPlannedItem extends Model
         'pax_adults', 'pax_children', 'pax_teenagers',
         'unit_price', 'total_price', 'purchase_unit_price', 'purchase_total_price',
         'custom_values', 'selected_options', 'title', 'is_internal',
-        'notes', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
+        'notes', 'ticketing_notes', 'meeting_point', 'meeting_time', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
     ];
 
     protected $casts = [

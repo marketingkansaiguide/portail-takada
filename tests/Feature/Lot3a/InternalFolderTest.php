@@ -153,14 +153,15 @@ it("annule et clôture via le statut commercial sans toucher aux prestations", f
     expect($folder->fresh()->status)->toBe('completed');
 });
 
-it("signale une politique tarifaire non définie au lieu d'utiliser l'agence associée", function () {
+it("n'exige plus de politique tarifaire et ne déduit jamais le groupe client de l'agence associée", function () {
     $folder = World::internalFolder($this->agency);
 
-    expect($folder->hasUndeterminedPricingPolicy())->toBeTrue()
+    expect($folder->hasUndeterminedPricingPolicy())->toBeFalse()
         ->and($folder->pricing_client_group_id)->toBeNull();
 
-    $folder->update(['sale_type' => 'b2b', 'pricing_client_group_id' => $this->agency->client_group_id]);
-    expect($folder->fresh()->hasUndeterminedPricingPolicy())->toBeFalse();
+    $folder->update(['sale_type' => 'b2b']);
+    expect($folder->fresh()->hasUndeterminedPricingPolicy())->toBeFalse()
+        ->and($folder->fresh()->pricing_client_group_id)->toBeNull();
 });
 
 it("affiche la liste mixte (B2B et interne) avec les deux boutons de création", function () {

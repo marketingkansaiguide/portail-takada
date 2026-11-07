@@ -454,7 +454,9 @@ class FolderResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) => 
+                            // Espace commercial : le fournisseur est déduit du produit, jamais demandé au commercial.
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['class' => 'hidden'] : [])
+                            ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
                                     \App\Models\Product::find($get('product_id'))?->product_type === 'transport'
                                 )
                             ->hint(function ($get) {
@@ -501,7 +503,7 @@ class FolderResource extends Resource
                             ->columnSpan(4),
 
                         Select::make('item_status_id')
-                            ->hidden($mode === 'planned') // statut fournisseur : seulement après commande
+                            ->hidden(in_array($mode, ['planned', 'commercial'], true)) // statut fournisseur : seulement après commande
                             ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
                                 \App\Models\ItemStatus::firstOrCreate(
                                     ['name' => 'En attente de validation'],
@@ -517,7 +519,7 @@ class FolderResource extends Resource
                             ->columnSpan(4),
                     ])->columns(12),
 
-                    Group::make()->hidden($mode === 'planned')->schema([
+                    Group::make()->hidden(in_array($mode, ['planned', 'commercial'], true))->schema([
                         Placeholder::make('invoice_alert')
                             ->label('')
                             ->content(new \Illuminate\Support\HtmlString('<div style="display:flex; align-items:center; gap:0.5rem; background-color: #fef2f2; color: #dc2626; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #f87171; font-weight: bold; font-size: 0.85rem;">⚠️ En attente de facture</div>'))
@@ -659,8 +661,9 @@ class FolderResource extends Resource
                         TextInput::make('purchase_total_price')
                             ->label(__('Total Achat (¥)'))
                             ->numeric()
-                            ->default(0)
+                            ->default($mode === 'commercial' ? null : 0)
                             ->live()
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['class' => 'hidden'] : [])
                             ->columnSpan(2),
 
                         TextInput::make('unit_price')

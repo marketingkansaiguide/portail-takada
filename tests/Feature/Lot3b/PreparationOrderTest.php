@@ -239,12 +239,11 @@ it("refuse de commander sur un dossier annulé ou terminé, puis accepte après 
     expect(($this->order)([$planned->id])['status'])->toBe('completed');
 });
 
-it("refuse de commander tant que la politique tarifaire n'est pas définie", function () {
-    $this->folder->update(['pricing_client_group_id' => null]);
+it("commande sans groupe client ni type de vente : la politique tarifaire n'est plus exigée", function () {
+    $this->folder->update(['pricing_client_group_id' => null, 'sale_type' => null]);
     $planned = World::plannedItem($this->folder, $this->products[0]);
 
-    $result = ($this->order)([$planned->id]);
-    expect($result['status'])->toBe('rejected')->and($result['message'])->toContain('politique tarifaire');
+    expect(($this->order)([$planned->id])['status'])->toBe('completed');
 });
 
 it("signale un tarif modifié depuis la préparation et n'applique le nouveau tarif qu'après acceptation", function () {

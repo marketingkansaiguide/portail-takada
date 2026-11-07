@@ -55,6 +55,9 @@ class Folder extends Model
         'sale_type',
         'pricing_client_group_id',
         'internal_notes',
+        'quote_reference',
+        'ticketing_general_notes',
+        'ticketing_urgent',
     ];
 
     public const KIND_FULL_TRIP = 'full_trip';
@@ -83,6 +86,7 @@ class Folder extends Model
 
     protected $casts = [
         'lock_version' => 'integer',
+        'ticketing_urgent' => 'boolean',
         'contact_phones' => 'array',
         'documents' => 'array',
         'start_date' => 'date',
@@ -229,7 +233,20 @@ class Folder extends Model
     /** Un dossier interne sans politique tarifaire doit être signalé, pas complété arbitrairement. */
     public function hasUndeterminedPricingPolicy(): bool
     {
-        return $this->isInternal() && ($this->sale_type === null || $this->pricing_client_group_id === null);
+        // Refonte commerciale : un dossier interne n'exige plus ni groupe client ni type de vente pour
+        // préparer et commander (catalogue complet, frais de dossier nuls). Les colonnes restent
+        // disponibles pour les futurs devis B2B/B2C.
+        return false;
+    }
+
+    public function stays(): HasMany
+    {
+        return $this->hasMany(FolderStay::class)->orderBy('check_in')->orderBy('id');
+    }
+
+    public function flightSegments(): HasMany
+    {
+        return $this->hasMany(FolderFlightSegment::class)->orderBy('departure_local')->orderBy('id');
     }
 
     /**

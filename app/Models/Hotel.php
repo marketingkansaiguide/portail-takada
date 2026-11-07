@@ -14,5 +14,12 @@ class Hotel extends Model
         'address',
         'phone',
         'google_maps_url',
+        'city',
+        'alt_names',
     ];
+
+    public function roomTypes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(HotelRoomType::class)->orderBy('name');
+    }
 }
