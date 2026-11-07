@@ -1,0 +1,13 @@
+OK   1. Laravel crée la mission (statut portail : synced, mission n° 20)
+OK   2. WordPress reçoit 1 mission (id 20)
+OK   3. Guide affecté (réponse : {"success":true,"data":{"id":21}})
+OK   4. Mission modifiée dans WordPress (id avant 20 / après 22, mission portail 20)
+KO   4 bis. Identifiant d’origine conservé après modification
+OK   5. Laravel met à jour : 1 seule mission, guide et statut conservés
+KO   6. Laravel demande l'annulation (statut portail : failed, erreur : Planning Guides a répondu HTTP 404 lors de l’annulation.)
+KO   7. WordPress : mission annulée (statut : réservé)
+OK   8. Aucun doublon (1 ligne), guide, rémunération et référence conservés
+KO   Annulation renvoyée une 2e fois : sans erreur, sans doublon (Planning Guides a répondu HTTP 404 lors de l’annulation.)
+OK   Panne réseau : synchronisation marquée en échec, aucune mission créée (0 ligne)
+OK   Reprise + rejeu : 1 seule mission
+OK   Mission créée dans WordPress : modification enregistrée comme avant (ligne 24 → 25, sans référence portail)
