@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\FolderItem;
 use App\Models\User;
+use App\Support\FolderAccess;
 
 class FolderItemPolicy
 {
@@ -23,8 +24,7 @@ class FolderItemPolicy
     public function view(User $user, FolderItem $folderItem): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return $folderItem->folder
-                && (int) $folderItem->folder->agency_id === (int) $user->agency_id;
+            return FolderAccess::agencyMayView($user, $folderItem->folder);
         }
 
         return $user->hasPermission('folder.view');
@@ -38,8 +38,7 @@ class FolderItemPolicy
     public function update(User $user, FolderItem $folderItem): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return $folderItem->folder
-                && (int) $folderItem->folder->agency_id === (int) $user->agency_id;
+            return FolderAccess::agencyMayEdit($user, $folderItem->folder);
         }
 
         return $user->hasPermission('folder.update');
@@ -48,9 +47,7 @@ class FolderItemPolicy
     public function delete(User $user, FolderItem $folderItem): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return $folderItem->folder
-                && (int) $folderItem->folder->agency_id === (int) $user->agency_id
-                && $folderItem->folder->status === 'draft';
+            return FolderAccess::agencyMayDelete($user, $folderItem->folder);
         }
 
         return $user->hasPermission('folder.delete');

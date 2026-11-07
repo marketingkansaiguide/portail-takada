@@ -12,8 +12,8 @@ test('an agency account can only access folders belonging to its agency', functi
         'agency_id' => 1,
     ]);
 
-    $ownFolder = new Folder(['agency_id' => 1, 'status' => 'draft']);
-    $foreignFolder = new Folder(['agency_id' => 2, 'status' => 'draft']);
+    $ownFolder = new Folder(['origin' => 'b2b', 'agency_id' => 1, 'status' => 'draft']);
+    $foreignFolder = new Folder(['origin' => 'b2b', 'agency_id' => 2, 'status' => 'draft']);
 
     expect($agencyUser->can('view', $ownFolder))->toBeTrue()
         ->and($agencyUser->can('update', $ownFolder))->toBeTrue()

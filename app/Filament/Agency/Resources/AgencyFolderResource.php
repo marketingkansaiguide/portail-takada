@@ -52,7 +52,7 @@ class AgencyFolderResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        return Filament::auth()->check() && $record->agency_id === Filament::auth()->user()->agency_id;
+        return \App\Support\FolderAccess::agencyMayEdit(Filament::auth()->user(), $record);
     }
 
     private static function storeServiceFileOnGoogleDrive(\Filament\Forms\Components\FileUpload $upload): \Filament\Forms\Components\FileUpload
@@ -82,14 +82,12 @@ class AgencyFolderResource extends Resource
 
     public static function canView(Model $record): bool
     {
-        return Filament::auth()->check() && $record->agency_id === Filament::auth()->user()->agency_id;
+        return \App\Support\FolderAccess::agencyMayView(Filament::auth()->user(), $record);
     }
 
     public static function canDelete(Model $record): bool
     {
-        return Filament::auth()->check() 
-            && $record->agency_id === Filament::auth()->user()->agency_id 
-            && $record->status === 'draft';
+        return \App\Support\FolderAccess::agencyMayDelete(Filament::auth()->user(), $record);
     }
 
     public static function getNavigationLabel(): string
@@ -109,7 +107,7 @@ class AgencyFolderResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('agency_id', Filament::auth()->user()->agency_id);
+        return \App\Support\FolderAccess::scopeForAgency(parent::getEloquentQuery(), Filament::auth()->user());
     }
 
     public static function updatePassengerCount($set, $get) {
@@ -1402,8 +1400,7 @@ Repeater::make('transport_routes')
                                                 $item
                                                 && $record instanceof Folder
                                                 && (int) $item->folder_id === (int) $record->id
-                                                && (int) $record->agency_id === (int) Filament::auth()->user()?->agency_id
-                                                && $record->status === 'draft'
+                                                && \App\Support\FolderAccess::agencyMayDelete(Filament::auth()->user(), $record)
                                             ) {
                                                 $folder = $item->folder;
                                                 $item->delete();

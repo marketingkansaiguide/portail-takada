@@ -88,7 +88,7 @@ class Contact extends Page implements HasForms
                                 $user = Filament::auth()->user();
                                 if (!$user || !$user->agency_id) return [];
                                 
-                                return Folder::where('agency_id', $user->agency_id)
+                                return \App\Support\FolderAccess::scopeForAgency(Folder::query(), $user)
                                     ->whereNotIn('status', ['cancelled', 'completed'])
                                     ->orderBy('created_at', 'desc')
                                     ->get(['id', 'folder_name', 'reference'])
@@ -120,9 +120,8 @@ class Contact extends Page implements HasForms
 
                 // 💡 CAS 1 : L'AGENCE A SÉLECTIONNÉ UN DOSSIER
                 if (!empty($data['folder_id'])) {
-                    $folder = Folder::query()
+                    $folder = \App\Support\FolderAccess::scopeForAgency(Folder::query(), $user)
                         ->whereKey($data['folder_id'])
-                        ->where('agency_id', $user->agency_id)
                         ->first();
 
                     if (! $folder) {
@@ -138,6 +137,7 @@ class Contact extends Page implements HasForms
                 // 💡 CAS 2 : NOUVELLE DEMANDE (On injecte des données par défaut pour ne pas bloquer la DB)
                 else {
                     $folder = Folder::create([
+                        'origin' => Folder::ORIGIN_B2B,
                         'agency_id' => $user->agency_id,
                         'main_seller_id' => $user->id,
                         'folder_name' => 'Demande : ' . $data['subject'],

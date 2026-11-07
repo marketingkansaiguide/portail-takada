@@ -53,9 +53,8 @@ class FolderDriveFileController extends Controller
             return false;
         }
 
-        return $user->can('view', $folder)
-            || ($user->hasRole(User::ROLE_AGENCY)
-                && (int) $user->agency_id === (int) $folder->agency_id);
+        // Une seule règle : la policy (qui délègue à FolderAccess pour les agences).
+        return $user->can('view', $folder);
     }
 
     private function findPath(Folder $folder, string $fileId): ?string

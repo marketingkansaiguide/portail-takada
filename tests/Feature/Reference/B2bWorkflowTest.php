@@ -126,6 +126,11 @@ it('clôture automatiquement les dossiers dont le voyage est terminé', function
 
 it("génère la tâche « nouveau dossier » pour un brouillon et la clôt une fois confirmé", function () {
     \Illuminate\Support\Facades\Mail::fake();
+    // Comportement existant : une tâche auto-clôturée hors connexion est attribuée à l'utilisateur n° 1
+    // (ActionBoardTaskGenerator::completeTaskByCode). On garantit son existence comme en production.
+    if (! \App\Models\User::whereKey(1)->exists()) {
+        \Illuminate\Support\Facades\DB::table('users')->insert(['id' => 1, 'name' => 'Admin', 'email' => 'admin1@example.test', 'password' => 'x', 'role' => 'super_admin']);
+    }
     $folder = World::folder($this->agency);
 
     app(ActionBoardTaskGenerator::class)->generate();

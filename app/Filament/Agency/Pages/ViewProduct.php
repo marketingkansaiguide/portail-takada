@@ -336,7 +336,7 @@ class ViewProduct extends Page
 
         if (!$agencyId) return collect();
         
-        return Folder::where('agency_id', $agencyId)
+        return \App\Support\FolderAccess::scopeForAgencyId(Folder::query(), $agencyId)
             ->whereIn('status', ['draft', 'pending', 'confirmed'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -456,6 +456,7 @@ class ViewProduct extends Page
                 }
 
                 $folder = Folder::create([
+                    'origin' => Folder::ORIGIN_B2B,
                     'agency_id' => $agencyId,
                     'folder_name' => $data['folder_name'],
                     'lead_traveler_name' => $data['lead_traveler_name'],
@@ -854,9 +855,8 @@ class ViewProduct extends Page
             return;
         }
 
-        $folder = Folder::query()
+        $folder = \App\Support\FolderAccess::scopeForAgencyId(Folder::query(), $agencyId)
             ->whereKey($this->selectedFolderId)
-            ->where('agency_id', $agencyId)
             ->first();
 
         if (! $folder) {

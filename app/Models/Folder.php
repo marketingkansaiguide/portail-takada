@@ -11,8 +11,13 @@ class Folder extends Model
 {
     use HasFactory;
 
+    public const ORIGIN_B2B = 'b2b';
+    public const ORIGIN_INTERNAL = 'internal';
+
     protected $fillable = [
         'reference',
+        'origin',
+        'client_agency_id',
         'folder_name',
         'lead_traveler_name',
         'hotel_booking_name',
@@ -61,6 +66,11 @@ class Folder extends Model
     {
         // Segment fixé automatiquement par le profil du créateur (agence partenaire = billetterie).
         static::creating(function (Folder $folder) {
+            // Aucune origine implicite : un oubli ne doit jamais créer un dossier visible par erreur.
+            if (! in_array($folder->origin, [self::ORIGIN_B2B, self::ORIGIN_INTERNAL], true)) {
+                throw new \LogicException("Origine du dossier manquante ou invalide : précisez 'b2b' ou 'internal'.");
+            }
+
             if (blank($folder->reference)) {
                 do {
                     $reference = 'TKD-' . date('Ym') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
@@ -73,6 +83,52 @@ class Folder extends Model
                 $folder->segment = $user?->defaultFolderSegment();
             }
         });
+
+        static::saving(fn (Folder $folder) => self::enforceOriginRules($folder));
+    }
+
+    /**
+     * Garde-fous permanents sur l'origine (vérifiés à chaque enregistrement).
+     */
+    protected static function enforceOriginRules(Folder $folder): void
+    {
+        if ($folder->exists && $folder->isDirty('origin')) {
+            throw new \LogicException("L'origine d'un dossier ne peut pas être modifiée après sa création.");
+        }
+
+        if ($folder->origin === self::ORIGIN_B2B && $folder->agency_id === null) {
+            throw new \LogicException("Un dossier agence (B2B) doit être rattaché à son agence propriétaire.");
+        }
+
+        if ($folder->origin === self::ORIGIN_INTERNAL && ($folder->agency_id !== null || $folder->main_seller_id !== null)) {
+            throw new \LogicException("Un dossier interne ne peut pas avoir d'agence propriétaire ni de vendeur agence. Utilisez l'agence associée (client_agency_id).");
+        }
+    }
+
+    public function isInternal(): bool
+    {
+        return $this->origin === self::ORIGIN_INTERNAL;
+    }
+
+    public function isB2b(): bool
+    {
+        return $this->origin === self::ORIGIN_B2B;
+    }
+
+    public function scopeB2b($query)
+    {
+        return $query->where($query->getModel()->getTable() . '.origin', self::ORIGIN_B2B);
+    }
+
+    public function scopeInternal($query)
+    {
+        return $query->where($query->getModel()->getTable() . '.origin', self::ORIGIN_INTERNAL);
+    }
+
+    /** Agence associée à titre informatif (statistiques), sans effet sur les accès. */
+    public function clientAgency(): BelongsTo
+    {
+        return $this->belongsTo(Agency::class, 'client_agency_id');
     }
 
     /** Restreint aux segments autorisés pour l'utilisateur (null = tout, y compris non classés). */

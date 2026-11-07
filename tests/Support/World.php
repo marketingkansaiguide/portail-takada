@@ -50,6 +50,7 @@ final class World
     public static function folder(Agency $agency, array $attributes = []): Folder
     {
         return Folder::create(array_merge([
+            'origin' => Folder::ORIGIN_B2B,
             'agency_id' => $agency->id,
             'folder_name' => 'DUPONT',
             'lead_traveler_name' => 'Jean Dupont',
@@ -58,6 +59,22 @@ final class World
             'pax_children' => 0,
             'start_date' => '2027-04-01',
             'end_date' => '2027-04-10',
+        ], $attributes));
+    }
+
+    /** Dossier interne Takada, éventuellement associé à une agence pour information. */
+    public static function internalFolder(?Agency $clientAgency = null, array $attributes = []): Folder
+    {
+        return Folder::create(array_merge([
+            'origin' => Folder::ORIGIN_INTERNAL,
+            'client_agency_id' => $clientAgency?->id,
+            'folder_name' => 'MARTIN',
+            'lead_traveler_name' => 'Claire Martin',
+            'status' => 'draft',
+            'pax_adults' => 2,
+            'pax_children' => 0,
+            'start_date' => '2027-05-01',
+            'end_date' => '2027-05-12',
         ], $attributes));
     }
 

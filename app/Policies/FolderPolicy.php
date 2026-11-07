@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Folder;
 use App\Models\User;
+use App\Support\FolderAccess;
 
 class FolderPolicy
 {
@@ -24,7 +25,7 @@ class FolderPolicy
     public function view(User $user, Folder $folder): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return (int) $folder->agency_id === (int) $user->agency_id;
+            return FolderAccess::agencyMayView($user, $folder);
         }
 
         return $user->hasPermission('folder.view');
@@ -39,7 +40,7 @@ class FolderPolicy
     public function update(User $user, Folder $folder): bool
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return (int) $folder->agency_id === (int) $user->agency_id;
+            return FolderAccess::agencyMayEdit($user, $folder);
         }
 
         return $user->hasPermission('folder.update');
@@ -49,8 +50,7 @@ class FolderPolicy
     {
         // 💡 AUTORISE LA SUPPRESSION par l'agence UNIQUEMENT si le dossier est en BROUILLON
         if ($user->hasRole(User::ROLE_AGENCY)) {
-            return (int) $folder->agency_id === (int) $user->agency_id
-                && $folder->status === 'draft';
+            return FolderAccess::agencyMayDelete($user, $folder);
         }
 
         return $user->hasPermission('folder.delete');

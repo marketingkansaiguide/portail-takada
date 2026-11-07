@@ -34,6 +34,7 @@ class CreateAgencyFolder extends CreateRecord
             $data['reference'] = 'TKD-' . date('Ym') . '-' . strtoupper(Str::random(4));
         }
 
+        $data['origin'] = \App\Models\Folder::ORIGIN_B2B;
         $data['agency_id'] = $agencyId;
         $data['user_id'] = $user->id;
         $data['status'] = 'draft';
