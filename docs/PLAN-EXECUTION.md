@@ -15,8 +15,8 @@ Documents liés : `docs/LOT3-preparation-commande.md` (lot 3b, architecture B va
 
 | Lot | Contenu | Codé et commité | Testé | Commit |
 |---|---|---|---|---|
-| 0 | Procédure de sauvegarde et restauration ; restauration de la prod testée en local (MySQL 8.4) | Oui (documentation) | Restauration exécutée : comptages identiques, 108 migrations | `9e10102`, mise à jour dans le commit de ce document |
-| 1 | Tests de référence B2B : tarifs (6 200 scénarios sur le catalogue prod), rémunération guide (477 combinaisons), accès agence, parcours de validation agence, automatismes (guides, clôture, tâches), matrice des droits des 9 profils | Oui | Oui (voir §3) | `237cd51` + commit de ce document |
+| 0 | Procédure de sauvegarde et restauration ; restauration de la prod testée en local (MySQL 8.4) | Oui (documentation) | Restauration exécutée : comptages identiques, 108 migrations | `9e10102`, `303870d` |
+| 1 | Tests de référence B2B : tarifs (6 200 scénarios sur le catalogue prod), rémunération guide (477 combinaisons), accès agence, parcours de validation agence, automatismes (guides, clôture, tâches), matrice des droits des 9 profils | Oui | Oui (voir §3) | `237cd51`, `303870d` |
 | 2 | Origine des dossiers `b2b`/`internal` (obligatoire, sans défaut), `client_agency_id`, contraintes CHECK MySQL, `FolderAccess` branché sur policies, panel agence, fichiers, chat, Contact, fiche produit ; commande `folders:origin-report` | Oui | Oui ; migration jouée et annulée sur une copie de la prod (visibilité agence identique) | `525e129` |
 | 3a | Dossiers internes : création distincte, type, avancement, responsable, contact, type de vente, politique tarifaire, notes, droits `folder.internal.*`, visibilité tous commerciaux, verrou optimiste, cron et tâches limités au B2B, PDF sans agence, liste et filtres | Oui | Oui | `7407bca` |
 | 3b | Préparation puis commande (option B) et les garanties du §12 | **Non : planifié** | — | — |
