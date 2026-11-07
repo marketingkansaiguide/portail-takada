@@ -1,3 +1,5 @@
+> **Document historique (2026-11-07).** Certaines propositions ici sont remplacées, en particulier le passage automatique du dossier en « confirmé » à partir du statut commercial et le contrôle des automatismes au niveau du dossier. Les règles en vigueur sont dans `docs/PLAN-EXECUTION.md` et `docs/LOT3-preparation-commande.md`.
+
 # Plan d'exécution — Lots 0 à 3 (dossiers internes)
 
 Date : 2026-11-07 · Base : audit `docs/AUDIT-PHASE0-dossiers-internes.md` + décisions de Maxime du 2026-11-07.

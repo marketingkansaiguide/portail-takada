@@ -1,3 +1,5 @@
+> **Document historique (2026-11-07).** Certaines propositions ici sont remplacées, en particulier le passage automatique du dossier en « confirmé » à partir du statut commercial et le contrôle des automatismes au niveau du dossier. Les règles en vigueur sont dans `docs/PLAN-EXECUTION.md` et `docs/LOT3-preparation-commande.md`.
+
 # Audit Phase 0 — Dossiers internes, commerciaux et remplacement d'Ezus
 
 Date : 2026-11-07 · Périmètre : dépôt local `portail-takada` (branche `master`, commit `e34008d`), lecture seule.

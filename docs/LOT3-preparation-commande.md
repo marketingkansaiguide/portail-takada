@@ -2,7 +2,7 @@
 
 Version 2 · 2026-11-07 · Remplace la version 1 de ce document.
 Légende : **[C]** constaté dans le code ou en prod · **[H]** hypothèse.
-Statut : **recommandation à valider**. Rien n'est implémenté.
+Statut : **architecture validée par Maxime le 2026-11-07, avec les garanties des §12 et 13**. Lot 3b **non implémenté** à ce jour (voir l'état réel dans `docs/PLAN-EXECUTION.md` §2). Le lot 3a (socle des dossiers internes) est codé et testé.
 
 > **Correction de la version 1.** J'y affirmais que le formulaire de prestation utilisait « 129 fois `$record` », c'est-à-dire un `FolderItem` réel. C'était faux : ma recherche comptait tous les `->` du fichier. Après une vérification ligne par ligne, le schéma de la fiche prestation (`FolderResource`, lignes 955 à 2045) n'utilise `$record` qu'**une seule fois** (affichage des fichiers joints d'un champ personnalisé). Tout le reste travaille sur l'**état du formulaire** (`$get`/`$set`). Ce fait change la conclusion : la réutilisation du formulaire, qui était mon principal argument pour l'option A, vaut aussi pour l'option B.
 
@@ -255,7 +255,7 @@ Lot 1 (tests de référence) → lot 2 (origine et accès) → lot 3a (socle des
 
 **1. Aucun contournement de la préparation**
 - Côté serveur : `FolderItem::creating` refuse toute création sur un dossier `internal` qui ne vient pas de `PlannedItemOrderService` (jeton interne au service). C'est une exception et pas un bouton masqué.
-- Déjà en place (lot 3a) : sur une fiche interne, les répéteurs « Prestations commandées » et « Prestations internes » ne sont pas rendus ; les surfaces agence (catalogue, Contact) ne peuvent pas atteindre un dossier interne (lot 2).
+- Codé et testé au lot 3a (commit `7407bca`) : sur une fiche interne, les répéteurs « Prestations commandées » et « Prestations internes » ne sont pas rendus ; les surfaces agence (catalogue, Contact) ne peuvent pas atteindre un dossier interne (lot 2).
 - `FolderItemPolicy::create` / `update` : pour un dossier interne, la création directe est refusée ; la modification des prestations déjà commandées reste permise selon les règles actuelles.
 - Tests : `FolderItem::create` direct sur un interne → exception ; état Livewire `data.folderItems` forcé sur une fiche interne → rien n'est créé ; B2B inchangé (suite de référence).
 
@@ -265,7 +265,7 @@ Lot 1 (tests de référence) → lot 2 (origine et accès) → lot 3a (socle des
 - La commande groupée est validée en base même si un service externe est indisponible ; l'état externe de chaque ligne est stocké dans `folder_order_batches.result` et affiché, avec relance possible.
 
 **3. Politique tarifaire indépendante de l'agence associée**
-- Fait au lot 3a : `client_agency_id` (information), `sale_type` (B2B/B2C) et `pricing_client_group_id` (politique explicite) sont trois champs distincts. Une politique non définie est signalée et n'est jamais déduite de l'agence associée.
+- Codé et testé au lot 3a (commit `7407bca`) : `client_agency_id` (information), `sale_type` (B2B/B2C) et `pricing_client_group_id` (politique explicite) sont trois champs distincts. Une politique non définie est signalée et n'est jamais déduite de l'agence associée.
 - [C] Le moteur actuel ne fait pas varier les prix par groupe client : le groupe sert à la **disponibilité** des produits (`isAvailableForAgency`) et aux frais de dossier. Au lot 3b, la disponibilité est contrôlée avec `pricing_client_group_id`. **La commande est refusée tant que le type de vente et la politique tarifaire ne sont pas définis** ; la préparation reste libre.
 
 **4. Fiabilité de la commande**
@@ -280,10 +280,30 @@ Lot 1 (tests de référence) → lot 2 (origine et accès) → lot 3a (socle des
 
 | Situation | Comportement |
 |---|---|
-| Dossier sans aucune commande, passé à « Annulé » | `status = cancelled`. Les prestations préparées restent en l'état (inertes, conservées, visibles). Réouverture possible. *(lot 3a, testé)* |
+| Dossier sans aucune commande, passé à « Annulé » | `status = cancelled`. Les prestations préparées restent en l'état (inertes, conservées, visibles). Réouverture possible. *(codé et testé au lot 3a, commit `7407bca`)* |
 | Dossier avec prestations commandées, passé à « Annulé » | `status = cancelled` → `CancelGuideMission` pour les missions transmises (existant). Les statuts fournisseurs des prestations **ne sont pas modifiés automatiquement** (comportement B2B actuel) : une tâche « annuler auprès du fournisseur » est créée pour chaque prestation commandée non annulée. Les coûts non remboursables sont conservés. |
 | Une prestation commandée annulée, les autres actives | Statut « Annulé » sur la ligne → `CancelGuideMission` si une mission existe, total recalculé ; les autres lignes et le dossier sont inchangés. |
 | Dossier « Terminé » avec des prestations encore en préparation | Confirmation demandée avec la liste des prestations concernées ; elles restent en préparation (exclues de l'opérationnel), rien n'est supprimé. |
 | Mission guide déjà transmise à WordPress | Annulation par l'API existante ; en cas d'échec : `guide_sync_status = failed`, visible et relançable ; la prestation et son historique sont conservés. |
 
 Un changement de statut global ne supprime jamais de ligne ni d'historique.
+
+---
+
+## 13. Renforcements demandés le 2026-11-07 (lot 3b)
+
+**Créations directes de `FolderItem` : trois niveaux indépendants**
+1. **Base de données** : trigger MySQL `BEFORE INSERT` sur `folder_items`. Il refuse (`SIGNAL SQLSTATE '45000'`) toute ligne rattachée à un dossier `origin = 'internal'` sans `planned_item_id`. Cette protection ne dépend d'aucun jeton applicatif et couvre aussi une requête SQL brute ou un script. Avant le déploiement, il faut vérifier en lecture seule (`SHOW GRANTS`) que le compte MySQL de prod a le droit `TRIGGER`. Sinon, le droit est à demander, ou on reste sur les deux niveaux suivants en le signalant.
+2. **Modèle** : `FolderItem::creating` refuse la même situation. `planned_item_id` est vérifié en base : la ligne préparée doit exister, appartenir au même dossier et être en cours de conversion. Un simple drapeau en mémoire ne suffit donc pas.
+3. **Autorisation** : `FolderItemPolicy::create` refuse la création directe sur un dossier interne ; le service de commande exige le droit `folder.internal.order`.
+Les prestations déjà commandées restent modifiables selon les règles actuelles (mise à jour, pas de création). Les tests couvrent les trois niveaux, dont un `DB::table('folder_items')->insert()` direct sur MySQL.
+
+**Synchronisations externes : suivi et reprise**
+- Google Calendar passe par un job en file `SyncFolderItemCalendar` (envoyé après commit, 4 tentatives avec délais progressifs). Le suivi est stocké sur la ligne (`calendar_sync_status`, `calendar_sync_error`, `calendar_synced_at`), comme pour les missions guides. Le job est idempotent grâce à `google_calendar_event_id` (mise à jour au lieu d'une nouvelle création). Une commande `calendar:retry-sync` relance les échecs. Ce changement touche aussi les dossiers B2B (l'appel devient asynchrone, le résultat est identique) ; il sera couvert par les tests de référence et soumis à validation dans le compte rendu du lot.
+- Missions guides : mécanisme existant (`guide_sync_status`, `RetryGuideMissionSync`). Le comportement « mise à jour plutôt que recréation » côté WordPress à partir de `external_reference` reste **à vérifier avant le lot 3b**.
+- Les commandes groupées enregistrent l'état externe de chaque ligne dans `folder_order_batches.result`, avec un bouton « Relancer » par ligne en échec.
+
+**Pas de commande sur un dossier annulé ou terminé**
+- `PlannedItemOrderService` refuse toute commande si `ops_status` vaut `annule` ou `termine`, ou si `status` vaut `cancelled` ou `completed`. Le contrôle est fait dans la transaction, après verrouillage du dossier.
+- La réouverture est une action explicite (« Rouvrir le dossier »), avec le droit `folder.internal.update` et un motif obligatoire inscrit à l'historique. Elle remet l'avancement à « En préparation ». Elle ne commande rien et ne réactive aucune prestation annulée.
+- Tests : commande refusée sur un dossier annulé, puis sur un dossier terminé ; acceptée après réouverture ; motif présent dans l'historique.
