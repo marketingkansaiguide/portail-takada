@@ -241,7 +241,8 @@ class Folder extends Model
 
     public function stays(): HasMany
     {
-        return $this->hasMany(FolderStay::class)->orderBy('check_in')->orderBy('id');
+        // Les dates encore inconnues passent en dernier.
+        return $this->hasMany(FolderStay::class)->orderByRaw('check_in is null')->orderBy('check_in')->orderBy('id');
     }
 
     public function flightSegments(): HasMany

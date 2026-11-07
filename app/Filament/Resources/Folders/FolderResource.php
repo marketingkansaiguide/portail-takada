@@ -455,7 +455,7 @@ class FolderResource extends Resource
                             ->preload()
                             ->live()
                             // Espace commercial : le fournisseur est déduit du produit, jamais demandé au commercial.
-                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['class' => 'hidden'] : [])
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
                             ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
                                     \App\Models\Product::find($get('product_id'))?->product_type === 'transport'
                                 )
@@ -663,7 +663,7 @@ class FolderResource extends Resource
                             ->numeric()
                             ->default($mode === 'commercial' ? null : 0)
                             ->live()
-                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['class' => 'hidden'] : [])
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
                             ->columnSpan(2),
 
                         TextInput::make('unit_price')

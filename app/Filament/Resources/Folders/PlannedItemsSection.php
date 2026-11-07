@@ -26,7 +26,7 @@ final class PlannedItemsSection
             ->schema([
                 Placeholder::make('planned_budget')
                     ->hiddenLabel()
-                    ->content(fn ($get) => self::budget($get('plannedItems') ?? [])),
+                    ->content(fn ($get) => $commercial ? self::commercialBudget($get('plannedItems') ?? []) : self::budget($get('plannedItems') ?? [])),
 
                 Repeater::make('plannedItems')
                     ->relationship('plannedItems')
@@ -68,6 +68,7 @@ final class PlannedItemsSection
     private static function commercialFields(): array
     {
         return [
+            \Filament\Schemas\Components\Group::make()->columns(3)->columnSpanFull()->schema([
             \Filament\Forms\Components\Select::make('meeting_suggestion')
                 ->label(__('Lieu de rendez-vous : choisir dans le dossier'))
                 ->helperText(__('Hôtels et vols déjà saisis, le plus proche de la date de la prestation en premier. Vous pouvez toujours saisir un autre lieu ci-contre.'))
@@ -93,12 +94,21 @@ final class PlannedItemsSection
                 ->rule('regex:/^([01]\d|2[0-3]):[0-5]\d$/')
                 ->maxLength(5)
                 ->columnSpan(1),
+            ]),
             Textarea::make('ticketing_notes')
                 ->label(__('Informations complémentaires pour la billetterie'))
                 ->helperText(__('Facultatif. Horaire souhaité, hôtel de prise en charge, préférences du client, contraintes, consignes de réservation. Visible de la billetterie sur la prestation commandée ; jamais transmis automatiquement à un fournisseur, un guide ou une agence.'))
                 ->rows(4)
                 ->columnSpanFull(),
         ];
+    }
+
+    private static function commercialBudget(array $items): HtmlString
+    {
+        $sale = array_sum(array_map(fn ($i) => (float) ($i['total_price'] ?? 0), $items));
+
+        return new HtmlString('<div style="font-size:0.9rem"><strong>' . e(__('Vente prévisionnelle')) . '</strong> : ' . number_format($sale, 0, ',', ' ') . ' ¥ · '
+            . e(trans_choice(':count prestation en préparation|:count prestations en préparation', count($items), ['count' => count($items)])) . ' · <span style="color:#6b7280">' . e(__('Coûts et marge : onglet Finances et suivi')) . '</span></div>');
     }
 
     private static function budget(array $items): HtmlString
