@@ -19,6 +19,9 @@ class FolderItem extends Model
         'guide_mission_id', 'guide_sync_status', 'guide_sync_error', 'guide_synced_at',
         'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
         'label_exported_at',
+        // Lot 3b : commande depuis la préparation et suivi Calendar
+        'planned_item_id', 'ordered_by_user_id', 'order_batch_id',
+        'calendar_sync_status', 'calendar_sync_error', 'calendar_synced_at',
     ];
 
     protected $casts = [
@@ -637,8 +640,51 @@ class FolderItem extends Model
                 Log::info("CALENDAR : SUCCÈS -> Nouvel événement créé ! ID: " . $created->id);
             }
         } catch (\Exception $e) {
+            $this->lastCalendarError = mb_substr($e->getMessage(), 0, 2000);
             Log::error("CALENDAR ERREUR GOOGLE API : " . $e->getMessage());
         }
+    }
+
+    /** Dernière erreur Google Calendar (lue par le job de synchronisation pour le suivi). */
+    public ?string $lastCalendarError = null;
+
+    /**
+     * La synchronisation Calendar passe par un job en file, envoyé après validation
+     * de la transaction, avec suivi d'état et nouvelles tentatives.
+     */
+    public function queueCalendarSync(): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+
+        try {
+            \App\Jobs\SyncFolderItemCalendar::dispatch($this->id)->afterCommit();
+        } catch (\Throwable $exception) {
+            Log::error('CALENDAR : impossible de mettre la synchronisation en file : ' . $exception->getMessage());
+            DB::table('folder_items')->where('id', $this->id)->update(['calendar_sync_status' => 'failed', 'calendar_sync_error' => mb_substr($exception->getMessage(), 0, 2000)]);
+        }
+    }
+
+    /**
+     * Mission guide : comportement inchangé pour les dossiers agence. Pour les dossiers
+     * internes, la synchronisation reste désactivée tant que la déduplication côté
+     * WordPress n'est pas vérifiée (GUIDE_SYNC_INTERNAL_ORDERS).
+     */
+    public function guideSyncAllowed(): bool
+    {
+        $folder = $this->folder;
+
+        if (! $folder || ! in_array($folder->status, ['confirmed', 'completed'], true) || (int) $this->product?->category_id !== 4) {
+            return false;
+        }
+
+        return ! $folder->isInternal() || (bool) config('services.guide_planning.internal_orders_enabled', false);
+    }
+
+    public function plannedItem(): BelongsTo
+    {
+        return $this->belongsTo(FolderPlannedItem::class, 'planned_item_id');
     }
 
     public function deleteGoogleCalendarEvent()
@@ -713,6 +759,23 @@ class FolderItem extends Model
     protected static function booted()
     {
         static::creating(function ($item) {
+            // Dossier interne : une prestation commandée naît uniquement d'une prestation
+            // préparée du même dossier, en cours de commande par le service dédié.
+            // Contrôle vérifié en base (et doublé par un trigger SQL), pas seulement un jeton.
+            $folder = Folder::find($item->folder_id);
+            if ($folder?->isInternal()) {
+                $planned = $item->planned_item_id ? FolderPlannedItem::find($item->planned_item_id) : null;
+                if (! $planned
+                    || (int) $planned->folder_id !== (int) $folder->id
+                    || $planned->state !== FolderPlannedItem::STATE_DRAFT
+                    || ! \App\Services\PlannedItemOrderService::isConverting((int) $planned->id)) {
+                    throw new \LogicException('Dossier interne : une prestation se commande uniquement depuis la préparation (« Commander les prestations sélectionnées »).');
+                }
+                if (in_array($folder->ops_status, ['annule', 'termine'], true) || in_array($folder->status, ['cancelled', 'completed'], true)) {
+                    throw new \LogicException('Dossier annulé ou terminé : rouvrez-le avant de commander.');
+                }
+            }
+
             if (empty($item->item_status_id)) {
                 $defaultStatus = \App\Models\ItemStatus::firstOrCreate(
                     ['name' => 'En attente de validation'],
@@ -744,8 +807,7 @@ class FolderItem extends Model
                 'service_date', 'product_id', 'product_option_id', 'quantity',
                 'pax_adults', 'pax_children', 'pax_teenagers', 'custom_values',
                 'purchase_total_price',
-            ]) && in_array($item->folder?->status, ['confirmed', 'completed'], true)
-                && (int) $item->product?->category_id === 4) {
+            ]) && $item->guideSyncAllowed()) {
                 try {
                     \App\Jobs\SyncGuideMission::dispatch($item->id)->afterCommit();
                 } catch (\Throwable $exception) {
@@ -766,11 +828,7 @@ class FolderItem extends Model
                     $processedUpdates[$fingerprint] = true;
 
                     if ($item->wasChanged(['service_date', 'quantity', 'product_id', 'supplier_id', 'item_status_id'])) {
-                        try { 
-                            $item->syncGoogleCalendar(); 
-                        } catch (\Exception $e) {
-                            Log::error("CALENDAR Erreur d'appel hook updated : " . $e->getMessage());
-                        }
+                        $item->queueCalendarSync();
                     }
 
                     $productName = $item->title ?: ($item->product ? $item->product->name : 'Une prestation');
@@ -908,8 +966,7 @@ class FolderItem extends Model
 
             $item->folder?->recalculateBillableTotal();
 
-            if (in_array($item->folder?->status, ['confirmed', 'completed'], true)
-                && (int) $item->product?->category_id === 4) {
+            if ($item->guideSyncAllowed()) {
                 try {
                     \App\Jobs\SyncGuideMission::dispatch($item->id)->afterCommit();
                 } catch (\Throwable $exception) {
@@ -917,11 +974,7 @@ class FolderItem extends Model
                 }
             }
 
-            try { 
-                $item->syncGoogleCalendar(); 
-            } catch (\Exception $e) {
-                Log::error("CALENDAR Erreur d'appel hook created : " . $e->getMessage());
-            }
+            $item->queueCalendarSync();
 
             $productName = $item->title ?: ($item->product ? $item->product->name : 'Une prestation');
             if ($item->service_date) {

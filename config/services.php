@@ -39,6 +39,9 @@ return [
         'base_url' => env('GUIDE_PLANNING_API_URL'),
         'api_key' => env('GUIDE_PLANNING_API_KEY'),
         'callback_token' => env('GUIDE_PLANNING_CALLBACK_TOKEN'),
+        // Missions guides des dossiers INTERNES : désactivées tant que la déduplication
+        // WordPress (external_source / external_reference) n'est pas vérifiée.
+        'internal_orders_enabled' => (bool) env('GUIDE_SYNC_INTERNAL_ORDERS', false),
     ],
 
     'google_drive' => [

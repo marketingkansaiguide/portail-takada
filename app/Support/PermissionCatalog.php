@@ -27,6 +27,7 @@ final class PermissionCatalog
                 'folder.segment.all' => 'Périmètre : tous les dossiers (y compris non classés)',
             ],
             'Dossiers internes (commerciaux)' => $crud('folder.internal', 'dossiers internes') + [
+                'folder.internal.order' => 'Commander les prestations préparées',
                 'folder.finance.view' => 'Voir les finances internes (coûts, marges)',
                 'folder.sensitive.view' => 'Voir les données sensibles des voyageurs (santé, alimentation)',
             ],

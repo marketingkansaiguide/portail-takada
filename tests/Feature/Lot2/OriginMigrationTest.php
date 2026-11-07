@@ -9,6 +9,7 @@ uses(RefreshDatabase::class);
 
 it("classe les dossiers existants en b2b sans toucher à leur agence, puis rend l'origine obligatoire", function () {
     // On revient à l'état de la production actuelle (avant les lots 2 et 3a).
+    (require database_path('migrations/2026_11_07_120000_create_folder_planned_items_and_order_batches.php'))->down();
     (require database_path('migrations/2026_11_07_110000_add_internal_folder_fields_to_folders_table.php'))->down();
     $migration = require database_path('migrations/2026_11_07_100000_add_origin_and_client_agency_to_folders_table.php');
     $migration->down();

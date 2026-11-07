@@ -413,6 +413,680 @@ class FolderResource extends Resource
         return new HtmlString($html . '</div>');
     }
 
+    /**
+     * Schéma d'une ligne de prestation, commun aux prestations commandées
+     * (mode « ordered », identique au schéma historique) et aux prestations
+     * préparées des dossiers internes (mode « planned » : sans statut fournisseur
+     * ni suivi de facture). Même moteur tarifaire (updateItemPrices).
+     *
+     * @return array<int, mixed>
+     */
+    public static function folderItemSchema(string $mode = 'ordered'): array
+    {
+        return [
+                    Hidden::make('pax_adults')->dehydrated(true),
+                    Hidden::make('pax_children')->dehydrated(true),
+
+                    Group::make()->schema([
+                        Select::make('supplier_id')
+                            ->label(__('Fournisseur de la prestation'))
+                            ->options(function ($get) {
+                                try {
+                                    $productId = $get('product_id'); 
+                                    if (!$productId) return [];
+                                    return \App\Models\ProductSupplier::where('product_id', $productId)
+                                        ->with('supplier')
+                                        ->get()
+                                        ->pluck('supplier.name', 'supplier_id');
+                                } catch (\Exception $e) { return []; }
+                            })
+                            ->afterStateHydrated(function ($component, $state, $get) {
+                                try {
+                                    if (!$state && $get('product_id')) {
+                                        $suppliers = \App\Models\ProductSupplier::where('product_id', $get('product_id'))->pluck('supplier_id')->toArray();
+                                        if (count($suppliers) === 1) {
+                                            $component->state($suppliers[0]);
+                                        }
+                                    }
+                                } catch (\Exception $e) {}
+                            })
+                            
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) => 
+                                    \App\Models\Product::find($get('product_id'))?->product_type === 'transport'
+                                )
+                            ->hint(function ($get) {
+                                try {
+                                    $productId = $get('product_id');
+                                    if ($productId && !$get('supplier_id')) {
+                                        $count = \App\Models\ProductSupplier::where('product_id', $productId)->count();
+                                        if ($count > 1) {
+        return new \Illuminate\Support\HtmlString('<span style="color:red; font-weight:bold;">⚠️ ' . e(__('Sélection requise pour générer les documents')) . '</span>');
+                                        }
+                                    }
+                                } catch (\Exception $e) {}
+                                return null;
+                            })
+                            ->columnSpan(4),
+
+                        Select::make('product_id')
+                            ->relationship('product', 'name', fn ($query, Get $get) => $query->where(
+                                fn ($q) => $q->where('products.is_public', true)->orWhere('products.id', $get('product_id'))
+                            ))
+                            ->label(__('Produit / Activité'))
+                            ->required()
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($set, $get, $state, $old) {
+                                if ($state !== $old) {
+                                    $set('selected_options', []); 
+                                    $set('custom_values', []); 
+                                    
+                                    try {
+                                        $suppliers = \App\Models\ProductSupplier::where('product_id', $state)->pluck('supplier_id')->toArray();
+                                        if (count($suppliers) === 1) {
+                                            $set('supplier_id', $suppliers[0]);
+                                        } else {
+                                            $set('supplier_id', null);
+                                        }
+                                    } catch (\Exception $e) {
+                                        $set('supplier_id', null);
+                                    }
+                                }
+                                self::updateItemPrices($set, $get);
+                            })
+                            ->columnSpan(4),
+
+                        Select::make('item_status_id')
+                            ->hidden($mode === 'planned') // statut fournisseur : seulement après commande
+                            ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
+                                \App\Models\ItemStatus::firstOrCreate(
+                                    ['name' => 'En attente de validation'],
+                                    ['color' => 'warning']
+                                );
+                                return $query;
+                            })
+                            ->label(__('Statut'))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->default(fn () => \App\Models\ItemStatus::where('name', 'En attente de validation')->value('id'))
+                            ->columnSpan(4),
+                    ])->columns(12),
+
+                    Group::make()->hidden($mode === 'planned')->schema([
+                        Placeholder::make('invoice_alert')
+                            ->label('')
+                            ->content(new \Illuminate\Support\HtmlString('<div style="display:flex; align-items:center; gap:0.5rem; background-color: #fef2f2; color: #dc2626; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #f87171; font-weight: bold; font-size: 0.85rem;">⚠️ En attente de facture</div>'))
+                            ->hidden(function ($get) { 
+                                if ($get('invoice_received_at') !== null) {
+                                    return true;
+                                }
+                                $supplierId = $get('supplier_id');
+                                if (!$supplierId) {
+                                    return true;
+                                }
+                                $supplier = \App\Models\Supplier::find($supplierId);
+                                return !($supplier && $supplier->requires_invoice);
+                            })
+                            ->columnSpan(6),
+
+                        DatePicker::make('invoice_received_at')
+                            ->label(__('Date de réception de la facture'))
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->live() 
+                            ->visible(function ($get) { 
+                                $supplierId = $get('supplier_id');
+                                if (!$supplierId) return false;
+                                $supplier = \App\Models\Supplier::find($supplierId);
+                                return $supplier && $supplier->requires_invoice;
+                            })
+                            ->columnSpan(6),
+                    ])->columns(12),
+
+                    Group::make()->schema([
+                         DatePicker::make('service_date')
+                             ->label(__('Date'))
+                            ->native(false)
+                            ->required()
+                            ->live()
+                            ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
+                            ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
+                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                             ->columnSpan(1),
+
+                         TextInput::make('age_selector_adults')
+                             ->label(__('Adultes'))
+                             ->numeric()
+                             ->default(1)
+                             ->minValue(0)
+                             ->live()
+                             ->dehydrated(false)
+                             ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                 $stored = $get('pax_adults') ?? data_get($get('custom_values'), '_age_selector.adults');
+                                 if ($stored !== null) {
+                                     $component->state((int) $stored);
+                                 }
+                             })
+                             ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
+                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                             ->columnSpan(1),
+
+                         TextInput::make('age_selector_children')
+                             ->label(__('Enfants'))
+                             ->numeric()
+                             ->default(0)
+                             ->minValue(0)
+                             ->live()
+                             ->dehydrated(false)
+                             ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                 $stored = $get('pax_children') ?? data_get($get('custom_values'), '_age_selector.children');
+                                 if ($stored !== null) {
+                                     $component->state((int) $stored);
+                                 }
+                             })
+                             ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->hasChildSelector())
+                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                             ->columnSpan(1),
+
+                         TextInput::make('age_selector_teenagers')
+                             ->label(__('Adolescents'))
+                             ->numeric()
+                             ->default(0)
+                             ->minValue(0)
+                             ->live()
+                             ->dehydrated(false)
+                             ->afterStateHydrated(function ($component, $state, Get $get): void {
+                                 $stored = $get('pax_teenagers') ?? data_get($get('custom_values'), '_age_selector.teenagers');
+                                 if ($stored !== null) {
+                                     $component->state((int) $stored);
+                                 }
+                             })
+                             ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->hasTeenSelector())
+                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                             ->columnSpan(1),
+
+                         Placeholder::make('age_selector_hint')
+                             ->hiddenLabel()
+                             ->content(function (Get $get) {
+                                 $product = \App\Models\Product::find($get('product_id'));
+                                 if (!$product?->usesAgeSelector()) {
+                                     return null;
+                                 }
+
+                                 $childLimit = (int) ($product->child_age_limit ?? 11);
+                                 $childHint = $product->hasChildSelector()
+                                     ? __('Enfant = jusqu\'à :') . ' <strong>' . $childLimit . ' ' . __('ans inclus') . '</strong>'
+                                     : '';
+                                 $teenHint = $product->hasTeenSelector()
+                                     ? ($childHint !== '' ? ' · ' : '') . __('Adolescent = de :min à :max ans', ['min' => $childLimit + 1, 'max' => (int) $product->teen_age_limit])
+                                     : '';
+
+                                 return new \Illuminate\Support\HtmlString(
+                                     '<span style="font-size:0.8rem;color:#64748b;">' .
+                                     $childHint . e($teenHint) . '</span>'
+                                 );
+                             })
+                             ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
+                             ->columnSpan(2),
+
+                         TextInput::make('quantity')
+                             ->label(__('Total Pax'))
+                            ->numeric()
+                            ->default(1)
+                            ->minValue(1)
+                            ->maxValue(fn (Get $get) => \App\Models\Product::find($get('product_id'))?->max_pax)
+                            ->extraInputAttributes(function (Get $get) {
+                                $max = \App\Models\Product::find($get('product_id'))?->max_pax;
+                                if ($max) {
+                                    return [
+                                        'max' => $max,
+                                        'oninput' => "if(parseInt(this.value) > $max) this.value = $max;"
+                                    ];
+                                }
+                                return [];
+                            })
+                             ->required()
+                             ->live()
+                             ->readOnly(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
+                             ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
+                             ->columnSpan(1),
+
+                        TextInput::make('purchase_total_price')
+                            ->label(__('Total Achat (¥)'))
+                            ->numeric()
+                            ->default(0)
+                            ->live()
+                            ->columnSpan(2),
+
+                        TextInput::make('unit_price')
+                            ->label(__('Vente Unit. (¥)'))
+                            ->numeric()
+                            ->default(0) 
+                            ->readOnly() 
+                            ->dehydrated()
+                            ->required(false)
+                            ->columnSpan(1),
+
+                        TextInput::make('total_price')
+                            ->label(__('Total Vente (¥)'))
+                            ->numeric()
+                            ->default(0) 
+                            ->readOnly() 
+                            ->dehydrated()
+                            ->required(false)
+                            ->columnSpan(1),
+                    ])->columns(6),
+
+                    Repeater::make('selected_options')
+                        ->label(__('Options Sélectionnées'))
+                        ->addActionLabel(__('Ajouter une option tarifaire'))
+                        ->defaultItems(0)
+                        ->live()
+                        ->afterStateUpdated(function ($set, $get) {
+                            self::updateItemPrices($set, $get);
+                        })
+                        ->schema([
+                            Select::make('product_option_id')
+                                ->label(function ($get) {
+                                    // Le libellé porte la déclinaison (groupe) de l'option choisie
+                                    $optionId = $get('product_option_id');
+                                    $group = $optionId ? \App\Models\ProductOption::find($optionId)?->group_name : null;
+                                    return filled($group) ? $group : __('Option proposée');
+                                })
+                                ->options(function ($get) {
+                                    $productId = $get('../../product_id');
+                                    if (!$productId) return [];
+                                    // Options regroupées par déclinaison (group_name) pour ne plus les mélanger
+                                    $options = \App\Models\ProductOption::where('product_id', $productId)
+                                        ->orderBy('sort_order')->orderBy('id')->get();
+                                    // Chaque ligne ne propose que les choix de SA déclinaison ;
+                                    // une nouvelle ligne ne propose que les déclinaisons pas encore utilisées.
+                                    $currentId = $get('product_option_id');
+                                    $currentGroup = $currentId ? $options->firstWhere('id', (int) $currentId)?->group_name : null;
+                                    if (filled($currentGroup)) {
+                                        $options = $options->where('group_name', $currentGroup)->values();
+                                    } else {
+                                        $usedIds = collect($get('../../selected_options') ?? [])->pluck('product_option_id')->filter()->map(fn ($i) => (int) $i);
+                                        $usedGroups = $options->whereIn('id', $usedIds)->pluck('group_name')->filter()->unique();
+                                        $options = $options->reject(fn ($o) => filled($o->group_name) && $usedGroups->contains($o->group_name))->values();
+                                    }
+                                    if ($options->every(fn ($o) => blank($o->group_name))) {
+                                        return $options->pluck('name', 'id')->toArray();
+                                    }
+                                    return $options
+                                        ->groupBy(fn ($o) => filled($o->group_name) ? $o->group_name : __('Autres options'))
+                                        ->map(fn ($g) => $g->pluck('name', 'id')->toArray())
+                                        ->toArray();
+                                })
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function ($state, $set, $get) {
+                                    $set('product_option_id', $state);
+                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+                                    self::updateItemPrices($parentSet, $parentGet);
+                                }),
+
+                            TextInput::make('quantity')
+                                ->label(__('Qté option'))
+                                ->numeric()
+                                ->default(1)
+                                ->live()
+                                ->visible(function ($get) {
+                                    $optionId = $get('product_option_id');
+                                    if (!$optionId) return false;
+                                    $opt = \App\Models\ProductOption::find($optionId);
+                                    return $opt && $opt->billing_type === 'manual';
+                                })
+                                ->afterStateUpdated(function ($state, $set, $get) {
+                                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+                                    $parentGet = function($k) use ($get, $state) { 
+                                        if ($k === 'selected_options') {
+                                            return $get('../../selected_options') ?? [];
+                                        }
+                                        return $get('../../'.$k); 
+                                    };
+                                    self::updateItemPrices($parentSet, $parentGet);
+                                }),
+                        ])
+                        ->columns(2),
+
+                    Group::make()
+                        ->statePath('custom_values')
+                        ->schema(function (Get $get) {
+                            $productId = $get('product_id');
+                            if (!$productId) return [];
+
+                            $product = \App\Models\Product::find($productId);
+                            if (!$product) return [];
+
+                            // Conserve les compteurs adultes/enfants
+                            // transmis par le front office lors de la
+                            // sauvegarde du dossier.
+                            $ageSelectorMetadata = Hidden::make('_age_selector')
+                                ->dehydrated(true);
+
+                            // 💡 CAS 1 : PRODUIT DE TRANSPORT (BILLETTERIE TRAIN / BUS - MULTI-TRAJETS)
+                            if ($product->product_type === 'transport') {
+                                return [
+                                    $ageSelectorMetadata,
+                                    Section::make(__('Trajets'))
+                                        ->description(__('Un trajet par billet.'))
+                                        ->compact()
+                                        ->schema([
+Repeater::make('transport_routes')
+    ->hiddenLabel()
+    ->addActionLabel(__('Ajouter un trajet'))
+    // Libellé lisible même replié : « Trajet 2 · Kyoto → Tokyo · 07/08 · 2 pax »
+    ->itemLabel(function (array $state, ?int $index = null): string {
+        $parts = [__('Trajet') . ($index !== null ? ' ' . ($index + 1) : '')];
+        if (!empty($state['departure_station']) || !empty($state['arrival_station'])) {
+$parts[] = ($state['departure_station'] ?: '…') . ' → ' . ($state['arrival_station'] ?: '…');
+        }
+        if (!empty($state['departure_date'])) {
+try { $parts[] = \Illuminate\Support\Carbon::parse($state['departure_date'])->format('d/m'); } catch (\Throwable $e) {}
+        }
+        if (!empty($state['pax_count'])) {
+$parts[] = (int) $state['pax_count'] . ' pax';
+        }
+        return implode(' · ', $parts);
+    })
+    ->collapsible()
+    ->live()
+    ->afterStateUpdated(function ($set, $get) {
+        $parentSet = function($k, $v) use ($set) { $set('../'.$k, $v); };
+        $parentGet = function($k) use ($get) { return $get('../'.$k); };
+        self::updateItemPrices($parentSet, $parentGet);
+    })
+    ->schema([
+        Group::make()->schema([
+Select::make('departure_station')
+    ->label(__('Gare de départ'))
+    ->searchable()
+    ->required()
+    ->placeholder(__('Rechercher gare ou station...'))
+    ->getSearchResultsUsing(function (string $search): array {
+        $trains = \App\Models\TrainStation::where(function($q) use ($search) {
+                $q->where('name_en', 'like', "%{$search}%")
+                ->orWhere('name_ja', 'like', "%{$search}%")
+                ->orWhere('prefecture', 'like', "%{$search}%")
+                ->orWhere('city', 'like', "%{$search}%");
+            })
+            ->orderBy('importance_score', 'desc')
+            ->limit(15)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->name_en,
+                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                'score' => $s->importance_score ?? 10
+            ]);
+
+        $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+            ->orWhere('name_ja', 'like', "%{$search}%")
+            ->limit(10)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->name_en,
+                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                'score' => 90
+            ]);
+
+        return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
+    })
+    ->getOptionLabelUsing(fn ($value) => $value),
+
+Select::make('arrival_station')
+    ->label(__('Gare d\'arrivée'))
+    ->searchable()
+    ->required()
+    ->placeholder(__('Rechercher gare ou station...'))
+    ->getSearchResultsUsing(function (string $search): array {
+        $trains = \App\Models\TrainStation::where(function($q) use ($search) {
+                $q->where('name_en', 'like', "%{$search}%")
+                ->orWhere('name_ja', 'like', "%{$search}%")
+                ->orWhere('prefecture', 'like', "%{$search}%")
+                ->orWhere('city', 'like', "%{$search}%");
+            })
+            ->orderBy('importance_score', 'desc')
+            ->limit(15)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->name_en,
+                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                'score' => $s->importance_score ?? 10
+            ]);
+
+        $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+            ->orWhere('name_ja', 'like', "%{$search}%")
+            ->limit(10)
+            ->get()
+            ->map(fn ($s) => [
+                'id' => $s->name_en,
+                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
+                'score' => 90
+            ]);
+
+        return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
+    })
+    ->getOptionLabelUsing(fn ($value) => $value),
+        ])->columns(2),
+
+        Group::make()->schema([
+DatePicker::make('departure_date')
+    ->label(__('Date'))
+    ->native(false)
+    ->displayFormat('d/m/Y')
+    ->required(),
+
+TextInput::make('departure_time')
+    ->label(__('Départ'))
+    ->placeholder(__('09:32')),
+
+TextInput::make('arrival_time')
+    ->label(__('Arrivée'))
+    ->placeholder(__('12:05')),
+
+TextInput::make('train_number')
+    ->label(__('N° train / bus'))
+    ->placeholder(__('Hikari 502, voiture 3')),
+        ])->columns(['default' => 2, 'md' => 4]),
+
+        // Classe, passagers et achat sur une seule ligne
+        Group::make()->schema([
+Select::make('option_id')
+    ->label(__('Classe'))
+    ->options(fn () => \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id'))
+    ->searchable()
+    ->required(),
+
+TextInput::make('pax_count')
+    ->label(__('Passagers'))
+    ->numeric()
+    ->minValue(1)
+    ->suffix(__('pax'))
+    ->default(1)
+    ->required(),
+
+Select::make('supplier_id')
+    ->label(__('Fournisseur'))
+    ->hintColor('gray')
+    ->hintIcon('heroicon-m-information-circle', tooltip: __('Qui émet ce billet (JR, Willer Express...)'))
+    ->options(fn () => \App\Models\Supplier::pluck('name', 'id'))
+    ->searchable()
+    ->preload()
+    ->nullable(),
+
+TextInput::make('purchase_price')
+    ->label(__('Prix d\'achat'))
+    ->hintColor('gray')
+    ->hintIcon('heroicon-m-information-circle', tooltip: __('Total du trajet, refacturé à l\'agence au prix coûtant.'))
+    ->suffix('¥')
+    ->numeric()
+    ->default(0)
+    ->live()
+    ->afterStateUpdated(function ($set, $get) {
+        $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
+        $parentGet = function($k) use ($get) { return $get('../../'.$k); };
+        self::updateItemPrices($parentSet, $parentGet);
+    }),
+        ])->columns(['default' => 2, 'md' => 4]),
+
+        Textarea::make('specific_requests')
+->label(__('Demande spécifique'))
+->placeholder(__('Siège côté fenêtre, bagages volumineux, correspondance…'))
+->rows(2)
+->autosize()
+->maxLength(5000)
+->columnSpanFull(),
+    ])
+                                        ])
+                                ];
+                            }
+
+                            // 💡 CAS 2 : PRODUIT CLASSIQUE (Champs personnalisés standards)
+                            if (empty($product->custom_field_definitions)) {
+                                return [$ageSelectorMetadata];
+                            }
+
+                            $fields = [];
+                            foreach ($product->custom_field_definitions as $idx => $def) {
+                                $type = $def['type'] ?? 'text';
+                                
+                                $key = !empty($def['key']) ? trim($def['key']) : '';
+                                if (empty($key)) {
+                                    $key = Str::slug($def['name'] ?? 'custom', '_');
+                                }
+                                if (empty($key)) {
+                                    $key = 'custom_field_' . $idx; 
+                                }
+
+                                $label = $def['name'] ?? 'Information';
+                                $placeholder = $def['placeholder'] ?? '';
+                                $isRequired = $def['is_required'] ?? false;
+                                $perPax = $def['is_per_passenger'] ?? false;
+
+                                if ($type === 'file') {
+                                    $fields[] = Hidden::make($key);
+                                    
+                                    $fields[] = Placeholder::make($key . '_display')
+                                        ->label($label . ($perPax ? ' (' . __('Par passager') . ')' : ''))
+                                        ->content(function ($get, ?\Illuminate\Database\Eloquent\Model $record) use ($key) {
+                                            $val = $get($key);
+                                            $folder = $record?->folder;
+                                            
+                                            if (empty($val)) {
+                                                return new HtmlString('<span style="color:#9ca3af; font-style:italic;">Aucun fichier fourni</span>');
+                                            }
+                                            
+                                            $html = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) use ($folder) {
+                                                $url = $folder
+                                                    ? route('folders.legacy-file', ['folder' => $folder, 'path' => trim($m[1])])
+                                                    : '#';
+                                                return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
+                                            }, (string)$val);
+                                            
+                                            return new HtmlString(nl2br($html));
+                                        });
+
+                                } else {
+                                    if ($perPax) {
+                                        $label .= ' (' . __('Par passager') . ')';
+                                        $field = match ($type) {
+                                            'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(3),
+                                            default => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
+                                        };
+                                    } else {
+                                        $field = match ($type) {
+                                            'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
+                                            'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
+                                            'date' => DatePicker::make($key)->native(false)->label($label),
+                                            'toggle' => Toggle::make($key)->label($label)->inline(false),
+                                            'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
+                                            
+                                            // 💡 Autocomplétion Gare de Train
+                                            'train_station' => Select::make($key)
+                                                ->label($label)
+                                                ->searchable()
+                                                ->placeholder($placeholder ?? __('Rechercher une gare...'))
+                                                ->getSearchResultsUsing(function (string $search): array {
+                                                    return \App\Models\TrainStation::where(function($q) use ($search) {
+                                                            $q->where('name_en', 'like', "%{$search}%")
+                                                            ->orWhere('name_ja', 'like', "%{$search}%")
+                                                            ->orWhere('name_kana', 'like', "%{$search}%")
+                                                            ->orWhere('prefecture', 'like', "%{$search}%")
+                                                            ->orWhere('city', 'like', "%{$search}%")
+                                                            ->orWhere('aliases', 'like', "%{$search}%");
+                                                        })
+                                                        ->orderBy('importance_score', 'desc')
+                                                        ->orderBy('name_en', 'asc')
+                                                        ->limit(20)
+                                                        ->get()
+                                                        ->mapWithKeys(function ($station) {
+                                                            $location = $station->city ? $station->city : $station->prefecture;
+                                                            $locationSuffix = $location ? " - {$location}" : "";
+                                                            return [$station->name_en => "🚆 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix];
+                                                        })
+                                                        ->toArray();
+                                                })
+                                                ->getOptionLabelUsing(function ($value): ?string {
+                                                    $station = \App\Models\TrainStation::where('name_en', $value)->first();
+                                                    return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
+                                                }),
+
+                                            // 💡 Autocomplétion Station de Bus
+                                            'bus_station' => Select::make($key)
+                                                ->label($label)
+                                                ->searchable()
+                                                ->placeholder($placeholder ?? __('Rechercher une station...'))
+                                                ->getSearchResultsUsing(function (string $search): array {
+                                                    return \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
+                                                        ->orWhere('name_ja', 'like', "%{$search}%")
+                                                        ->orWhere('address', 'like', "%{$search}%")
+                                                        ->limit(20)
+                                                        ->get()
+                                                        ->mapWithKeys(fn ($station) => [$station->name_en => "🚌 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "")])
+                                                        ->toArray();
+                                                })
+                                                ->getOptionLabelUsing(function ($value): ?string {
+                                                    $station = \App\Models\BusStation::where('name_en', $value)->first();
+                                                    return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
+                                                }),
+
+                                            'client_hotel' => TextInput::make($key)
+                                                ->label($label)
+                                                ->placeholder($placeholder ?? __('Rechercher un hébergement ou saisir son nom...'))
+                                                ->datalist(fn (): array => Hotel::query()->orderBy('name')->pluck('name')->all())
+                                                ->helperText(__('Choisissez un hébergement de la base ou saisissez-en un autre.')),
+
+                                            default => TextInput::make($key)->label($label)->placeholder($placeholder),
+                                        };
+                                    }
+
+                                    if ($isRequired && (!isset($type) || $type !== 'toggle')) {
+                                        $field->rules(['required']);
+                                    }
+
+                                    $fields[] = $field;
+                                }
+                            }
+
+                            return [
+                                $ageSelectorMetadata,
+                                Section::make(__('Informations spécifiques (Réponses)'))
+                                    ->description(__('Remplissez les critères requis pour cette prestation. Vous pouvez ignorer les suggestions et taper un texte libre.'))
+                                    ->schema($fields)
+                                    ->columns(2)
+                            ];
+                        }),
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -957,9 +1631,13 @@ class FolderResource extends Resource
                 
                 // PRESTATIONS CLIENTS / AGENCE
                 // Dossiers internes : les prestations passent par la préparation puis la commande (lot 3b).
+                // Dossier interne : préparation libre, puis commande explicite des lignes choisies (lot 3b).
+                PlannedItemsSection::make(),
+
                 Section::make(__('Prestations commandées'))->extraAttributes(['data-tk-anchor' => 'prestations'])
-                    ->visible(fn (?Folder $record): bool => ! $record?->isInternal())
-                    ->description(__('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
+                    ->description(fn (?Folder $record) => $record?->isInternal()
+                        ? __('Prestations réellement commandées. Elles suivent le processus opérationnel habituel ; une annulation se fait par le statut « Annulé ».')
+                        : __('Gérez les articles et options tarifaires liés à ce dossier. Pensez bien à sauvegarder le dossier après une modification !'))
                     ->columnSpanFull()
                     ->schema([
                         // Vue « jour par jour » (façon tableau Excel) au-dessus de la liste des fiches
@@ -967,6 +1645,9 @@ class FolderResource extends Resource
 
                         Repeater::make('folderItems')
                             ->relationship('folderItems')
+                            // Dossier interne : aucune création ni suppression directe ici (préparation puis commande).
+                            ->addable(fn (?Folder $record): bool => ! $record?->isInternal())
+                            ->deletable(fn (?Folder $record): bool => ! $record?->isInternal())
                             ->hiddenLabel() 
                             ->addActionLabel(__('Ajouter une prestation au dossier'))
                             ->collapsible()
@@ -1394,667 +2075,7 @@ class FolderResource extends Resource
                                         }
                                     })
                             ])
-                            ->schema([
-                                Hidden::make('pax_adults')->dehydrated(true),
-                                Hidden::make('pax_children')->dehydrated(true),
-
-                                Group::make()->schema([
-                                    Select::make('supplier_id')
-                                        ->label(__('Fournisseur de la prestation'))
-                                        ->options(function ($get) {
-                                            try {
-                                                $productId = $get('product_id'); 
-                                                if (!$productId) return [];
-                                                return \App\Models\ProductSupplier::where('product_id', $productId)
-                                                    ->with('supplier')
-                                                    ->get()
-                                                    ->pluck('supplier.name', 'supplier_id');
-                                            } catch (\Exception $e) { return []; }
-                                        })
-                                        ->afterStateHydrated(function ($component, $state, $get) {
-                                            try {
-                                                if (!$state && $get('product_id')) {
-                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $get('product_id'))->pluck('supplier_id')->toArray();
-                                                    if (count($suppliers) === 1) {
-                                                        $component->state($suppliers[0]);
-                                                    }
-                                                }
-                                            } catch (\Exception $e) {}
-                                        })
-                                        
-                                        ->searchable()
-                                        ->preload()
-                                        ->live()
-                                        ->hidden(fn (\Filament\Schemas\Components\Utilities\Get $get) => 
-                                                \App\Models\Product::find($get('product_id'))?->product_type === 'transport'
-                                            )
-                                        ->hint(function ($get) {
-                                            try {
-                                                $productId = $get('product_id');
-                                                if ($productId && !$get('supplier_id')) {
-                                                    $count = \App\Models\ProductSupplier::where('product_id', $productId)->count();
-                                                    if ($count > 1) {
-        return new \Illuminate\Support\HtmlString('<span style="color:red; font-weight:bold;">⚠️ ' . e(__('Sélection requise pour générer les documents')) . '</span>');
-                                                    }
-                                                }
-                                            } catch (\Exception $e) {}
-                                            return null;
-                                        })
-                                        ->columnSpan(4),
-
-                                    Select::make('product_id')
-                                        ->relationship('product', 'name', fn ($query, Get $get) => $query->where(
-                                            fn ($q) => $q->where('products.is_public', true)->orWhere('products.id', $get('product_id'))
-                                        ))
-                                        ->label(__('Produit / Activité'))
-                                        ->required()
-                                        ->searchable()
-                                        ->preload()
-                                        ->live()
-                                        ->afterStateUpdated(function ($set, $get, $state, $old) {
-                                            if ($state !== $old) {
-                                                $set('selected_options', []); 
-                                                $set('custom_values', []); 
-                                                
-                                                try {
-                                                    $suppliers = \App\Models\ProductSupplier::where('product_id', $state)->pluck('supplier_id')->toArray();
-                                                    if (count($suppliers) === 1) {
-                                                        $set('supplier_id', $suppliers[0]);
-                                                    } else {
-                                                        $set('supplier_id', null);
-                                                    }
-                                                } catch (\Exception $e) {
-                                                    $set('supplier_id', null);
-                                                }
-                                            }
-                                            self::updateItemPrices($set, $get);
-                                        })
-                                        ->columnSpan(4),
-
-                                    Select::make('item_status_id')
-                                        ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
-                                            \App\Models\ItemStatus::firstOrCreate(
-                                                ['name' => 'En attente de validation'],
-                                                ['color' => 'warning']
-                                            );
-                                            return $query;
-                                        })
-                                        ->label(__('Statut'))
-                                        ->searchable()
-                                        ->preload()
-                                        ->live()
-                                        ->default(fn () => \App\Models\ItemStatus::where('name', 'En attente de validation')->value('id'))
-                                        ->columnSpan(4),
-                                ])->columns(12),
-
-                                Group::make()->schema([
-                                    Placeholder::make('invoice_alert')
-                                        ->label('')
-                                        ->content(new \Illuminate\Support\HtmlString('<div style="display:flex; align-items:center; gap:0.5rem; background-color: #fef2f2; color: #dc2626; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #f87171; font-weight: bold; font-size: 0.85rem;">⚠️ En attente de facture</div>'))
-                                        ->hidden(function ($get) { 
-                                            if ($get('invoice_received_at') !== null) {
-                                                return true;
-                                            }
-                                            $supplierId = $get('supplier_id');
-                                            if (!$supplierId) {
-                                                return true;
-                                            }
-                                            $supplier = \App\Models\Supplier::find($supplierId);
-                                            return !($supplier && $supplier->requires_invoice);
-                                        })
-                                        ->columnSpan(6),
-
-                                    DatePicker::make('invoice_received_at')
-                                        ->label(__('Date de réception de la facture'))
-                                        ->native(false)
-                                        ->displayFormat('d/m/Y')
-                                        ->live() 
-                                        ->visible(function ($get) { 
-                                            $supplierId = $get('supplier_id');
-                                            if (!$supplierId) return false;
-                                            $supplier = \App\Models\Supplier::find($supplierId);
-                                            return $supplier && $supplier->requires_invoice;
-                                        })
-                                        ->columnSpan(6),
-                                ])->columns(12),
-
-                                Group::make()->schema([
-                                     DatePicker::make('service_date')
-                                         ->label(__('Date'))
-                                        ->native(false)
-                                        ->required()
-                                        ->live()
-                                        ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
-                                        ->maxDate(fn ($get) => $get('../../end_date') ? Carbon::parse($get('../../end_date'))->endOfDay() : null)
-                                         ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                         ->columnSpan(1),
-
-                                     TextInput::make('age_selector_adults')
-                                         ->label(__('Adultes'))
-                                         ->numeric()
-                                         ->default(1)
-                                         ->minValue(0)
-                                         ->live()
-                                         ->dehydrated(false)
-                                         ->afterStateHydrated(function ($component, $state, Get $get): void {
-                                             $stored = $get('pax_adults') ?? data_get($get('custom_values'), '_age_selector.adults');
-                                             if ($stored !== null) {
-                                                 $component->state((int) $stored);
-                                             }
-                                         })
-                                         ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
-                                         ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                         ->columnSpan(1),
-
-                                     TextInput::make('age_selector_children')
-                                         ->label(__('Enfants'))
-                                         ->numeric()
-                                         ->default(0)
-                                         ->minValue(0)
-                                         ->live()
-                                         ->dehydrated(false)
-                                         ->afterStateHydrated(function ($component, $state, Get $get): void {
-                                             $stored = $get('pax_children') ?? data_get($get('custom_values'), '_age_selector.children');
-                                             if ($stored !== null) {
-                                                 $component->state((int) $stored);
-                                             }
-                                         })
-                                         ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->hasChildSelector())
-                                         ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                         ->columnSpan(1),
-
-                                     TextInput::make('age_selector_teenagers')
-                                         ->label(__('Adolescents'))
-                                         ->numeric()
-                                         ->default(0)
-                                         ->minValue(0)
-                                         ->live()
-                                         ->dehydrated(false)
-                                         ->afterStateHydrated(function ($component, $state, Get $get): void {
-                                             $stored = $get('pax_teenagers') ?? data_get($get('custom_values'), '_age_selector.teenagers');
-                                             if ($stored !== null) {
-                                                 $component->state((int) $stored);
-                                             }
-                                         })
-                                         ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->hasTeenSelector())
-                                         ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                         ->columnSpan(1),
-
-                                     Placeholder::make('age_selector_hint')
-                                         ->hiddenLabel()
-                                         ->content(function (Get $get) {
-                                             $product = \App\Models\Product::find($get('product_id'));
-                                             if (!$product?->usesAgeSelector()) {
-                                                 return null;
-                                             }
-
-                                             $childLimit = (int) ($product->child_age_limit ?? 11);
-                                             $childHint = $product->hasChildSelector()
-                                                 ? __('Enfant = jusqu\'à :') . ' <strong>' . $childLimit . ' ' . __('ans inclus') . '</strong>'
-                                                 : '';
-                                             $teenHint = $product->hasTeenSelector()
-                                                 ? ($childHint !== '' ? ' · ' : '') . __('Adolescent = de :min à :max ans', ['min' => $childLimit + 1, 'max' => (int) $product->teen_age_limit])
-                                                 : '';
-
-                                             return new \Illuminate\Support\HtmlString(
-                                                 '<span style="font-size:0.8rem;color:#64748b;">' .
-                                                 $childHint . e($teenHint) . '</span>'
-                                             );
-                                         })
-                                         ->visible(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
-                                         ->columnSpan(2),
-
-                                     TextInput::make('quantity')
-                                         ->label(__('Total Pax'))
-                                        ->numeric()
-                                        ->default(1)
-                                        ->minValue(1)
-                                        ->maxValue(fn (Get $get) => \App\Models\Product::find($get('product_id'))?->max_pax)
-                                        ->extraInputAttributes(function (Get $get) {
-                                            $max = \App\Models\Product::find($get('product_id'))?->max_pax;
-                                            if ($max) {
-                                                return [
-                                                    'max' => $max,
-                                                    'oninput' => "if(parseInt(this.value) > $max) this.value = $max;"
-                                                ];
-                                            }
-                                            return [];
-                                        })
-                                         ->required()
-                                         ->live()
-                                         ->readOnly(fn (Get $get): bool => (bool) \App\Models\Product::find($get('product_id'))?->usesAgeSelector())
-                                         ->afterStateUpdated(fn ($set, $get) => self::updateItemPrices($set, $get))
-                                         ->columnSpan(1),
-
-                                    TextInput::make('purchase_total_price')
-                                        ->label(__('Total Achat (¥)'))
-                                        ->numeric()
-                                        ->default(0)
-                                        ->live()
-                                        ->columnSpan(2),
-
-                                    TextInput::make('unit_price')
-                                        ->label(__('Vente Unit. (¥)'))
-                                        ->numeric()
-                                        ->default(0) 
-                                        ->readOnly() 
-                                        ->dehydrated()
-                                        ->required(false)
-                                        ->columnSpan(1),
-
-                                    TextInput::make('total_price')
-                                        ->label(__('Total Vente (¥)'))
-                                        ->numeric()
-                                        ->default(0) 
-                                        ->readOnly() 
-                                        ->dehydrated()
-                                        ->required(false)
-                                        ->columnSpan(1),
-                                ])->columns(6),
-
-                                Repeater::make('selected_options')
-                                    ->label(__('Options Sélectionnées'))
-                                    ->addActionLabel(__('Ajouter une option tarifaire'))
-                                    ->defaultItems(0)
-                                    ->live()
-                                    ->afterStateUpdated(function ($set, $get) {
-                                        self::updateItemPrices($set, $get);
-                                    })
-                                    ->schema([
-                                        Select::make('product_option_id')
-                                            ->label(function ($get) {
-                                                // Le libellé porte la déclinaison (groupe) de l'option choisie
-                                                $optionId = $get('product_option_id');
-                                                $group = $optionId ? \App\Models\ProductOption::find($optionId)?->group_name : null;
-                                                return filled($group) ? $group : __('Option proposée');
-                                            })
-                                            ->options(function ($get) {
-                                                $productId = $get('../../product_id');
-                                                if (!$productId) return [];
-                                                // Options regroupées par déclinaison (group_name) pour ne plus les mélanger
-                                                $options = \App\Models\ProductOption::where('product_id', $productId)
-                                                    ->orderBy('sort_order')->orderBy('id')->get();
-                                                // Chaque ligne ne propose que les choix de SA déclinaison ;
-                                                // une nouvelle ligne ne propose que les déclinaisons pas encore utilisées.
-                                                $currentId = $get('product_option_id');
-                                                $currentGroup = $currentId ? $options->firstWhere('id', (int) $currentId)?->group_name : null;
-                                                if (filled($currentGroup)) {
-                                                    $options = $options->where('group_name', $currentGroup)->values();
-                                                } else {
-                                                    $usedIds = collect($get('../../selected_options') ?? [])->pluck('product_option_id')->filter()->map(fn ($i) => (int) $i);
-                                                    $usedGroups = $options->whereIn('id', $usedIds)->pluck('group_name')->filter()->unique();
-                                                    $options = $options->reject(fn ($o) => filled($o->group_name) && $usedGroups->contains($o->group_name))->values();
-                                                }
-                                                if ($options->every(fn ($o) => blank($o->group_name))) {
-                                                    return $options->pluck('name', 'id')->toArray();
-                                                }
-                                                return $options
-                                                    ->groupBy(fn ($o) => filled($o->group_name) ? $o->group_name : __('Autres options'))
-                                                    ->map(fn ($g) => $g->pluck('name', 'id')->toArray())
-                                                    ->toArray();
-                                            })
-                                            ->searchable()
-                                            ->preload()
-                                            ->live()
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $set('product_option_id', $state);
-                                                $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                                                $parentGet = function($k) use ($get) { return $get('../../'.$k); };
-                                                self::updateItemPrices($parentSet, $parentGet);
-                                            }),
-
-                                        TextInput::make('quantity')
-                                            ->label(__('Qté option'))
-                                            ->numeric()
-                                            ->default(1)
-                                            ->live()
-                                            ->visible(function ($get) {
-                                                $optionId = $get('product_option_id');
-                                                if (!$optionId) return false;
-                                                $opt = \App\Models\ProductOption::find($optionId);
-                                                return $opt && $opt->billing_type === 'manual';
-                                            })
-                                            ->afterStateUpdated(function ($state, $set, $get) {
-                                                $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                                                $parentGet = function($k) use ($get, $state) { 
-                                                    if ($k === 'selected_options') {
-                                                        return $get('../../selected_options') ?? [];
-                                                    }
-                                                    return $get('../../'.$k); 
-                                                };
-                                                self::updateItemPrices($parentSet, $parentGet);
-                                            }),
-                                    ])
-                                    ->columns(2),
-
-                                Group::make()
-                                    ->statePath('custom_values')
-                                    ->schema(function (Get $get) {
-                                        $productId = $get('product_id');
-                                        if (!$productId) return [];
-
-                                        $product = \App\Models\Product::find($productId);
-                                        if (!$product) return [];
-
-                                        // Conserve les compteurs adultes/enfants
-                                        // transmis par le front office lors de la
-                                        // sauvegarde du dossier.
-                                        $ageSelectorMetadata = Hidden::make('_age_selector')
-                                            ->dehydrated(true);
-
-                                        // 💡 CAS 1 : PRODUIT DE TRANSPORT (BILLETTERIE TRAIN / BUS - MULTI-TRAJETS)
-                                        if ($product->product_type === 'transport') {
-                                            return [
-                                                $ageSelectorMetadata,
-                                                Section::make(__('Trajets'))
-                                                    ->description(__('Un trajet par billet.'))
-                                                    ->compact()
-                                                    ->schema([
-Repeater::make('transport_routes')
-    ->hiddenLabel()
-    ->addActionLabel(__('Ajouter un trajet'))
-    // Libellé lisible même replié : « Trajet 2 · Kyoto → Tokyo · 07/08 · 2 pax »
-    ->itemLabel(function (array $state, ?int $index = null): string {
-        $parts = [__('Trajet') . ($index !== null ? ' ' . ($index + 1) : '')];
-        if (!empty($state['departure_station']) || !empty($state['arrival_station'])) {
-            $parts[] = ($state['departure_station'] ?: '…') . ' → ' . ($state['arrival_station'] ?: '…');
-        }
-        if (!empty($state['departure_date'])) {
-            try { $parts[] = \Illuminate\Support\Carbon::parse($state['departure_date'])->format('d/m'); } catch (\Throwable $e) {}
-        }
-        if (!empty($state['pax_count'])) {
-            $parts[] = (int) $state['pax_count'] . ' pax';
-        }
-        return implode(' · ', $parts);
-    })
-    ->collapsible()
-    ->live()
-    ->afterStateUpdated(function ($set, $get) {
-        $parentSet = function($k, $v) use ($set) { $set('../'.$k, $v); };
-        $parentGet = function($k) use ($get) { return $get('../'.$k); };
-        self::updateItemPrices($parentSet, $parentGet);
-    })
-    ->schema([
-        Group::make()->schema([
-            Select::make('departure_station')
-                ->label(__('Gare de départ'))
-                ->searchable()
-                ->required()
-                ->placeholder(__('Rechercher gare ou station...'))
-                ->getSearchResultsUsing(function (string $search): array {
-                    $trains = \App\Models\TrainStation::where(function($q) use ($search) {
-                            $q->where('name_en', 'like', "%{$search}%")
-                            ->orWhere('name_ja', 'like', "%{$search}%")
-                            ->orWhere('prefecture', 'like', "%{$search}%")
-                            ->orWhere('city', 'like', "%{$search}%");
-                        })
-                        ->orderBy('importance_score', 'desc')
-                        ->limit(15)
-                        ->get()
-                        ->map(fn ($s) => [
-                            'id' => $s->name_en,
-                            'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                            'score' => $s->importance_score ?? 10
-                        ]);
-
-                    $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
-                        ->orWhere('name_ja', 'like', "%{$search}%")
-                        ->limit(10)
-                        ->get()
-                        ->map(fn ($s) => [
-                            'id' => $s->name_en,
-                            'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                            'score' => 90
-                        ]);
-
-                    return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
-                })
-                ->getOptionLabelUsing(fn ($value) => $value),
-
-            Select::make('arrival_station')
-                ->label(__('Gare d\'arrivée'))
-                ->searchable()
-                ->required()
-                ->placeholder(__('Rechercher gare ou station...'))
-                ->getSearchResultsUsing(function (string $search): array {
-                    $trains = \App\Models\TrainStation::where(function($q) use ($search) {
-                            $q->where('name_en', 'like', "%{$search}%")
-                            ->orWhere('name_ja', 'like', "%{$search}%")
-                            ->orWhere('prefecture', 'like', "%{$search}%")
-                            ->orWhere('city', 'like', "%{$search}%");
-                        })
-                        ->orderBy('importance_score', 'desc')
-                        ->limit(15)
-                        ->get()
-                        ->map(fn ($s) => [
-                            'id' => $s->name_en,
-                            'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                            'score' => $s->importance_score ?? 10
-                        ]);
-
-                    $buses = \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
-                        ->orWhere('name_ja', 'like', "%{$search}%")
-                        ->limit(10)
-                        ->get()
-                        ->map(fn ($s) => [
-                            'id' => $s->name_en,
-                            'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : ""),
-                            'score' => 90
-                        ]);
-
-                    return $trains->concat($buses)->sortByDesc('score')->take(15)->pluck('label', 'id')->toArray();
-                })
-                ->getOptionLabelUsing(fn ($value) => $value),
-        ])->columns(2),
-
-        Group::make()->schema([
-            DatePicker::make('departure_date')
-                ->label(__('Date'))
-                ->native(false)
-                ->displayFormat('d/m/Y')
-                ->required(),
-
-            TextInput::make('departure_time')
-                ->label(__('Départ'))
-                ->placeholder(__('09:32')),
-
-            TextInput::make('arrival_time')
-                ->label(__('Arrivée'))
-                ->placeholder(__('12:05')),
-
-            TextInput::make('train_number')
-                ->label(__('N° train / bus'))
-                ->placeholder(__('Hikari 502, voiture 3')),
-        ])->columns(['default' => 2, 'md' => 4]),
-
-        // Classe, passagers et achat sur une seule ligne
-        Group::make()->schema([
-            Select::make('option_id')
-                ->label(__('Classe'))
-                ->options(fn () => \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id'))
-                ->searchable()
-                ->required(),
-
-            TextInput::make('pax_count')
-                ->label(__('Passagers'))
-                ->numeric()
-                ->minValue(1)
-                ->suffix(__('pax'))
-                ->default(1)
-                ->required(),
-
-            Select::make('supplier_id')
-                ->label(__('Fournisseur'))
-                ->hintColor('gray')
-                ->hintIcon('heroicon-m-information-circle', tooltip: __('Qui émet ce billet (JR, Willer Express...)'))
-                ->options(fn () => \App\Models\Supplier::pluck('name', 'id'))
-                ->searchable()
-                ->preload()
-                ->nullable(),
-
-            TextInput::make('purchase_price')
-                ->label(__('Prix d\'achat'))
-                ->hintColor('gray')
-                ->hintIcon('heroicon-m-information-circle', tooltip: __('Total du trajet, refacturé à l\'agence au prix coûtant.'))
-                ->suffix('¥')
-                ->numeric()
-                ->default(0)
-                ->live()
-                ->afterStateUpdated(function ($set, $get) {
-                    $parentSet = function($k, $v) use ($set) { $set('../../'.$k, $v); };
-                    $parentGet = function($k) use ($get) { return $get('../../'.$k); };
-                    self::updateItemPrices($parentSet, $parentGet);
-                }),
-        ])->columns(['default' => 2, 'md' => 4]),
-
-        Textarea::make('specific_requests')
-            ->label(__('Demande spécifique'))
-            ->placeholder(__('Siège côté fenêtre, bagages volumineux, correspondance…'))
-            ->rows(2)
-            ->autosize()
-            ->maxLength(5000)
-            ->columnSpanFull(),
-    ])
-                                                    ])
-                                            ];
-                                        }
-
-                                        // 💡 CAS 2 : PRODUIT CLASSIQUE (Champs personnalisés standards)
-                                        if (empty($product->custom_field_definitions)) {
-                                            return [$ageSelectorMetadata];
-                                        }
-
-                                        $fields = [];
-                                        foreach ($product->custom_field_definitions as $idx => $def) {
-                                            $type = $def['type'] ?? 'text';
-                                            
-                                            $key = !empty($def['key']) ? trim($def['key']) : '';
-                                            if (empty($key)) {
-                                                $key = Str::slug($def['name'] ?? 'custom', '_');
-                                            }
-                                            if (empty($key)) {
-                                                $key = 'custom_field_' . $idx; 
-                                            }
-
-                                            $label = $def['name'] ?? 'Information';
-                                            $placeholder = $def['placeholder'] ?? '';
-                                            $isRequired = $def['is_required'] ?? false;
-                                            $perPax = $def['is_per_passenger'] ?? false;
-
-                                            if ($type === 'file') {
-                                                $fields[] = Hidden::make($key);
-                                                
-                                                $fields[] = Placeholder::make($key . '_display')
-                                                    ->label($label . ($perPax ? ' (' . __('Par passager') . ')' : ''))
-                                                    ->content(function ($get, ?FolderItem $record) use ($key) {
-                                                        $val = $get($key);
-                                                        $folder = $record?->folder;
-                                                        
-                                                        if (empty($val)) {
-                                                            return new HtmlString('<span style="color:#9ca3af; font-style:italic;">Aucun fichier fourni</span>');
-                                                        }
-                                                        
-                                                        $html = preg_replace_callback('/(folders\/custom_fields\/.*?\.(?:pdf|jpg|jpeg|png|doc|docx))/i', function ($m) use ($folder) {
-                                                            $url = $folder
-                                                                ? route('folders.legacy-file', ['folder' => $folder, 'path' => trim($m[1])])
-                                                                : '#';
-                                                            return "<div style='margin-top: 6px; margin-bottom: 6px;'><a href=\"{$url}\" style=\"display: inline-block; background-color: #ecfdf5; color: #059669; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.85rem; border: 1px solid #a7f3d0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);\">📄 Télécharger / Voir le document</a></div>";
-                                                        }, (string)$val);
-                                                        
-                                                        return new HtmlString(nl2br($html));
-                                                    });
-
-                                            } else {
-                                                if ($perPax) {
-                                                    $label .= ' (' . __('Par passager') . ')';
-                                                    $field = match ($type) {
-                                                        'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(3),
-                                                        default => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
-                                                    };
-                                                } else {
-                                                    $field = match ($type) {
-                                                        'textarea' => Textarea::make($key)->label($label)->placeholder($placeholder)->rows(2),
-                                                        'number' => TextInput::make($key)->numeric()->label($label)->placeholder($placeholder),
-                                                        'date' => DatePicker::make($key)->native(false)->label($label),
-                                                        'toggle' => Toggle::make($key)->label($label)->inline(false),
-                                                        'select' => Select::make($key)->label($label)->options(array_combine($def['choices'] ?? [], $def['choices'] ?? [])),
-                                                        
-                                                        // 💡 Autocomplétion Gare de Train
-                                                        'train_station' => Select::make($key)
-                                                            ->label($label)
-                                                            ->searchable()
-                                                            ->placeholder($placeholder ?? __('Rechercher une gare...'))
-                                                            ->getSearchResultsUsing(function (string $search): array {
-                                                                return \App\Models\TrainStation::where(function($q) use ($search) {
-                                                                        $q->where('name_en', 'like', "%{$search}%")
-                                                                        ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                        ->orWhere('name_kana', 'like', "%{$search}%")
-                                                                        ->orWhere('prefecture', 'like', "%{$search}%")
-                                                                        ->orWhere('city', 'like', "%{$search}%")
-                                                                        ->orWhere('aliases', 'like', "%{$search}%");
-                                                                    })
-                                                                    ->orderBy('importance_score', 'desc')
-                                                                    ->orderBy('name_en', 'asc')
-                                                                    ->limit(20)
-                                                                    ->get()
-                                                                    ->mapWithKeys(function ($station) {
-                                                                        $location = $station->city ? $station->city : $station->prefecture;
-                                                                        $locationSuffix = $location ? " - {$location}" : "";
-                                                                        return [$station->name_en => "🚆 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") . $locationSuffix];
-                                                                    })
-                                                                    ->toArray();
-                                                            })
-                                                            ->getOptionLabelUsing(function ($value): ?string {
-                                                                $station = \App\Models\TrainStation::where('name_en', $value)->first();
-                                                                return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
-                                                            }),
-
-                                                        // 💡 Autocomplétion Station de Bus
-                                                        'bus_station' => Select::make($key)
-                                                            ->label($label)
-                                                            ->searchable()
-                                                            ->placeholder($placeholder ?? __('Rechercher une station...'))
-                                                            ->getSearchResultsUsing(function (string $search): array {
-                                                                return \App\Models\BusStation::where('name_en', 'like', "%{$search}%")
-                                                                    ->orWhere('name_ja', 'like', "%{$search}%")
-                                                                    ->orWhere('address', 'like', "%{$search}%")
-                                                                    ->limit(20)
-                                                                    ->get()
-                                                                    ->mapWithKeys(fn ($station) => [$station->name_en => "🚌 {$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "")])
-                                                                    ->toArray();
-                                                            })
-                                                            ->getOptionLabelUsing(function ($value): ?string {
-                                                                $station = \App\Models\BusStation::where('name_en', $value)->first();
-                                                                return $station ? "{$station->name_en}" . ($station->name_ja ? " ({$station->name_ja})" : "") : $value;
-                                                            }),
-
-                                                        'client_hotel' => TextInput::make($key)
-                                                            ->label($label)
-                                                            ->placeholder($placeholder ?? __('Rechercher un hébergement ou saisir son nom...'))
-                                                            ->datalist(fn (): array => Hotel::query()->orderBy('name')->pluck('name')->all())
-                                                            ->helperText(__('Choisissez un hébergement de la base ou saisissez-en un autre.')),
-
-                                                        default => TextInput::make($key)->label($label)->placeholder($placeholder),
-                                                    };
-                                                }
-
-                                                if ($isRequired && (!isset($type) || $type !== 'toggle')) {
-                                                    $field->rules(['required']);
-                                                }
-
-                                                $fields[] = $field;
-                                            }
-                                        }
-
-                                        return [
-                                            $ageSelectorMetadata,
-                                            Section::make(__('Informations spécifiques (Réponses)'))
-                                                ->description(__('Remplissez les critères requis pour cette prestation. Vous pouvez ignorer les suggestions et taper un texte libre.'))
-                                                ->schema($fields)
-                                                ->columns(2)
-                                        ];
-                                    }),
-                            ])
+                            ->schema(self::folderItemSchema('ordered'))
                     ]),
 
                 // PRESTATIONS INTERNES (CONFIDENTIELLES - MASQUÉES AUX AGENCE)

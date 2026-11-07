@@ -36,27 +36,14 @@ final class Catalogue
 
         // Les profils de la fixture datent d'avant le lot 3a : on rejoue l'ajout des droits.
         (require database_path('migrations/2026_11_07_110100_grant_internal_folder_permissions.php'))->up();
+        (require database_path('migrations/2026_11_07_120100_grant_internal_order_permission.php'))->up();
     }
 
     /** @return array<string, mixed> */
     public static function price(array $state): array
     {
-        $get = function (string $key) use (&$state) {
-            return $state[$key] ?? null;
-        };
-        $set = function (string $key, $value) use (&$state): void {
-            $state[$key] = $value;
-        };
-
-        FolderResource::updateItemPrices($set, $get);
-
-        return [
-            'quantity' => isset($state['quantity']) ? (int) $state['quantity'] : null,
-            'unit_price' => isset($state['unit_price']) ? round((float) $state['unit_price'], 4) : null,
-            'total_price' => isset($state['total_price']) ? round((float) $state['total_price'], 4) : null,
-            'purchase_unit_price' => isset($state['purchase_unit_price']) ? round((float) $state['purchase_unit_price'], 4) : null,
-            'purchase_total_price' => isset($state['purchase_total_price']) ? round((float) $state['purchase_total_price'], 4) : null,
-        ];
+        // Même appel que la commande des prestations préparées (lot 3b).
+        return \App\Support\ItemPricer::price($state);
     }
 
     /**

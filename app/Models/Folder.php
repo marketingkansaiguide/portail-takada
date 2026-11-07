@@ -194,6 +194,22 @@ class Folder extends Model
         return $this->belongsTo(Agency::class, 'client_agency_id');
     }
 
+    /** Prestations en préparation (dossiers internes, lot 3b). */
+    public function plannedItems(): HasMany
+    {
+        return $this->hasMany(FolderPlannedItem::class)->where('state', FolderPlannedItem::STATE_DRAFT);
+    }
+
+    public function allPlannedItems(): HasMany
+    {
+        return $this->hasMany(FolderPlannedItem::class);
+    }
+
+    public function orderBatches(): HasMany
+    {
+        return $this->hasMany(FolderOrderBatch::class);
+    }
+
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_user_id');

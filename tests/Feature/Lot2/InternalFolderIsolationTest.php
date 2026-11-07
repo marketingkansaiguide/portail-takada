@@ -20,7 +20,7 @@ beforeEach(function () {
     $this->b2bFolder = World::folder($this->agencyA);
     // Dossier interne associé à l'agence A, pour information seulement.
     $this->internal = World::internalFolder($this->agencyA);
-    $this->internalItem = World::item($this->internal, World::activityProduct());
+    $this->internalItem = World::orderedInternalItem($this->internal, World::activityProduct());
 });
 
 it("n'affiche jamais un dossier interne dans la liste de l'agence associée", function () {

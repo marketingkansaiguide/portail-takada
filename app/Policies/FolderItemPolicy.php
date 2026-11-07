@@ -41,6 +41,11 @@ class FolderItemPolicy
             return FolderAccess::agencyMayEdit($user, $folderItem->folder);
         }
 
+        // Prestation commandée d'un dossier interne : modifiable selon les règles opérationnelles.
+        if ($folderItem->folder?->isInternal()) {
+            return FolderAccess::staffMay($user, 'update');
+        }
+
         return $user->hasPermission('folder.update');
     }
 
@@ -48,6 +53,11 @@ class FolderItemPolicy
     {
         if ($user->hasRole(User::ROLE_AGENCY)) {
             return FolderAccess::agencyMayDelete($user, $folderItem->folder);
+        }
+
+        // Dossier interne : une prestation commandée s'annule (statut), elle ne se supprime pas.
+        if ($folderItem->folder?->isInternal()) {
+            return false;
         }
 
         return $user->hasPermission('folder.delete');

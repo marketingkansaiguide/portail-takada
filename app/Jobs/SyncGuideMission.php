@@ -33,7 +33,9 @@ class SyncGuideMission implements ShouldQueue
     public function handle(GuideMissionPayloadFactory $factory, GuidePlanningApi $api): void
     {
         $item = FolderItem::with(['folder.agency', 'product', 'productOption'])->find($this->folderItemId);
-        if (! $item || ! in_array($item->folder?->status, ['confirmed', 'completed'], true) || (int) $item->product?->category_id !== 4) {
+        // Mêmes conditions qu'avant pour les dossiers agence ; pour un dossier interne,
+        // la synchronisation reste désactivée tant que GUIDE_SYNC_INTERNAL_ORDERS est faux.
+        if (! $item || ! $item->guideSyncAllowed()) {
             return;
         }
 
