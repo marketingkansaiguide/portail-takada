@@ -140,7 +140,9 @@ it('falls back to the base seasonal purchase price when the guide option has no 
     $item->setRelation('product', $product);
     $item->setRelation('productOption', $option);
 
-    expect($option->purchasePriceForDate('2026-07-15', 5))->toBe(18000.0)
+    // Depuis le commit 3373800 : PA guide = PA du tarif de base + écart de l'option.
+    // Sans tarif saisonnier propre, l'option n'ajoute aucun écart.
+    expect($option->purchasePriceForDate('2026-07-15', 5))->toBe(0.0)
         ->and(app(GuideMissionPayloadFactory::class)->make($item)['remuneration'])->toBe(18000);
 });
 

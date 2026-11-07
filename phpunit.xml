@@ -32,5 +32,12 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Aucun service externe réel pendant les tests (Calendar, Drive, guides) -->
+        <env name="GOOGLE_CALENDAR_ID" value="" force="true"/>
+        <env name="GOOGLE_DRIVE_SHARED_DRIVE_ID" value="" force="true"/>
+        <env name="GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON" value="" force="true"/>
+        <env name="GUIDE_PLANNING_API_URL" value="https://guides.test/api" force="true"/>
+        <env name="GUIDE_PLANNING_API_KEY" value="test-key" force="true"/>
+        <env name="GUIDE_PLANNING_CALLBACK_TOKEN" value="test-token" force="true"/>
     </php>
 </phpunit>
