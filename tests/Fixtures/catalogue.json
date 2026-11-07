@@ -5057,7 +5057,7 @@
             "description": "Location d'un pocket wifi au Japon : **data illimitée**, utilisable jusqu'à 10 appareils en simultané. \n\n> Nous conseillons cependant d'utiliser un boitier pour 2 personnes maximum pour une question d'utilisation de la batterie du Pocket Wifi.\n\nLe boîtier est livré et renvoyé par courrier.\n\nLa quantité correspond au nombre de jours de location.",
             "culture_title": null,
             "culture_text": null,
-            "internal_note": "Fournisseur : Easygo Japan (mail@easygojapan.com), commande par mail 1 à 2 mois avant.\n20% de commission.\nBoîtier données illimitées, priorité X11 puis 501HW puis 601HW. Jusqu'à 10 appareils par boîtier.\nFacturation en cas de non-retour : pochette 200, câble 500, adaptateur 1000.\nPA TTC par jour : 1-9 j 488 \/ 10-18 j 424 \/ 19 j et + 388, + 1200 frais de renvoi par dossier.\nQuantité = nombre de jours.",
+            "internal_note": "Fournisseur : Easygo Japan (fournisseur@exemple.test), commande par mail 1 à 2 mois avant.\n20% de commission.\nBoîtier données illimitées, priorité X11 puis 501HW puis 601HW. Jusqu'à 10 appareils par boîtier.\nFacturation en cas de non-retour : pochette 200, câble 500, adaptateur 1000.\nPA TTC par jour : 1-9 j 488 \/ 10-18 j 424 \/ 19 j et + 388, + 1200 frais de renvoi par dossier.\nQuantité = nombre de jours.",
             "transport_routes": null,
             "departure_station": null,
             "arrival_station": null,

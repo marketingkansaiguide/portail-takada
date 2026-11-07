@@ -41,3 +41,35 @@ Script : `e2e/e2e.php` (simulation de l'admin WordPress : `e2e/wp-admin-edit.php
 
 ## Installation (après autorisation)
 Sauvegarde du fichier et de la table `wp_pm_availabilities`, remplacement de `personnel-management.php`, contrôle de la version, puis un test d'annulation sur une mission de test.
+
+## Contrôle préalable au déploiement (2026-11-07, lecture seule en production)
+
+**Sauvegarde vérifiée** (conservée sur le poste de Maxime, pas en production) :
+- Base WordPress : export complet de 103 Mo, restauré dans une base locale. On y retrouve 222 tables, 3 543 missions (id max 5173), 47 guides, 4 363 contenus et 59 utilisateurs, ainsi qu'une empreinte des missions **identique** à celle calculée en production.
+- Extension en place : archive du dossier `personnel-management` téléchargée telle quelle. Le fichier principal correspond exactement à 1.53.28 (md5 `64e9db1c…`).
+
+**Diff exact** : seul `personnel-management.php` change, sur les 3 points ci-dessus (22 lignes, aucune autre modification fonctionnelle).
+⚠️ **Le dossier de l'extension en production n'est pas identique au zip fourni** : 4 fichiers y sont plus récents (`css/pm-styles.css` et `includes/invoices/{service,settings,stats}.php`), et la prod contient aussi `vendor/`, `dist/`, `tests/`, `includes/missing-availability.php` et `credentials.json`. **Le déploiement doit donc remplacer UNIQUEMENT `personnel-management.php`**, jamais le dossier entier ni le zip.
+
+**Missions existantes** : sur une copie locale de la production (e-mails et appels externes bloqués), même scénario joué avec 1.53.28 puis avec 1.53.29 : chargement de WordPress, `init`, puis exécution des tâches planifiées `pm_mission_reminder_cron`, `pm_invoice_cron`, `pm_daily_ticketing_reminder_event`, `pm_flush_mail_outbox` et `pm_visa_expiration_cron`. Les 3 543 missions sont **strictement identiques** dans les deux versions : 0 ligne modifiée, ajoutée ou supprimée par le correctif. La seule évolution, commune aux deux versions, est le marquage `reminder_sent` de 3 missions par la tâche de rappel habituelle. La version de schéma (`pm_plugin_db_version` = 1.66) ne change pas : la montée de version ne déclenche aucune migration.
+
+## Procédure d'installation (à exécuter seulement après autorisation)
+1. Juste avant : export de la base (`/opt/alt/php82/usr/bin/php /usr/local/bin/wp db export`) vers `~/backups/AAAAMMJJ-planning-guides/` (droits `700`), et copie de `personnel-management.php` en `personnel-management.php.1.53.28` dans ce même dossier de sauvegarde, **hors** du dossier web.
+2. Contrôle d'empreinte : le fichier en place doit toujours avoir le md5 `64e9db1c…`. Sinon, on s'arrête et on refait le diff.
+3. Envoi du fichier 1.53.29 dans un fichier temporaire, contrôle de syntaxe avec `/opt/alt/php82/usr/bin/php -l`, puis remplacement par un `mv` atomique.
+
+## Tests après mise à jour
+1. Le site répond (HTTP 200) et l'administration de Planning Guides s'ouvre.
+2. `wp plugin get personnel-management --field=version` (avec PHP 8.2) renvoie `1.53.29`.
+3. L'API refuse un appel sans clé (401). Le nombre de missions et leur empreinte n'ont pas bougé.
+4. Une mission de **test** créée par l'API avec une référence `recette-1.53.29` : affectation d'un guide dans l'admin, modification, puis annulation par l'API, qui doit répondre OK avec la mission au statut « annulé ». La mission de test est ensuite laissée annulée, sans suppression. Cette étape fait partie du « test réel et contrôlé » demandé avant l'activation de `GUIDE_SYNC_INTERNAL_ORDERS`.
+5. Surveillance de `~/public_html/error_log` pendant 30 minutes.
+
+## Retour arrière vers 1.53.28
+Remettre le fichier sauvegardé à l'étape 1 (`mv` atomique), vérifier la version, puis reprendre les tests 1 à 3. Le correctif ne modifie ni le schéma ni les données : **aucune restauration de base n'est nécessaire**. Les missions recréées entre-temps par l'édition auront simplement conservé leur identifiant d'origine, ce qui est compatible avec 1.53.28.
+
+## WP-CLI : méthode recommandée
+- Ne pas modifier le sélecteur PHP de l'hébergeur (le site reste en 8.2, et la ligne de commande par défaut reste en 7.4).
+- Créer un petit lanceur, réservé au compte `rq8awgg` : `~/bin/wp` contenant `exec /opt/alt/php82/usr/bin/php /usr/local/bin/wp "$@"`. Le dossier `~/bin` est déjà en tête du `PATH` (`.bashrc`), mais il n'existe pas encore.
+- Effet : la commande `wp` utilise PHP 8.2 pour ce seul compte. Rien ne change pour le site web, pour WP-Cron (déclenché par le web, aucune crontab) ni pour les autres commandes `php`. Le script de maintenance `~/add-missing-missions-v2.php`, qui s'utilise avec `wp eval-file` et qui ne peut donc pas fonctionner aujourd'hui, redevient utilisable. Il passe le contrôle de syntaxe en PHP 7.4 comme en 8.2.
+- Retour arrière : supprimer `~/bin/wp`.
