@@ -96,3 +96,17 @@ it("rejoue une mission guide avec la même référence externe si l'enregistreme
         ->and($item->fresh()->guide_mission_id)->toBe(501)
         ->and(FolderItem::where('folder_id', $folder->id)->count())->toBe(1);
 })->skip(fn () => ! method_exists(GuidePlanningApi::class, 'syncMission'), 'API guides absente');
+
+it("renseigne l'agence obligatoire de Planning Guides pour une mission de dossier interne", function () {
+    $product = \App\Models\Product::where('category_id', 4)->whereNotNull('guide_city')->whereNotNull('guide_start_time')->orderBy('id')->firstOrFail();
+    $agency = World::agency('Voyages Lumière');
+    $withAgency = World::internalFolder($agency);
+    $without = World::internalFolder();
+
+    $p1 = app(GuideMissionPayloadFactory::class)->make(World::orderedInternalItem($withAgency, $product)->fresh(['folder.clientAgency', 'product', 'productOption']));
+    $p2 = app(GuideMissionPayloadFactory::class)->make(World::orderedInternalItem($without, $product)->fresh(['folder.clientAgency', 'product', 'productOption']));
+
+    expect($p1['agency'])->toBe('Voyages Lumière')
+        ->and($p2['agency'])->toBe('Takada Travel (dossier interne)')
+        ->and($p1['external_reference'])->not->toBe($p2['external_reference']);
+});

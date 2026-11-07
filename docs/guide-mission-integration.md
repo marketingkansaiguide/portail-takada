@@ -44,3 +44,12 @@ Après correction d’une configuration ou d’une panne prolongée : `php artis
 Avant activation, renseigner pour chaque produit de catégorie Guidage sa ville et, pour chaque déclinaison concernée, ses heures de début et de fin. Une configuration incomplète place la synchronisation technique en `failed` sans empêcher la validation du dossier.
 
 La suppression d’une prestation déjà synchronisée ne supprime pas automatiquement la mission distante ; elle doit être annulée manuellement dans Planning Guides.
+
+## Vérification de la déduplication (extension Planning Guides 1.53.28, 2026-11-07)
+
+Lecture du code de `personnel-management.php` :
+
+- `POST /pm/v1/missions` (`pm_api_upsert_mission`) cherche d'abord la mission par `(external_source, external_reference)`. Si elle existe, il la **met à jour**, sans toucher au guide affecté ni au statut ; sinon il l'insère. La table `pm_availabilities` porte un **index unique** sur ce couple. En cas d'insertion concurrente, l'insertion échoue et la mission existante est relue et renvoyée. Un renvoi après une panne (création réussie côté WordPress, enregistrement local perdu) ne crée donc **pas** de doublon. Ce cas est testé côté portail (`tests/Feature/Lot3b/ExternalSyncTest.php`).
+- L'identifiant renvoyé est `external_mission_id` (stable), et non l'`id` de ligne.
+- Le champ `agency` est obligatoire. Pour un dossier interne, le portail envoie l'agence associée ou « Takada Travel (dossier interne) ».
+- **Anomalie à corriger côté WordPress (concerne aussi le B2B)** : la modification d'une mission dans l'administration de Planning Guides supprime les lignes puis les recrée, ce qui change leur `id` mais conserve `external_mission_id`. Or `POST /missions/{id}/cancel` (`pm_api_cancel_mission`) cherche `WHERE id = {mission_id}`. Une annulation envoyée par le portail après une telle modification répond donc 404 (« Mission introuvable ») : elle est marquée en échec côté portail, mais rien n'est annulé dans le planning. Correctif proposé : `WHERE (id = %d OR external_mission_id = %d)`.

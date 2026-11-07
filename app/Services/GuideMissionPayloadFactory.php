@@ -54,7 +54,11 @@ class GuideMissionPayloadFactory
             'external_reference' => 'folder_item_'.$item->id,
             'ticketing_order_item_id' => $item->id,
             'title' => trim((string) ($folder?->folder_name ?: $folder?->lead_traveler_name)).' - '.$required['city'],
-            'agency' => (string) ($folder?->agency?->name ?? ''),
+            // Champ obligatoire côté Planning Guides. Dossier interne : agence associée
+            // (information) ou mention explicite ; dossier agence : inchangé.
+            'agency' => (string) ($folder?->isInternal()
+                ? ($folder->clientAgency?->name ?: 'Takada Travel (dossier interne)')
+                : ($folder?->agency?->name ?? '')),
             'client' => (string) ($folder?->folder_name ?: $folder?->lead_traveler_name),
             'date' => $required['date'],
             ...($allDay ? ['all_day' => true] : [
