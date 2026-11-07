@@ -91,3 +91,6 @@ Principe : **on ne restaure jamais un dump antérieur sur la base en service** d
 ## 5. Test de restauration (fait le 2026-11-07)
 
 Dump de prod (3,2 Mo, 37 tables) restauré dans une instance MySQL 8.4 locale temporaire en 1,1 s : comptages identiques à la prod (5 dossiers, 26 prestations, 5 voyageurs, 200 historiques, 2 agences, 9 utilisateurs, 108 produits, 108 migrations). La copie locale du dump a été supprimée après usage.
+
+## 6. Après une restauration de la base du portail
+Planning Guides identifie chaque mission par `folder_item_<id>` et met à jour une mission existante quand la même référence revient. Après la restauration d'une sauvegarde, le compteur `AUTO_INCREMENT` de `folder_items` doit être remonté au-dessus du plus grand `ticketing_order_item_id` connu dans Planning Guides (`SELECT MAX(ticketing_order_item_id) FROM wp_pm_availabilities WHERE external_source = 'ticketing_portal'`). Sinon, une nouvelle prestation pourrait réutiliser un numéro déjà employé, et l'extension mettrait à jour une ancienne mission au lieu d'en créer une.

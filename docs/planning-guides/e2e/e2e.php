@@ -20,6 +20,9 @@ $wpCli = fn (string $cmd) => trim((string) shell_exec("php {$S}/wp-test-dl/wp-cl
 $wp = new PDO('mysql:host=127.0.0.1;port=3307;dbname=wp_test;charset=utf8mb4', 'root', '');
 $wp->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $rows = fn (string $ref) => $wp->query("SELECT id, external_mission_id, employee_id, status, start_time, end_time, remuneration, external_reference, ticketing_order_item_id, message_history IS NOT NULL AS has_history FROM wp_pm_availabilities WHERE external_source = 'ticketing_portal' AND (external_reference = " . $wp->quote($ref) . " OR external_reference LIKE " . $wp->quote($ref . '#%') . ")")->fetchAll(PDO::FETCH_ASSOC);
+// Base de TEST uniquement : les références folder_item_<id> repartent de zéro quand la démo
+// Laravel est réinitialisée ; on efface donc les missions de test du portail laissées par les exécutions précédentes.
+$wp->exec("DELETE FROM wp_pm_availabilities WHERE external_source = 'ticketing_portal'");
 $report = [];
 $check = function (bool $ok, string $label) use (&$report) { $report[] = ($ok ? 'OK   ' : 'KO   ') . $label; };
 $run = function (callable $job) {

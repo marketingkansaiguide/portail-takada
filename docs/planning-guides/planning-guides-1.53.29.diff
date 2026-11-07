@@ -1,5 +1,5 @@
---- wp-plugin/personnel-management/personnel-management.php	2026-11-07 12:08:50.000000000 +0900
-+++ wp-plugin-patched/personnel-management/personnel-management.php	2026-11-07 14:05:37.314772200 +0900
+--- wp-prod-backup/personnel-management/personnel-management.php	2026-11-06 14:54:14.000000000 +0900
++++ wp-plugin-patched/personnel-management/personnel-management.php	2026-11-07 14:34:33.468135000 +0900
 @@ -2,7 +2,7 @@
  /*
  Plugin Name: Planning Guides
@@ -9,7 +9,26 @@
  Author: Maxime CERQUEIRA
  */
  
-@@ -854,10 +854,12 @@
+@@ -17,6 +17,18 @@
+ 
+ // Définir des constantes
+ define('PM_PLUGIN_DIR', plugin_dir_path(__FILE__));
++
++/**
++ * Clé du compte de service Google (Drive). Correctif 1.53.29 : elle peut être rangée
++ * hors du dossier web en définissant PM_GOOGLE_CREDENTIALS (chemin absolu) dans
++ * wp-config.php. Sans cette constante, l'emplacement historique est conservé.
++ */
++function pm_google_credentials_path() {
++    if (defined('PM_GOOGLE_CREDENTIALS') && is_readable(PM_GOOGLE_CREDENTIALS)) {
++        return PM_GOOGLE_CREDENTIALS;
++    }
++    return PM_PLUGIN_DIR . 'credentials.json';
++}
+ require_once PM_PLUGIN_DIR . 'includes/mission-requests.php';
+ require_once PM_PLUGIN_DIR . 'includes/mission-enhancements.php';
+ require_once PM_PLUGIN_DIR . 'includes/performance.php';
+@@ -854,10 +866,12 @@
      }
  
      $mission = $wpdb->get_row($wpdb->prepare(
@@ -24,7 +43,40 @@
      ));
      if (!$mission) {
          return new WP_Error('pm_api_mission_not_found', 'Mission introuvable.', ['status' => 404]);
-@@ -9412,6 +9414,17 @@
+@@ -1214,7 +1228,7 @@
+             pm_debug_log("ATTENTION : Fichier local introuvable ou chemin invalide.");
+         }
+     }
+-    elseif (strpos($file_url_to_delete, 'drive.google.com') !== false && class_exists('Google_Client') && file_exists(PM_PLUGIN_DIR . 'credentials.json')) {
++    elseif (strpos($file_url_to_delete, 'drive.google.com') !== false && class_exists('Google_Client') && file_exists(pm_google_credentials_path())) {
+         $drive_file_id = '';
+         
+         if (preg_match('/\/d\/([a-zA-Z0-9_-]+)/', $file_url_to_delete, $matches)) {
+@@ -1229,7 +1243,7 @@
+                 $client = new \Google_Client();
+                 $client->setApplicationName('PM Planning Guides');
+                 $client->setScopes([\Google_Service_Drive::DRIVE_FILE, \Google_Service_Drive::DRIVE]); 
+-                $client->setAuthConfig(PM_PLUGIN_DIR . 'credentials.json');
++                $client->setAuthConfig(pm_google_credentials_path());
+                 $service = new \Google_Service_Drive($client);
+                 
+                 $trash_metadata = new \Google_Service_Drive_DriveFile([
+@@ -1387,12 +1401,12 @@
+     $baseFolderId = '0ADJEteH7fCV-Uk9PVA'; // Votre ID de Drive Partagé
+     $targetFolderId = $baseFolderId;
+     
+-    if (class_exists('Google_Client') && file_exists(PM_PLUGIN_DIR . 'credentials.json')) {
++    if (class_exists('Google_Client') && file_exists(pm_google_credentials_path())) {
+         try {
+             $client = new \Google_Client();
+             $client->setApplicationName('PM Planning Guides');
+             $client->setScopes([\Google_Service_Drive::DRIVE_FILE]);
+-            $client->setAuthConfig(PM_PLUGIN_DIR . 'credentials.json');
++            $client->setAuthConfig(pm_google_credentials_path());
+             $service = new \Google_Service_Drive($client);
+             $google_ready = true;
+ 
+@@ -9412,6 +9426,17 @@
              ));
          }
  
@@ -42,7 +94,7 @@
          $result = $wpdb->insert(
              $wpdb->prefix . 'pm_availabilities',
              [
-@@ -9455,8 +9468,8 @@
+@@ -9455,8 +9480,8 @@
                  ,'ticketing_order_item_id' => $is_calendar_marker ? null : $ticketing_order_item_id
                  ,'callback_status' => $is_calendar_marker ? null : $callback_status
                  ,'mission_type' => $is_calendar_marker ? null : $mission_type
@@ -53,3 +105,34 @@
          );
  
          if ($result) {
+@@ -11629,12 +11654,12 @@
+     }
+     $html_content .= '</body></html>';
+ 
+-    if (class_exists('Google_Client') && file_exists(PM_PLUGIN_DIR . 'credentials.json')) {
++    if (class_exists('Google_Client') && file_exists(pm_google_credentials_path())) {
+         try {
+             $client = new \Google_Client();
+             $client->setApplicationName('PM Planning Guides');
+             $client->setScopes([\Google_Service_Drive::DRIVE_FILE, \Google_Service_Drive::DRIVE]);
+-            $client->setAuthConfig(PM_PLUGIN_DIR . 'credentials.json');
++            $client->setAuthConfig(pm_google_credentials_path());
+             $service = new \Google_Service_Drive($client);
+             
+             $baseFolderId = '0ADJEteH7fCV-Uk9PVA';
+@@ -12171,13 +12196,13 @@
+     $email = $user_data ? $user_data->user_email : '';
+     $date_today = date_i18n('d F Y');
+ 
+-    if (class_exists('Google_Client') && file_exists(PM_PLUGIN_DIR . 'credentials.json')) {
++    if (class_exists('Google_Client') && file_exists(pm_google_credentials_path())) {
+         pm_debug_log("INFO : Google_Client et credentials.json détectés. Tentative de connexion...");
+         try {
+             $client = new \Google_Client();
+             $client->setApplicationName('PM Planning Guides');
+             $client->setScopes([\Google_Service_Drive::DRIVE_FILE, \Google_Service_Drive::DRIVE]);
+-            $client->setAuthConfig(PM_PLUGIN_DIR . 'credentials.json');
++            $client->setAuthConfig(pm_google_credentials_path());
+             $service = new \Google_Service_Drive($client);
+             
+             $default_contract = "<h3>ARTICLE 1 : OBJET</h3>\n<p>Le Guide s'engage à réaliser les missions de guidage qui lui seront confiées via cette plateforme de manière ponctuelle et consciencieuse.</p>\n<h3>ARTICLE 2 : OBLIGATIONS</h3>\n<p>Le Guide certifie être en règle avec les administrations fiscale et sociale de son pays. Il s'engage à respecter la charte de qualité de l'Agence.</p>\n<h3>ARTICLE 3 : RÉMUNÉRATION</h3>\n<p>Les missions seront rémunérées selon les tarifs convenus. Le paiement s'effectue après réception de la facture conforme du Guide avant le 15 du mois échu.</p>";
