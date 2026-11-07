@@ -123,7 +123,24 @@ class User extends Authenticatable implements FilamentUser
         return false;
     }
 
-    /** @return array<string, array{permissions: array, is_staff: bool}> */
+    /** Administration (/admin) : au moins un profil back-office qui y est autorisé. */
+    public function canAccessAdminPanel(): bool
+    {
+        if ($this->hasRole(self::ROLE_SUPER_ADMIN)) {
+            return true;
+        }
+
+        $roles = self::rolesCache();
+        foreach ($this->roleIds() as $id) {
+            if (! empty($roles[$id]['is_staff']) && ($roles[$id]['admin_panel'] ?? true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array<string, array{permissions: array, is_staff: bool, admin_panel: bool}> */
     private static function rolesCache(): array
     {
         static $cache = null;
@@ -131,6 +148,8 @@ class User extends Authenticatable implements FilamentUser
             $r->id => [
                 'permissions' => json_decode($r->permissions ?: '[]', true) ?: [],
                 'is_staff' => (bool) ($r->is_staff ?? false),
+                // Absent avant la migration de l'espace commercial : accès admin conservé.
+                'admin_panel' => (bool) ($r->admin_panel ?? true),
             ],
         ])->all();
 
@@ -192,8 +211,16 @@ class User extends Authenticatable implements FilamentUser
     public function canAccessPanel(Panel $panel): bool
     {
         // Panel d'administration interne (Takada) : profils marqués "back-office"
+        // et autorisés dans l'administration (les profils commerciaux ont leur espace).
         if ($panel->getId() === 'admin') {
-            return $this->isStaff();
+            return $this->canAccessAdminPanel();
+        }
+
+        // Espace commercial : collaborateurs Takada ayant accès aux dossiers internes.
+        if ($panel->getId() === 'commercial') {
+            return ! $this->hasRole(self::ROLE_AGENCY)
+                && $this->isStaff()
+                && $this->hasPermission('folder.internal.viewAny');
         }
 
         // Cloisonnement strict : seuls les comptes "agency" entrent dans le panel agence.

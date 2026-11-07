@@ -109,7 +109,8 @@ class AdminPanelProvider extends PanelProvider
                 SetLocale::class, // <-- Enregistrement de notre traducteur dynamique
             ])
             ->authMiddleware([
-                Authenticate::class,
+                // Authenticate de Filament, avec redirection des commerciaux vers /commercial.
+                \App\Http\Middleware\RedirectCommercialToOwnSpace::class,
             ]);
     }
 }

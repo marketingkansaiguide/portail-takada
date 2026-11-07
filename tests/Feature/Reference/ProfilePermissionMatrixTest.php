@@ -54,6 +54,7 @@ it('conserve les droits de chaque profil existant', function () {
         $row = [
             'panel admin' => $user->canAccessPanel(Filament::getPanel('admin')),
             'panel agence' => $user->canAccessPanel(Filament::getPanel('agency')),
+            'panel commercial' => $user->canAccessPanel(Filament::getPanel('commercial')),
         ];
         foreach ($models as $label => $class) {
             foreach (['viewAny', 'create'] as $ability) {

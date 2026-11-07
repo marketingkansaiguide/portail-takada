@@ -2,6 +2,7 @@
     "admin": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,
@@ -35,6 +36,7 @@
     "agency": {
         "panel admin": false,
         "panel agence": true,
+        "panel commercial": false,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": false,
@@ -68,6 +70,7 @@
     "agent": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,
@@ -101,6 +104,7 @@
     "billetterie": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,
@@ -132,8 +136,9 @@
         "page SEO": false
     },
     "commercial_fit": {
-        "panel admin": true,
+        "panel admin": false,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,
@@ -165,8 +170,9 @@
         "page SEO": false
     },
     "commercial_groupe": {
-        "panel admin": true,
+        "panel admin": false,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,
@@ -200,6 +206,7 @@
     "direction": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": false,
         "produits.viewAny": true,
@@ -233,6 +240,7 @@
     "marketing_it": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": false,
         "dossiers.viewAny": false,
         "dossiers.create": false,
         "produits.viewAny": true,
@@ -266,6 +274,7 @@
     "super_admin": {
         "panel admin": true,
         "panel agence": false,
+        "panel commercial": true,
         "dossiers.viewAny": true,
         "dossiers.create": true,
         "produits.viewAny": true,

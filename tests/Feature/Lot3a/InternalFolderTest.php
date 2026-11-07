@@ -168,7 +168,7 @@ it("affiche la liste mixte (B2B et interne) avec les deux boutons de création",
     World::folder($this->agency, ['folder_name' => 'B2B-LISTE', 'segment' => 'fit']);
     $this->actingAs($this->fit, 'web');
 
-    $this->get(FolderResource::getUrl('index'))
+    $this->get(\App\Filament\Commercial\Resources\CommercialFolderResource::getUrl('index', panel: 'commercial'))
         ->assertOk()
         ->assertSee('INTERNE-LISTE')
         ->assertSee('B2B-LISTE')

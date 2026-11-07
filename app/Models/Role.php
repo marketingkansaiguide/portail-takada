@@ -21,10 +21,12 @@ class Role extends Model
         'display_name',
         'permissions',
         'is_staff',
+        'admin_panel',
     ];
 
     protected $casts = [
         'permissions' => 'array',
         'is_staff' => 'boolean',
+        'admin_panel' => 'boolean',
     ];
 }

@@ -18,7 +18,7 @@ class ListFolders extends ListRecords
             Action::make('createInternal')
                 ->label(__('Nouveau dossier interne'))
                 ->icon('heroicon-o-briefcase')
-                ->url(FolderResource::getUrl('create-internal'))
+                ->url(static::getResource()::getUrl('create-internal'))
                 ->visible(fn () => auth('web')->user()?->can('createInternal', Folder::class)),
 
             CreateAction::make()

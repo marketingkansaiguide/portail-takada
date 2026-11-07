@@ -62,6 +62,11 @@ class RoleResource extends Resource
                         ->label(__('Accès au back-office Takada'))
                         ->helperText(__('Autorise la connexion au panel d\'administration.'))
                         ->disabled($locked),
+                    Toggle::make('admin_panel')
+                        ->label(__('Accès à l’administration (/admin)'))
+                        ->helperText(__('Désactivé pour les commerciaux : ils utilisent l’espace commercial (/commercial), ouvert par le droit « Dossiers internes : voir la liste ».'))
+                        ->default(true)
+                        ->disabled($locked),
                 ]),
 
             ...collect(PermissionCatalog::groups())->map(

@@ -39,7 +39,7 @@ class EditFolder extends EditRecord
                     \App\Models\FolderHistory::logConsolidated($folder->id, __('Réouverture du dossier'), __('Dossier rouvert. Motif : :reason', ['reason' => $data['reason']]), 'folder', [], ['event' => 'reopened']);
                     \Filament\Notifications\Notification::make()->title(__('Dossier rouvert'))->success()->send();
 
-                    return redirect(FolderResource::getUrl('edit', ['record' => $folder]));
+                    return redirect(static::getResource()::getUrl('edit', ['record' => $folder]));
                 }),
 
             Actions\Action::make('download_pdf')
@@ -109,7 +109,7 @@ class EditFolder extends EditRecord
                 if ($result['status'] === 'completed') {
                     $notification->success()->body(collect($result['lines'] ?? [])->pluck('label')->implode(' · '))->send();
 
-                    return redirect(FolderResource::getUrl('edit', ['record' => $this->getRecord()]));
+                    return redirect(static::getResource()::getUrl('edit', ['record' => $this->getRecord()]));
                 }
 
                 $notification->danger()->persistent()->send();

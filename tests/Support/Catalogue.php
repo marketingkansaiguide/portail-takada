@@ -37,6 +37,7 @@ final class Catalogue
         // Les profils de la fixture datent d'avant le lot 3a : on rejoue l'ajout des droits.
         (require database_path('migrations/2026_11_07_110100_grant_internal_folder_permissions.php'))->up();
         (require database_path('migrations/2026_11_07_120100_grant_internal_order_permission.php'))->up();
+        DB::table('roles')->whereIn('id', ['commercial_fit', 'commercial_groupe'])->update(['admin_panel' => false]);
     }
 
     /** @return array<string, mixed> */
