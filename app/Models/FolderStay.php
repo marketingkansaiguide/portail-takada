@@ -40,7 +40,7 @@ class FolderStay extends Model
         // La première ligne de chambres alimente les colonnes historiques ; le total de chambres est la somme.
         static::saving(function (FolderStay $stay): void {
             $lines = collect($stay->room_lines ?? [])
-                ->map(fn ($l) => ['room_type_id' => $l['room_type_id'] ?? null, 'label' => filled($l['label'] ?? null) ? trim((string) $l['label']) : null, 'quantity' => max(1, (int) ($l['quantity'] ?? 1))])
+                ->map(fn ($l) => ['room_type_id' => $l['room_type_id'] ?? null, 'label' => filled($l['label'] ?? null) ? trim((string) $l['label']) : null, 'category' => $l['category'] ?? null, 'quantity' => max(1, (int) ($l['quantity'] ?? 1))])
                 ->filter(fn ($l) => $l['room_type_id'] || $l['label'])
                 ->values();
             $stay->room_lines = $lines->isEmpty() ? null : $lines->all();
@@ -48,6 +48,7 @@ class FolderStay extends Model
                 $first = $lines->first();
                 $stay->rooms = (int) $lines->sum('quantity');
                 $stay->room_type_id = $first['room_type_id'];
+                $stay->room_category = $first['category'] ?? $stay->room_category;
                 $stay->room_label = $first['label'] ?? ($first['room_type_id'] ? HotelRoomType::find($first['room_type_id'])?->name : null);
             }
         });

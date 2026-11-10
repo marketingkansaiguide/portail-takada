@@ -367,3 +367,18 @@ Enregistrements : AVANT un seul bouton global (en haut et en bas) pour tous les 
 non enregistrées perdues ou ignorées par la commande ; APRÈS un « Enregistrer » par panneau, chaque enregistrement
 sous le verrou du dossier (`lock_version`) et tracé dans l'historique. Onglets : sept libellés courts, sans défilement
 horizontal (646 px de largeur utile à 1280 px).
+
+### Mesure finale (HEAD après T10)
+
+| Élément | AVANT | FINAL |
+|---|---|---|
+| Création du dossier | 11 champs (4 obligatoires), sans dates ni voyageurs, avec « Politique tarifaire » et « Type de vente » | 9 champs (6 obligatoires : nom, type, dates, adultes, enfants, commercial), sans politique tarifaire ; arrivée directe sur la fiche |
+| Voyageur / vol | 10 / 10 champs | 10 / 10 champs ; fuseau déduit du code aéroport et masqué (demandé seulement si le code est inconnu) |
+| Hôtel | 18 champs | 17 champs (type de chambre replié dans les lignes de chambres) |
+| Prestation | 10 champs, un bouton puis un formulaire à remplir en entier | ajout rapide de 3 champs puis panneau de 6 champs |
+| Enregistrements | 1 bouton global (2 exemplaires) pour tout | 1 « Enregistrer » par panneau, verrou et historique à chaque fois |
+| Onglets à 1280 px | 7, défilement horizontal | 7 courts, 881 px, sans défilement ; en-tête et onglets collés |
+| Dossier de démonstration complet (par multiplication, champs parcourus) | 289 | 9 + 4×10 + 2×10 + 6×17 + 11×(3+6) = 270 (-7 %), dont 11×3 champs d'ajout rapide préremplis (pax, date) |
+
+Limite de méthode : décompte de champs, pas de chronométrage humain ; le gain réel vient surtout des valeurs préremplies,
+de la fin des ressaisies, de l'absence d'enregistrement global et de la sélection sur les lignes, que ce tableau ne mesure pas.

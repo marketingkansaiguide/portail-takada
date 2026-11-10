@@ -4,6 +4,7 @@
         <span class="tk-c-muted">{{ trans_choice(':count voyageur|:count voyageurs', $passengers->count(), ['count' => $passengers->count()]) }}
             @if ($passengers->count() !== ((int) $folder->pax_adults + (int) $folder->pax_children))
                 · <span style="color:#92400e">{{ __('Le dossier annonce :n voyageur(s).', ['n' => (int) $folder->pax_adults + (int) $folder->pax_children]) }}</span>
+                <button type="button" style="text-decoration:underline;min-height:28px" wire:click="syncPaxCount">{{ __('Mettre à jour le nombre de voyageurs du dossier') }}</button>
             @endif
         </span>
         <x-filament::button size="sm" wire:click="mountAction('editPassenger')">{{ __('Ajouter un voyageur') }}</x-filament::button>

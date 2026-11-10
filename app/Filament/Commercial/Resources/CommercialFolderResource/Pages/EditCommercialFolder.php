@@ -52,19 +52,19 @@ class EditCommercialFolder extends EditFolder
 
     protected function getHeaderActions(): array
     {
+        // L'ancien bouton « Commander » de l'en-tête est supprimé : la commande se déclenche depuis la barre de sélection
+        // de l'onglet Prestations (l'action elle-même reste montable : récapitulatif, verrou, idempotence).
         $kept = array_values(array_filter(
             parent::getHeaderActions(),
-            fn ($action) => ! in_array($action->getName(), ['download_pdf', 'delete'], true),
+            fn ($action) => ! in_array($action->getName(), ['download_pdf', 'delete', 'orderPlannedItems'], true),
         ));
-        // La commande se déclenche depuis la barre de sélection de l'onglet Prestations ; l'action reste
-        // montable (récapitulatif, verrou, idempotence) mais n'a plus de bouton dans l'en-tête.
-        foreach ($kept as $action) {
-            if ($action->getName() === 'orderPlannedItems') {
-                $action->extraAttributes(['style' => 'display:none']);
-            }
-        }
 
         return [$this->editFolderAction(), ...$kept];
+    }
+
+    public function orderPlannedItemsAction(): Action
+    {
+        return parent::orderPlannedItemsAction();
     }
 
     /** Aucun bouton d'enregistrement global : chaque panneau enregistre son élément. */
@@ -230,6 +230,18 @@ class EditCommercialFolder extends EditFolder
             });
     }
 
+    /** Aligne le nombre d'adultes et d'enfants du dossier sur les voyageurs saisis (enfant : moins de 12 ans au départ). */
+    public function syncPaxCount(): void
+    {
+        $passengers = $this->getRecord()->folderPassengers()->get();
+        $start = $this->getRecord()->start_date ?? now();
+        $children = $passengers->filter(fn ($p) => $p->birth_date && Carbon::parse($p->birth_date)->diffInYears($start) < 12)->count();
+        $this->getRecord()->update(['pax_adults' => $passengers->count() - $children, 'pax_children' => $children]);
+        $this->bumpLock();
+        $this->log(__('Nombre de voyageurs mis à jour'), $passengers->count() . ' ' . __('voyageur(s)'));
+        Notification::make()->title(__('Nombre de voyageurs du dossier mis à jour'))->success()->send();
+    }
+
     public function deletePassengerAction(): Action
     {
         return Action::make('deletePassenger')->label(__('Supprimer'))->color('danger')->requiresConfirmation()
@@ -267,6 +279,9 @@ class EditCommercialFolder extends EditFolder
                     $action->halt();
                 }
                 $values = Arr::only($data, $fields);
+                // Le fuseau se déduit du code aéroport ; il n'est demandé que si le code est inconnu.
+                $values['departure_tz'] ??= FolderFlightSegment::timezoneFor((string) ($values['departure_airport'] ?? ''));
+                $values['arrival_tz'] ??= FolderFlightSegment::timezoneFor((string) ($values['arrival_airport'] ?? ''));
                 $flight = ($arguments['id'] ?? null) ? $this->getRecord()->flightSegments()->whereKey($arguments['id'])->first() : null;
                 $flight ? $flight->update($values) : $this->getRecord()->flightSegments()->create($values);
                 $this->bumpLock();

@@ -50,6 +50,7 @@ class CommercialPanelProvider extends PanelProvider
             ->favicon($favicon)
             ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => view('filament.partials.admin-dark-mode-overrides')->render())
             ->renderHook(PanelsRenderHook::BODY_START, fn (): string => view('filament.partials.page-navigation-feedback')->render())
+            ->renderHook(PanelsRenderHook::HEAD_END, fn (): string => '<style>.fi-ta-cell:not(:has(.fi-ta-actions)) { padding-block: .25rem; } .fi-ta-header-cell, .fi-ta-cell { padding-inline: .5rem !important; }</style>')
             ->resources([
                 \App\Filament\Commercial\Resources\CommercialFolderResource::class,
             ])

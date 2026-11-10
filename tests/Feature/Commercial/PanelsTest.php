@@ -117,3 +117,39 @@ it('affiche le planning : tous les jours, la nuit en fin de journée, tri par he
     $warnings = implode(' | ', $byDate['2026-12-17']['warnings']);
     expect($warnings)->toContain('avant l’arrivée du vol')->and($warnings)->toContain('même heure');
 });
+
+it('crée un dossier en un écran, sans politique tarifaire, et arrive sur la fiche', function () {
+    $page = Livewire::test(\App\Filament\Commercial\Resources\CommercialFolderResource\Pages\CreateCommercialInternalFolder::class);
+    $page->assertDontSee('Politique tarifaire')->assertDontSee('groupe client')
+        ->fillForm(['folder_name' => 'Voyage Test', 'kind' => 'full_trip', 'owner_user_id' => $this->fit->id, 'start_date' => '2027-04-01', 'end_date' => '2027-04-10', 'pax_adults' => 2, 'pax_children' => 1])
+        ->call('create')->assertHasNoFormErrors()->assertRedirect();
+
+    $created = Folder::where('folder_name', 'Voyage Test')->firstOrFail();
+    expect($created->pricing_client_group_id)->toBeNull()->and($created->start_date->format('Y-m-d'))->toBe('2027-04-01')->and((int) $created->pax_children)->toBe(1)
+        ->and($created->ops_status)->toBe('brouillon');
+});
+
+it('liste les dossiers sans pré-facture, avec le voyage d’abord, la référence en fin et « — » pour un montant inconnu', function () {
+    Livewire::test(\App\Filament\Commercial\Resources\CommercialFolderResource\Pages\ListCommercialFolders::class)
+        ->assertSee('Famille EXEMPLE')->assertSee($this->folder->reference)->assertSee('—')
+        ->assertDontSee('Pré-facture')->assertDontSee('draft')->assertDontSee('confirmed');
+});
+
+it('déduit le fuseau d’un vol du code aéroport sans le demander', function () {
+    $lock = (int) $this->folder->fresh()->lock_version;
+    ($this->page)()->callAction('editFlight', data: ['_lock' => $lock, 'direction' => 'outbound', 'flight_number' => 'XX1', 'departure_airport' => 'CMB', 'arrival_airport' => 'NRT',
+        'departure_local' => '2026-12-17 08:10', 'arrival_local' => '2026-12-17 16:30'])->assertHasNoActionErrors();
+
+    $flight = $this->folder->flightSegments()->first();
+    expect($flight->arrival_tz)->toBe('Asia/Tokyo')->and($flight->departure_tz)->not->toBeNull();
+});
+
+it('met à jour le nombre de voyageurs du dossier depuis les voyageurs saisis', function () {
+    $this->folder->folderPassengers()->create(['last_name' => 'A', 'first_name' => 'Adulte', 'birth_date' => '1980-01-01']);
+    $this->folder->folderPassengers()->create(['last_name' => 'B', 'first_name' => 'Enfant', 'birth_date' => '2018-01-01']);
+
+    ($this->page)()->assertSee('Mettre à jour le nombre de voyageurs du dossier')->call('syncPaxCount');
+
+    $folder = $this->folder->fresh();
+    expect((int) $folder->pax_adults)->toBe(1)->and((int) $folder->pax_children)->toBe(1);
+});

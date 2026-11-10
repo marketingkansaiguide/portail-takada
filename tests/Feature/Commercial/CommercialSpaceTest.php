@@ -59,7 +59,7 @@ it("crée, prépare et commande un dossier interne depuis l'espace commercial", 
     $this->actingAs($this->fit, 'web');
 
     Livewire::test(CreateCommercialInternalFolder::class)
-        ->fillForm(['kind' => 'full_trip', 'folder_name' => 'Espace commercial — test', 'owner_user_id' => $this->fit->id, 'ops_status' => 'brouillon'])
+        ->fillForm(['kind' => 'full_trip', 'folder_name' => 'Espace commercial — test', 'owner_user_id' => $this->fit->id, 'start_date' => '2027-04-01', 'end_date' => '2027-04-10', 'pax_adults' => 2, 'pax_children' => 1])
         ->call('create')
         ->assertHasNoFormErrors()
         ->assertRedirect();

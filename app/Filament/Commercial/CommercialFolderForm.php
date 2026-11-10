@@ -184,13 +184,15 @@ final class CommercialFolderForm
                     TextInput::make('departure_airport')->label(__('Aéroport de départ (code)'))->maxLength(60)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, $state) => ($tz = FolderFlightSegment::timezoneFor($state)) ? $set('departure_tz', $tz) : null),
                     DateTimePicker::make('departure_local')->label(__('Départ (heure locale)'))->seconds(false)->native(false)->displayFormat('d/m/Y H:i')->live(),
-                    Select::make('departure_tz')->label(__('Fuseau du départ'))->options($zones)->searchable()->live(),
+                    Select::make('departure_tz')->label(__('Fuseau du départ (code inconnu)'))->options($zones)->searchable()->live()
+                        ->visible(fn (Get $get): bool => filled($get('departure_airport')) && ! FolderFlightSegment::timezoneFor($get('departure_airport'))),
                 ]),
                 Group::make()->columns(3)->schema([
                     TextInput::make('arrival_airport')->label(__('Aéroport d’arrivée (code)'))->maxLength(60)->live(onBlur: true)
                         ->afterStateUpdated(fn (Set $set, $state) => ($tz = FolderFlightSegment::timezoneFor($state)) ? $set('arrival_tz', $tz) : null),
                     DateTimePicker::make('arrival_local')->label(__('Arrivée (heure locale)'))->seconds(false)->native(false)->displayFormat('d/m/Y H:i')->live(),
-                    Select::make('arrival_tz')->label(__('Fuseau de l’arrivée'))->options($zones)->searchable()->live(),
+                    Select::make('arrival_tz')->label(__('Fuseau de l’arrivée (code inconnu)'))->options($zones)->searchable()->live()
+                        ->visible(fn (Get $get): bool => filled($get('arrival_airport')) && ! FolderFlightSegment::timezoneFor($get('arrival_airport'))),
                 ]),
                 Textarea::make('notes')->label(__('Informations complémentaires'))->rows(2),
         ];
@@ -256,7 +258,8 @@ final class CommercialFolderForm
                                 ->searchable()->live()
                                 ->afterStateUpdated(fn ($state, Set $set) => $state ? $set('label', HotelRoomType::find($state)?->name) : null)
                                 ->columnSpan(2),
-                            TextInput::make('label')->label(__('Libellé (personnalisable)'))->columnSpan(3),
+                            Select::make('category')->label(__('Type'))->options(FolderStay::ROOM_CATEGORIES)->native(false)->columnSpan(1),
+                            TextInput::make('label')->label(__('Libellé (personnalisable)'))->columnSpan(2),
                         ]),
                     ]),
                 Select::make('copy_rooms_from')
@@ -275,9 +278,6 @@ final class CommercialFolderForm
                             $set('copy_rooms_from', null);
                         }
                     }),
-                Group::make()->columns(4)->schema([
-                    Select::make('room_category')->label(__('Type de chambre'))->options(FolderStay::ROOM_CATEGORIES)->native(false),
-                ]),
                 Group::make()->columns(4)->schema([
                     Select::make('status')->label(__('Statut'))->options(FolderStay::STATUSES)->default('to_book')->required()->native(false),
                     Select::make('booked_by')->label(__('Réservation faite par'))->options(FolderStay::BOOKED_BY)->default('takada')->required()->native(false)
