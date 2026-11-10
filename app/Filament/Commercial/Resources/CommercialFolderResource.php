@@ -35,7 +35,7 @@ class CommercialFolderResource extends FolderResource
             ->modifyQueryUsing(fn ($query) => $query->withCount(['plannedItems', 'folderItems']))
             ->defaultSort('start_date', 'desc')
             ->columns([
-                \Filament\Tables\Columns\TextColumn::make('folder_name')->label(__('Voyage'))->weight('bold')->searchable(['folder_name', 'reference'])->sortable()->wrap()->extraHeaderAttributes(['style' => 'min-width:12.5rem'])->extraCellAttributes(['style' => 'min-width:12.5rem'])
+                \Filament\Tables\Columns\TextColumn::make('folder_name')->label(__('Voyage'))->weight('bold')->searchable(['folder_name', 'reference'])->sortable()->wrap()->extraHeaderAttributes(['style' => 'min-width:11rem'])->extraCellAttributes(['style' => 'min-width:11rem'])
                     ->getStateUsing(fn (\App\Models\Folder $r) => $r->folder_name ?: ($r->lead_traveler_name ?: $r->reference))
                     ->description(fn (\App\Models\Folder $r) => $r->reference),
                 \Filament\Tables\Columns\TextColumn::make('start_date')->label(__('Dates'))->sortable()
@@ -44,12 +44,12 @@ class CommercialFolderResource extends FolderResource
                 \Filament\Tables\Columns\TextColumn::make('pax_adults')->label(__('Pax'))
                     ->getStateUsing(fn (\App\Models\Folder $r) => (int) $r->pax_adults + (int) $r->pax_children),
                 \Filament\Tables\Columns\TextColumn::make('owner.name')->label(__('Commercial'))->formatStateUsing(fn (?string $state) => $state ? \Illuminate\Support\Str::before($state, ' ') : '—'),
-                \Filament\Tables\Columns\TextColumn::make('ops_status')->label(__('Avancement'))->badge()->wrap()
+                \Filament\Tables\Columns\TextColumn::make('ops_status')->label(__('Avancement'))->badge()->wrap()->extraHeaderAttributes(['style' => 'width:7.5rem;max-width:7.5rem'])->extraCellAttributes(['style' => 'width:7.5rem;max-width:7.5rem'])
                     ->formatStateUsing(fn (?string $state) => __(\App\Models\Folder::OPS_STATUSES[$state] ?? (string) $state)),
-                \Filament\Tables\Columns\TextColumn::make('planned_items_count')->label(__('Prestations'))->wrap()->extraHeaderAttributes(['style' => 'min-width:8.5rem'])->extraCellAttributes(['style' => 'min-width:8.5rem'])
+                \Filament\Tables\Columns\TextColumn::make('planned_items_count')->label(__('Prestations'))->listWithLineBreaks()
                     ->getStateUsing(fn (\App\Models\Folder $r) => $r->isInternal()
-                        ? (int) $r->planned_items_count . ' ' . __('à commander') . ' · ' . (int) $r->folder_items_count . ' ' . trans_choice('commandée|commandées', (int) $r->folder_items_count)
-                        : '—'),
+                        ? [(int) $r->planned_items_count . ' ' . __('à commander'), (int) $r->folder_items_count . ' ' . trans_choice('commandée|commandées', (int) $r->folder_items_count)]
+                        : ['—']),
                 \Filament\Tables\Columns\TextColumn::make('total_price')->label(__('Montant'))
                     ->getStateUsing(function (\App\Models\Folder $r) {
                         $sum = (float) $r->billableFolderItems()->sum('total_price');
