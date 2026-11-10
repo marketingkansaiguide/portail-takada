@@ -67,12 +67,17 @@ it('affiche les alertes d’hébergement avec un lien d’ouverture et un récap
 
     page($this)
         ->assertSee('Hôtel sans date de départ')
-        ->assertSee('tkOpenTarget')
+        ->assertSee('openTarget')
         ->call('togglePlannedSelection', $ids[0])
         ->call('orderSelected')
-        ->assertActionMounted('orderPlannedItems')
-        ->assertSee('Total')
-        ->assertDontSee('>Achat<', false);
+        ->assertActionMounted('orderPlannedItems');
+
+    // Le récapitulatif commercial : total en pied, sans colonne Achat.
+    $component = Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()]);
+    $method = new ReflectionMethod($component->instance(), 'renderOrderSummary');
+    $method->setAccessible(true);
+    $html = (string) $method->invoke($component->instance(), app(\App\Services\PlannedItemOrderService::class), [$ids[0]]);
+    expect($html)->toContain('Total')->not->toContain('>Achat<');
 });
 
 it('un double clic sur Commander (même clé d’idempotence) ne crée qu’une commande', function () {

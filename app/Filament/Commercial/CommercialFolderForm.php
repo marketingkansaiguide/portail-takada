@@ -38,42 +38,42 @@ final class CommercialFolderForm
     /** @return array<int, mixed> */
     public static function components(): array
     {
-        return [
-            View::make('filament.commercial.header')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(),
+        $view = fn (string $name) => View::make($name)->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull();
 
+        return [
+            $view('filament.commercial.header'),
+
+            // Sept onglets courts, sans icône : ils tiennent à 1280 px sans défilement horizontal.
             Tabs::make('commercial')
                 ->persistTabInQueryString('onglet')
+                ->extraAttributes(['class' => 'tk-c-tabs'])
                 ->columnSpanFull()
                 ->tabs([
-                    Tab::make(__('Vue d’ensemble'))->icon('heroicon-o-squares-2x2')->schema(self::overview()),
-                    Tab::make(__('Voyageurs'))->icon('heroicon-o-users')
+                    Tab::make(__('Synthèse'))->schema([$view('filament.commercial.overview')]),
+                    Tab::make(__('Voyageurs'))
                         ->badge(fn (?Folder $record) => $record?->folderPassengers()->count() ?: null)
-                        ->schema([self::passengers()]),
-                    Tab::make(__('Vols'))->icon('heroicon-o-paper-airplane')
+                        ->schema([$view('filament.commercial.passengers-table')]),
+                    Tab::make(__('Vols'))
                         ->badge(fn (?Folder $record) => $record?->flightSegments()->count() ?: null)
-                        ->schema([self::flights()]),
-                    Tab::make(__('Hébergements'))->icon('heroicon-o-building-office')
+                        ->schema([$view('filament.commercial.flights-table')]),
+                    Tab::make(__('Hôtels'))
                         ->badge(fn (?Folder $record) => $record?->stays()->count() ?: null)
-                        ->schema([View::make('filament.commercial.stays-table')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(),
-                            Section::make(__('Modifier ou ajouter un hébergement'))->id('stays-section')->collapsible()->collapsed()->compact()->schema([self::stays()]),
+                        ->schema([$view('filament.commercial.stays-table')]),
+                    Tab::make(__('Prestations'))
+                        ->badge(fn (?Folder $record) => $record?->plannedItems()->count() ?: null)
+                        ->schema([
+                            $view('filament.commercial.quick-add'),
+                            $view('filament.commercial.planned-list'),
+                            $view('filament.commercial.selection-bar'),
+                            Section::make(__('Prestations commandées'))
+                                ->description(__('Suivi des demandes transmises à la billetterie. La gestion des fournisseurs reste du ressort de la billetterie.'))
+                                ->schema([$view('filament.commercial.ordered-items')])
+                                ->visible(fn (?Folder $record) => (bool) $record),
                         ]),
-                    Tab::make(__('Prestations'))->icon('heroicon-o-ticket')->schema([
-                        PlannedItemsSection::make(commercial: true),
-                        View::make('filament.commercial.selection-bar')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record?->isInternal())->columnSpanFull(),
-                        Section::make(__('Prestations commandées'))
-                            ->description(__('Suivi des demandes transmises à la billetterie. La gestion des fournisseurs reste du ressort de la billetterie.'))
-                            ->schema([View::make('filament.commercial.ordered-items')->viewData(fn (?Folder $record) => ['folder' => $record])])
-                            ->visible(fn (?Folder $record) => (bool) $record),
-                    ]),
-                    Tab::make(__('Chronologie'))->icon('heroicon-o-calendar-days')
-                        ->schema([View::make('filament.commercial.timeline')->viewData(fn (?Folder $record) => ['folder' => $record])])
-                        ->visible(fn (?Folder $record) => (bool) $record),
-                    Tab::make(__('Finances et suivi'))->icon('heroicon-o-banknotes')->schema([
-                        Section::make(__('Montants'))->schema([View::make('filament.commercial.finance')->viewData(fn (?Folder $record) => ['folder' => $record])])
-                            ->visible(fn (?Folder $record) => (bool) $record),
-                        Section::make(__('Note de suivi'))
-                            ->description(__('Ajoutez une note contextuelle pour l’historique du dossier.'))
-                            ->schema([Textarea::make('history_note')->hiddenLabel()->rows(3)->maxLength(1000)->dehydrated(false)]),
+                    Tab::make(__('Planning'))->schema([$view('filament.commercial.timeline')]),
+                    Tab::make(__('Finances'))->schema([
+                        Section::make(__('Montants'))->schema([$view('filament.commercial.finance')]),
+                        $view('filament.commercial.note-link'),
                     ]),
                 ]),
 
@@ -82,17 +82,18 @@ final class CommercialFolderForm
                 ->collapsible()->collapsed()->persistCollapsed()
                 ->columnSpanFull()
                 ->visible(fn (?Folder $record) => (bool) $record)
-                ->schema([View::make('filament.commercial.history')->viewData(fn (?Folder $record) => ['folder' => $record])]),
+                ->schema([$view('filament.commercial.history')]),
         ];
     }
 
-    /** @return array<int, mixed> */
-    private static function overview(): array
+    /**
+     * Champs du dossier (identité) et consignes pour la billetterie : panneau « Modifier le dossier ».
+     *
+     * @return array<int, mixed>
+     */
+    public static function folderFields(): array
     {
         return [
-            View::make('filament.commercial.overview')->viewData(fn (?Folder $record) => ['folder' => $record])
-                ->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(),
-
             Section::make(__('Le dossier'))->columns(4)->schema([
                 TextInput::make('folder_name')->label(__('Nom du dossier'))->required()->maxLength(255)->columnSpan(2),
                 TextInput::make('quote_reference')->label(__('Référence du devis'))->maxLength(120)->columnSpan(1),
@@ -136,39 +137,10 @@ final class CommercialFolderForm
                 ]),
         ];
     }
-
-    private static function passengers(): Repeater
+    /** @return array<int, mixed> */
+    public static function passengerFields(): array
     {
-        return Repeater::make('folderPassengers')
-            ->relationship()
-            ->hiddenLabel()
-            ->addActionLabel(__('Ajouter un voyageur'))
-            ->collapsible()->collapsed()
-            ->cloneable()
-            ->defaultItems(0)
-            ->itemLabel(function (array $state): string {
-                $name = trim(mb_strtoupper($state['last_name'] ?? '') . ' ' . ($state['first_name'] ?? ''));
-                if ($name === '') {
-                    return __('Nouveau voyageur');
-                }
-                $bits = [$name];
-                if (! empty($state['is_lead'])) {
-                    $bits[] = '★ ' . __('principal');
-                }
-                if (! empty($state['birth_date'])) {
-                    $bits[] = Carbon::parse($state['birth_date'])->format('d/m/Y');
-                }
-                // Les données sensibles ne sont signalées que par une icône, jamais détaillées dans la liste.
-                if (! empty($state['dietary_restrictions'])) {
-                    $bits[] = '🍽';
-                }
-                if (! empty($state['mobility_concerns'])) {
-                    $bits[] = '♿';
-                }
-
-                return implode(' · ', $bits);
-            })
-            ->schema([
+        return [
                 Group::make()->columns(4)->schema([
                     TextInput::make('last_name')->label(__('Nom'))->required(),
                     TextInput::make('first_name')->label(__('Prénom'))->required(),
@@ -183,29 +155,15 @@ final class CommercialFolderForm
                     Textarea::make('mobility_concerns')->label(__('Accessibilité / mobilité'))->rows(2),
                     Textarea::make('special_notes')->label(__('Informations particulières'))->rows(2),
                 ]),
-            ]);
+        ];
     }
 
-    private static function flights(): Repeater
+    /** @return array<int, mixed> */
+    public static function flightFields(): array
     {
         $zones = fn () => collect(\DateTimeZone::listIdentifiers())->mapWithKeys(fn ($z) => [$z => $z])->all();
 
-        return Repeater::make('flightSegments')
-            ->relationship()
-            ->hiddenLabel()
-            ->addActionLabel(__('Ajouter un vol'))
-            ->helperText(__('Informations seulement : aucune réservation aérienne n’est créée. Saisissez les heures locales de chaque aéroport.'))
-            ->collapsible()->collapsed()->cloneable()->live()
-            ->defaultItems(0)
-            ->itemLabel(function (array $state): string {
-                $num = trim(($state['airline'] ?? '') . ' ' . ($state['flight_number'] ?? ''));
-                $route = trim(($state['departure_airport'] ?? '') . ' → ' . ($state['arrival_airport'] ?? ''), ' →');
-                $when = ! empty($state['departure_local']) ? Carbon::parse($state['departure_local'])->format('d/m H:i') : '';
-                $label = trim(($state['direction'] ?? '') === 'outbound' ? __('Aller') : (($state['direction'] ?? '') === 'return' ? __('Retour') : ''));
-
-                return trim(implode(' · ', array_filter([$label, $num, $route, $when])) ?: __('Nouveau vol'));
-            })
-            ->schema([
+        return [
                 Group::make()->columns(4)->schema([
                     Select::make('direction')->label(__('Sens'))->options(FolderFlightSegment::DIRECTIONS)->default('other')->native(false),
                     TextInput::make('airline')->label(__('Compagnie')),
@@ -233,29 +191,13 @@ final class CommercialFolderForm
                     Select::make('arrival_tz')->label(__('Fuseau de l’arrivée'))->options($zones)->searchable()->live(),
                 ]),
                 Textarea::make('notes')->label(__('Informations complémentaires'))->rows(2),
-            ]);
+        ];
     }
 
-    private static function stays(): Repeater
+    /** @return array<int, mixed> */
+    public static function stayFields(): array
     {
-        return Repeater::make('stays')
-            ->relationship()
-            ->hiddenLabel()
-            ->addActionLabel(__('Ajouter un hébergement'))
-            ->helperText(__('Tous les séjours, qu’ils soient réservés par Takada, l’agence ou le client. Un hébergement n’est jamais une commande.'))
-            ->collapsible()->collapsed()->cloneable()->live()
-            ->defaultItems(0)
-            ->itemLabel(function (array $state): string {
-                if (blank($state['hotel_name'] ?? null)) {
-                    return __('Nouvel hébergement');
-                }
-                $in = ! empty($state['check_in']) ? Carbon::parse($state['check_in']) : null;
-                $out = ! empty($state['check_out']) ? Carbon::parse($state['check_out']) : null;
-                $dates = $in ? $in->format('d/m') . ($out ? ' → ' . $out->format('d/m') . ' (' . max(0, $in->diffInDays($out)) . ' n.)' : '') : __('dates à préciser');
-
-                return implode(' · ', array_filter([$dates, $state['hotel_name'], $state['city'] ?? null, __(FolderStay::STATUSES[$state['status'] ?? ''] ?? ''), ($state['booked_by'] ?? 'takada') !== 'takada' ? __(FolderStay::BOOKED_BY[$state['booked_by']] ?? '') : null]));
-            })
-            ->schema([
+        return [
                 Group::make()->columns(3)->schema([
                     Select::make('hotel_id')
                         ->label(__('Hôtel du référentiel'))
@@ -289,13 +231,8 @@ final class CommercialFolderForm
                 ]),
                 Group::make()->columns(4)->schema([
                     DatePicker::make('check_in')->label(__('Arrivée'))->native(false)->displayFormat('d/m/Y')->live()
-                        // Arrivée proposée : départ du séjour précédent (le plus tardif des départs déjà saisis).
-                        ->default(fn (\Livewire\Component $livewire): ?string => collect((array) ($livewire->data['stays'] ?? []))->pluck('check_out')->filter()->sort()->last())
                         ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'check_in')),
                     TextInput::make('nights')->label(__('Nuits'))->numeric()->minValue(1)->live(debounce: 400)->dehydrated(false)
-                        ->afterStateHydrated(function (TextInput $component, $record) {
-                            $component->state($record instanceof FolderStay ? $record->nights() : null);
-                        })
                         ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'nights'))
                         ->helperText(__('Nuits ou départ : l’un calcule l’autre.')),
                     DatePicker::make('check_out')->label(__('Départ'))->native(false)->displayFormat('d/m/Y')->afterOrEqual('check_in')->live()
@@ -323,8 +260,8 @@ final class CommercialFolderForm
                 Select::make('copy_rooms_from')
                     ->label(__('Reprendre les chambres de…'))
                     ->placeholder(__('Un autre séjour du dossier'))
-                    ->options(function (\Livewire\Component $livewire, Get $get) {
-                        return collect($get('../../stays') ?? [])
+                    ->options(function (Get $get) {
+                        return collect($get('other_stays') ?? [])
                             ->filter(fn ($s) => filled($s['room_lines'] ?? null) && filled($s['hotel_name'] ?? null))
                             ->mapWithKeys(fn ($s, $k) => [$k => ($s['hotel_name'] ?? '') . (filled($s['check_in'] ?? null) ? ' · ' . Carbon::parse($s['check_in'])->format('d/m') : '')])
                             ->all();
@@ -332,7 +269,7 @@ final class CommercialFolderForm
                     ->live()->dehydrated(false)
                     ->afterStateUpdated(function ($state, Get $get, Set $set) {
                         if (filled($state)) {
-                            $set('room_lines', collect($get('../../stays')[$state]['room_lines'] ?? [])->map(fn ($l) => ['quantity' => $l['quantity'] ?? 1, 'room_type_id' => null, 'label' => $l['label'] ?? null])->values()->all());
+                            $set('room_lines', collect(($get('other_stays') ?? [])[$state]['room_lines'] ?? [])->map(fn ($l) => ['quantity' => $l['quantity'] ?? 1, 'room_type_id' => null, 'label' => $l['label'] ?? null])->values()->all());
                             $set('copy_rooms_from', null);
                         }
                     }),
@@ -354,8 +291,10 @@ final class CommercialFolderForm
                     TextInput::make('purchase_price')->label(__('Coût d’achat (¥, facultatif)'))->numeric()->minValue(0),
                     TextInput::make('sale_price')->label(__('Prix de vente (¥, facultatif)'))->numeric()->minValue(0),
                 ]),
-            ]);
+        ];
     }
+
+
 
     private static function nightsBetween(mixed $in, mixed $out): ?int
     {

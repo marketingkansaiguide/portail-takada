@@ -51,4 +51,9 @@
             if (add) { add.click(); add.scrollIntoView({block: 'center', behavior: 'smooth'}); }
         }, 350);
     };
-</script>
+</script><style>
+    /* En-tête collé au défilement et onglets sans défilement horizontal (7 libellés courts, tiennent à 1280 px). */
+    .tk-c-sticky { position: sticky; top: 4rem; z-index: 15; box-shadow: 0 4px 10px -8px rgba(15,23,42,.35); }
+    .tk-c-tabs .fi-tabs { overflow-x: visible !important; flex-wrap: wrap; max-width: 100%; }
+    .tk-c-tabs .fi-tabs-item { padding-inline: .6rem; white-space: nowrap; }
+</style>

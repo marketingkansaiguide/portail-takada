@@ -42,13 +42,18 @@ class EditFolder extends EditRecord
         $this->selectedPlannedIds = $all ? $this->getRecord()->plannedItems()->pluck('id')->map(fn ($v) => (int) $v)->all() : [];
     }
 
+    protected function saveBeforeOrder(): void
+    {
+        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+    }
+
     /** Enregistre le formulaire puis ouvre le récapitulatif de commande des lignes cochées. */
     public function orderSelected(): void
     {
         if ($this->selectedPlannedIds === []) {
             return;
         }
-        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+        $this->saveBeforeOrder();
         $this->selectedPlannedIds = array_values(array_intersect(
             $this->selectedPlannedIds,
             $this->getRecord()->plannedItems()->pluck('id')->map(fn ($v) => (int) $v)->all(),

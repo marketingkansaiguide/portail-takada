@@ -95,7 +95,7 @@ final class PlannedItemsSection
      *
      * @return array<int, mixed>
      */
-    private static function commercialFields(): array
+    public static function commercialFields(): array
     {
         $profileOf = fn (\Filament\Schemas\Components\Utilities\Get $get): string => \App\Support\EntryProfile::for(
             $get('product_id') ? \App\Models\Product::with('category')->find($get('product_id')) : null

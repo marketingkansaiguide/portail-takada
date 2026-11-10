@@ -174,7 +174,7 @@ final class TripTimeline
 
         $timed = $planned->concat($ordered)->filter(fn ($i) => in_array($i->product?->category?->name, self::TIME_EXPECTED, true) && blank($i->meeting_time));
         if ($timed->isNotEmpty()) {
-            $add('items_without_time', __(':n prestation(s) de guidage ou de transfert sans horaire de rendez-vous.', ['n' => $timed->count()]), ['kind' => 'item', 'id' => $timed->first()->id, 'tab' => 'items']);
+            $add('items_without_time', __(':n prestation(s) de guidage ou de transfert sans horaire de rendez-vous.', ['n' => $timed->count()]), ['kind' => 'item', 'id' => $timed->first() instanceof AppModelsFolderPlannedItem ? $timed->first()->id : null, 'tab' => 'items']);
         }
 
         foreach ($days as $key => $day) {

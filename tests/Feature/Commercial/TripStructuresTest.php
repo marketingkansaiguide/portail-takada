@@ -152,25 +152,42 @@ it("enregistre voyageurs sans date de naissance, vols, hébergements et consigne
     Filament::setCurrentPanel(Filament::getPanel('commercial'));
     $this->actingAs($this->fit, 'web');
 
-    Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
-        ->fillForm([
-            'quote_reference' => 'DEV-TEST-1',
-            'ticketing_urgent' => true,
-            'ticketing_general_notes' => 'Réserver le bus du 23/12.',
-            'folderPassengers' => [['last_name' => 'Exemple', 'first_name' => 'Anna', 'is_lead' => true]],
-            'flightSegments' => [['direction' => 'outbound', 'flight_number' => 'XX1', 'departure_airport' => 'CMB', 'arrival_airport' => 'NRT']],
-            'stays' => [['hotel_name' => 'Hôtel A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-21', 'status' => 'booked_by_client', 'booked_by' => 'client', 'rooms' => 1]],
-        ])
-        ->call('save')
-        ->assertHasNoFormErrors();
+    $lock = fn () => (int) $this->folder->fresh()->lock_version;
+    $page = fn () => Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()]);
+
+    $page()->callAction('editFolder', data: [
+        '_lock' => $lock(), 'folder_name' => 'Voyage test', 'quote_reference' => 'DEV-TEST-1', 'ops_status' => 'en_preparation', 'owner_user_id' => $this->fit->id,
+        'kind' => 'full_trip', 'start_date' => '2026-12-17', 'end_date' => '2027-01-03', 'pax_adults' => 2, 'pax_children' => 0,
+        'ticketing_urgent' => true, 'ticketing_urgent_note' => 'Bus du 23/12', 'ticketing_general_notes' => 'Réserver le bus du 23/12.',
+    ])->assertHasNoActionErrors();
+    $page()->callAction('editPassenger', data: ['_lock' => $lock(), 'last_name' => 'Exemple', 'first_name' => 'Anna', 'is_lead' => true])->assertHasNoActionErrors();
+    $page()->callAction('editFlight', data: ['_lock' => $lock(), 'direction' => 'outbound', 'flight_number' => 'XX1', 'departure_airport' => 'CMB', 'arrival_airport' => 'NRT'])->assertHasNoActionErrors();
+    $page()->callAction('editStay', data: ['_lock' => $lock(), 'hotel_name' => 'Hôtel A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-21', 'status' => 'booked_by_client', 'booked_by' => 'client'])->assertHasNoActionErrors();
 
     $folder = $this->folder->fresh();
-    expect($folder->quote_reference)->toBe('DEV-TEST-1')
+    expect($folder->folder_name)->toBe('Voyage test')
+        ->and($folder->quote_reference)->toBe('DEV-TEST-1')
         ->and($folder->ticketing_urgent)->toBeTrue()
+        ->and($folder->ticketing_urgent_note)->toBe('Bus du 23/12')
         ->and($folder->folderPassengers()->count())->toBe(1)
         ->and($folder->folderPassengers()->first()->birth_date)->toBeNull()
         ->and($folder->flightSegments()->count())->toBe(1)
-        ->and($folder->stays()->first()->booked_by)->toBe('client');
+        ->and($folder->stays()->first()->booked_by)->toBe('client')
+        // Chaque panneau a incrémenté le verrou du dossier et laissé une trace dans l'historique.
+        ->and((int) $folder->lock_version)->toBeGreaterThanOrEqual(4)
+        ->and($folder->histories()->count())->toBeGreaterThanOrEqual(3);
+});
+
+it("refuse l'enregistrement d'un panneau ouvert sur une version périmée du dossier", function () {
+    Filament::setCurrentPanel(Filament::getPanel('commercial'));
+    $this->actingAs($this->fit, 'web');
+    $stale = (int) $this->folder->fresh()->lock_version;
+    \App\Models\Folder::whereKey($this->folder->id)->increment('lock_version');
+
+    Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->callAction('editPassenger', data: ['_lock' => $stale, 'last_name' => 'Perdu', 'first_name' => 'Jean']);
+
+    expect($this->folder->folderPassengers()->count())->toBe(0);
 });
 
 function tlAlerts($folder): array

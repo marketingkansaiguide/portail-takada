@@ -493,9 +493,10 @@ class FolderResource extends Resource
                             ->columnSpan(4),
 
                         Select::make('product_id')
-                            ->relationship('product', 'name', fn ($query, Get $get) => $query->where(
+                            // Espace commercial : champ simple (recherche serveur ci-dessous), sans relation ni modèle lié.
+                            ->when($mode !== 'commercial', fn (Select $select) => $select->relationship('product', 'name', fn ($query, Get $get) => $query->where(
                                 fn ($q) => $q->where('products.is_public', true)->orWhere('products.id', $get('product_id'))
-                            ))
+                            )))
                             ->label($mode === 'commercial' ? __('Prestation') : __('Produit / Activité'))
                             ->required()
                             ->searchable()
@@ -544,13 +545,13 @@ class FolderResource extends Resource
 
                         Select::make('item_status_id')
                             ->hidden(in_array($mode, ['planned', 'commercial'], true)) // statut fournisseur : seulement après commande
-                            ->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
+                            ->when($mode !== 'commercial', fn (Select $select) => $select->relationship('itemStatus', 'name', modifyQueryUsing: function ($query) {
                                 \App\Models\ItemStatus::firstOrCreate(
                                     ['name' => 'En attente de validation'],
                                     ['color' => 'warning']
                                 );
                                 return $query;
-                            })
+                            }))
                             ->label(__('Statut'))
                             ->searchable()
                             ->preload()

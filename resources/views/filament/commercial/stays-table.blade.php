@@ -6,8 +6,14 @@
     foreach ($gaps as $g) { $rows->push(['at' => $g['from'], 'kind' => 'gap', 'gap' => $g]); }
     $rows = $rows->sortBy('at')->values();
 @endphp
-@if ($stays->isNotEmpty() || $gaps->isNotEmpty())
-<div style="overflow-x:auto;margin-bottom:.75rem">
+<div style="width:100%;overflow-x:auto">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+    <span class="tk-c-muted">{{ __('Tous les séjours, qu’ils soient réservés par Takada, l’agence ou le client. Un hébergement n’est jamais une commande.') }}</span>
+    <x-filament::button size="sm" wire:click="mountAction('editStay')">{{ __('Ajouter un hôtel') }}</x-filament::button>
+</div>
+@if ($stays->isEmpty() && $gaps->isEmpty())
+    <p class="tk-c-muted">{{ __('Aucun hébergement renseigné.') }}</p>
+@else
 <table style="width:100%;font-size:.85rem;border-collapse:collapse">
     <thead><tr style="text-align:left;color:#6b7280;border-bottom:1px solid #e5e7eb">
         <th style="padding:6px">{{ __('Arrivée') }}</th><th style="padding:6px">{{ __('Départ') }}</th><th style="padding:6px">{{ __('Nuits') }}</th>
@@ -20,7 +26,7 @@
             @php $g = $r['gap']; @endphp
             <tr style="background:#fffbeb;color:#92400e">
                 <td colspan="8" style="padding:6px;font-weight:600">⚠ {{ \Carbon\Carbon::parse($g['from'])->format('d/m') }} → {{ \Carbon\Carbon::parse($g['to'])->format('d/m') }} : {{ trans_choice(':count nuit sans hébergement|:count nuits sans hébergement', $g['nights'], ['count' => $g['nights']]) }}</td>
-                <td style="padding:6px"><button type="button" style="text-decoration:underline;font-weight:600;min-height:28px" wire:click="addStayOnGap('{{ $g['from'] }}', {{ $g['nights'] }})">{{ __('Ajouter un hôtel sur ces dates') }}</button></td>
+                <td style="padding:6px"><button type="button" style="text-decoration:underline;font-weight:600;min-height:28px" wire:click="mountAction('editStay', {id: null, check_in: '{{ $g['from'] }}', nights: {{ $g['nights'] }}})">{{ __('Ajouter un hôtel sur ces dates') }}</button></td>
             </tr>
         @else
             @php $s = $r['stay']; @endphp
@@ -34,14 +40,14 @@
                 <td style="padding:6px">{{ __(\App\Models\FolderStay::STATUSES[$s->status] ?? $s->status) }}</td>
                 <td style="padding:6px">{{ __(\App\Models\FolderStay::BOOKED_BY[$s->booked_by] ?? $s->booked_by) }}</td>
                 <td style="padding:6px;white-space:nowrap">
-                    <a href="#" style="text-decoration:underline" onclick="event.preventDefault(); window.tkOpenTarget(@js(__('Hébergements')), 'record-{{ $s->id }}');">{{ __('Modifier') }}</a> ·
-                    <button type="button" style="text-decoration:underline" wire:click="duplicateStay({{ $s->id }})">{{ __('Dupliquer') }}</button>
+                    <button type="button" style="text-decoration:underline;min-height:28px" wire:click="mountAction('editStay', {id: {{ $s->id }}})">{{ __('Modifier') }}</button> ·
+                    <button type="button" style="text-decoration:underline;min-height:28px" wire:click="duplicateStay({{ $s->id }})">{{ __('Dupliquer') }}</button> ·
+                    <button type="button" style="text-decoration:underline;color:#b91c1c;min-height:28px" wire:click="mountAction('deleteStay', {id: {{ $s->id }}})">{{ __('Supprimer') }}</button>
                 </td>
             </tr>
         @endif
     @endforeach
     </tbody>
 </table>
-<div style="margin-top:.5rem"><button type="button" style="text-decoration:underline;font-weight:600;min-height:32px" onclick="window.tkAddStay()">+ {{ __('Ajouter un hôtel') }}</button></div>
-</div>
 @endif
+</div>
