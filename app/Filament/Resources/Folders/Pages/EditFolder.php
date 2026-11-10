@@ -109,7 +109,9 @@ class EditFolder extends EditRecord
                 && \App\Support\FolderAccess::staffMay(auth('web')->user(), 'order'))
             ->disabled(fn () => ! $this->getRecord()->plannedItems()->exists())
             ->modalHeading(__('Commander des prestations préparées'))
-            ->modalDescription(__('Seules les prestations cochées seront commandées et entreront dans le processus opérationnel (statut « En attente de validation »). Les autres restent en préparation. Les modifications non enregistrées du formulaire ne sont pas prises en compte.'))
+            ->modalDescription($this->usesRowSelection()
+                ? __('Seules les prestations cochées seront commandées et entreront dans le processus opérationnel (statut « En attente de validation »). Les autres restent en préparation. Vos modifications ont été enregistrées avant ce récapitulatif.')
+                : __('Seules les prestations cochées seront commandées et entreront dans le processus opérationnel (statut « En attente de validation »). Les autres restent en préparation. Les modifications non enregistrées du formulaire ne sont pas prises en compte.'))
             ->modalSubmitActionLabel(__('Confirmer la commande'))
             ->modalWidth('5xl')
             ->fillForm(fn () => [
@@ -166,6 +168,8 @@ class EditFolder extends EditRecord
         $summary = $service->summary($this->getRecord(), $ids, auth('web')->user());
         $fmt = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', ' ') . ' ¥';
         $rows = '';
+        $totalSale = 0.0;
+        $commercial = $this->usesRowSelection();
         $plannedById = $this->usesRowSelection() ? $this->getRecord()->plannedItems()->whereKey($ids)->get()->keyBy('id') : collect();
         foreach ($summary['lines'] as $line) {
             $changed = $line['price_changed'] ? ' style="background:#fffbeb"' : '';
@@ -177,10 +181,15 @@ class EditFolder extends EditRecord
                 $problems .= ($where !== '' ? '<div style="font-size:0.8rem">' . e(__('Rendez-vous')) . ' : ' . e($where) . '</div>' : '')
                     . ($planned->ticketing_notes ? '<div style="font-size:0.8rem;white-space:pre-wrap">📝 ' . e($planned->ticketing_notes) . '</div>' : '');
             }
-            $rows .= '<tr' . $changed . '><td style="padding:4px 8px">' . e($line['service_date'] ?? '—') . '</td><td style="padding:4px 8px">' . e($line['label']) . $problems
+            $label = $commercial ? trim(preg_replace('/\s*\(\d{2}\/\d{2}\/\d{4}\)\s*$/u', '', (string) $line['label'])) : $line['label'];
+            $totalSale += (float) ($line['price_changed'] ? $line['current']['total_price'] : $line['prepared']['total_price']);
+            $rows .= '<tr' . $changed . '><td style="padding:4px 8px">' . e($line['service_date'] ?? '—') . '</td><td style="padding:4px 8px">' . e($label) . $problems
                 . '<div style="color:#6b7280;font-size:0.8rem">' . e(implode(', ', $line['options'])) . '</div></td><td style="padding:4px 8px;text-align:center">' . (int) $line['pax']
-                . '</td><td style="padding:4px 8px;text-align:right">' . $sale . '</td><td style="padding:4px 8px;text-align:right">' . $buy . '</td></tr>';
+                . '</td><td style="padding:4px 8px;text-align:right">' . $sale . '</td>' . ($commercial ? '' : '<td style="padding:4px 8px;text-align:right">' . $buy . '</td>') . '</tr>';
         }
+        $footer = $commercial
+            ? '<tfoot><tr style="font-weight:700;border-top:1px solid #d1d5db"><td colspan="3" style="padding:4px 8px;text-align:right">' . e(__('Total')) . '</td><td style="padding:4px 8px;text-align:right">' . $fmt($totalSale) . '</td></tr></tfoot>'
+            : '';
         $alerts = '';
         foreach ($summary['folder_problems'] as $problem) {
             $alerts .= '<div style="color:#b91c1c;font-weight:600">⛔ ' . e($problem) . '</div>';
@@ -191,8 +200,8 @@ class EditFolder extends EditRecord
 
         return new HtmlString($alerts . '<table style="width:100%;font-size:0.85rem;margin-top:6px"><thead><tr>'
             . '<th style="text-align:left;padding:4px 8px">' . e(__('Date')) . '</th><th style="text-align:left;padding:4px 8px">' . e(__('Prestation / options')) . '</th>'
-            . '<th style="padding:4px 8px">' . e(__('Pax')) . '</th><th style="text-align:right;padding:4px 8px">' . e(__('Vente')) . '</th><th style="text-align:right;padding:4px 8px">' . e(__('Achat')) . '</th>'
-            . '</tr></thead><tbody>' . $rows . '</tbody></table>');
+            . '<th style="padding:4px 8px">' . e(__('Pax')) . '</th><th style="text-align:right;padding:4px 8px">' . e(__('Vente')) . '</th>' . ($commercial ? '' : '<th style="text-align:right;padding:4px 8px">' . e(__('Achat')) . '</th>')
+            . '</tr></thead><tbody>' . $rows . '</tbody>' . $footer . '</table>');
     }
 
     protected function mutateFormDataBeforeFill(array $data): array

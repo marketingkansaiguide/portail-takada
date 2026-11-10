@@ -20,7 +20,9 @@ final class PlannedItemsSection
     {
         return Section::make(__('Prestations en préparation'))
             ->extraAttributes(['data-tk-anchor' => 'prestations'])
-            ->description(__('Préparez librement les prestations (budget prévisionnel). Rien n’est commandé ni transmis tant que vous ne cochez pas des lignes puis ne confirmez pas la commande depuis la barre en bas de l’onglet.'))
+            ->description($commercial
+                ? __('Cochez les lignes à commander, puis confirmez dans la barre en bas de l’écran. Rien n’est transmis avant cette confirmation.')
+                : __('Préparez librement les prestations (budget prévisionnel). Rien n’est commandé ni transmis tant que vous n’utilisez pas « Commander les prestations sélectionnées ». Enregistrez le dossier avant de commander.'))
             ->visible(fn (?Folder $record): bool => (bool) $record?->isInternal())
             ->columnSpanFull()
             ->schema([
@@ -36,16 +38,19 @@ final class PlannedItemsSection
                     ->collapsed()
                     ->live()
                     ->defaultItems(0)
-                    ->extraItemActions($commercial ? [self::selectionAction()] : [])
-                    ->itemLabel(function (array $state) {
+                    ->label(__('Prestations en préparation'))
+                    ->deleteAction(fn (\Filament\Actions\Action $action) => $commercial ? $action->requiresConfirmation()->extraAttributes(['style' => 'margin-left:1rem']) : $action)
+                    ->itemLabel(function (array $state, string $key, $livewire) use ($commercial) {
                         if (empty($state['product_id'])) {
-                            return __('Nouvelle prestation en préparation');
+                            $text = __('Nouvelle prestation en préparation');
+                        } else {
+                            $name = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
+                            $date = ! empty($state['service_date']) ? \Carbon\Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
+                            $sale = number_format((float) ($state['total_price'] ?? 0), 0, ',', ' ');
+                            $text = "📝 {$date} · {$name} · " . (int) ($state['quantity'] ?? 1) . " pax · {$sale} ¥ · " . __('En préparation');
                         }
-                        $name = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
-                        $date = ! empty($state['service_date']) ? \Carbon\Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
-                        $sale = number_format((float) ($state['total_price'] ?? 0), 0, ',', ' ');
 
-                        return "📝 {$date} · {$name} · " . (int) ($state['quantity'] ?? 1) . " pax · {$sale} ¥ · " . __('En préparation');
+                        return $commercial ? self::selectableLabel($text, $key, $livewire) : $text;
                     })
                     ->schema([
                         ...FolderResource::folderItemSchema($commercial ? 'commercial' : 'planned'),
@@ -60,25 +65,25 @@ final class PlannedItemsSection
             ]);
     }
 
-    /** Case de sélection d'une ligne préparée (état porté par la page, jamais enregistré). */
-    private static function selectionAction(): \Filament\Actions\Action
+    /**
+     * Libellé de ligne avec une vraie case à cocher (sélection portée par la page, jamais enregistrée).
+     * Une ligne pas encore enregistrée n'a pas d'identifiant : sa case est désactivée.
+     */
+    private static function selectableLabel(string $text, string $key, $livewire): \Illuminate\Support\HtmlString
     {
-        $id = fn (array $arguments): ?int => preg_match('/^record-(\d+)$/', (string) ($arguments['item'] ?? ''), $m) ? (int) $m[1] : null;
+        $id = preg_match('/^record-(\d+)$/', $key, $m) ? (int) $m[1] : null;
+        $checked = $id !== null && in_array($id, $livewire->selectedPlannedIds, true);
+        $attrs = $id === null
+            ? 'disabled title="' . e(__('Enregistrez d’abord cette ligne pour pouvoir la commander.')) . '"'
+            : 'wire:click="togglePlannedSelection(' . $id . ')"' . ($checked ? ' checked' : '');
 
-        return \Filament\Actions\Action::make('selectPlannedItem')
-            ->label(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? __('Retirer de la sélection') : __('Sélectionner pour commander'))
-            ->icon(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? 'heroicon-s-check-circle' : 'heroicon-o-stop')
-            ->color(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? 'primary' : 'gray')
-            ->iconButton()
-            ->action(function (array $arguments, $livewire) use ($id): void {
-                $plannedId = $id($arguments);
-                if ($plannedId === null) {
-                    \Filament\Notifications\Notification::make()->title(__('Enregistrez d’abord cette ligne pour pouvoir la commander.'))->warning()->send();
-
-                    return;
-                }
-                $livewire->togglePlannedSelection($plannedId);
-            });
+        return new \Illuminate\Support\HtmlString(
+            '<span style="display:inline-flex;align-items:center;gap:.5rem">'
+            . '<label x-on:click.stop style="display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer">'
+            . '<input type="checkbox" class="fi-checkbox-input" style="width:1.125rem;height:1.125rem" ' . $attrs
+            . ' aria-label="' . e(__('Sélectionner pour commander')) . ' : ' . e($text) . '"></label>'
+            . '<span>' . e($text) . '</span></span>'
+        );
     }
 
     /**

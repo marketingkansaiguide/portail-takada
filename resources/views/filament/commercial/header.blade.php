@@ -11,5 +11,5 @@
     @if ($folder->quote_reference)<span class="tk-c-muted">{{ __('Devis') }} {{ $folder->quote_reference }}</span>@endif
     <span class="tk-c-muted">{{ $folder->start_date?->format('d/m/Y') ?? '—' }} → {{ $folder->end_date?->format('d/m/Y') ?? '—' }} · {{ $pax }} pax</span>
     <span class="tk-c-badge">{{ __($statuses[$folder->ops_status] ?? $folder->ops_status) }}</span>
-    @if ($folder->ticketing_urgent)<span class="tk-c-badge bad">⚠ {{ __('URGENT billetterie') }}@if ($folder->ticketing_urgent_note) : {{ $folder->ticketing_urgent_note }}@endif</span>@endif
+    @if ($folder->ticketing_urgent)<span class="tk-c-badge bad">⚠ {{ __('URGENT billetterie') }}@php $urgentText = $folder->ticketing_urgent_note ?: \Illuminate\Support\Str::limit(trim((string) strtok((string) $folder->ticketing_general_notes, "\n")), 120); @endphp @if ($urgentText) : {{ $urgentText }}@endif</span>@endif
 </div>

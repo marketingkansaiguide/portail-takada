@@ -14,13 +14,7 @@
         <div style="white-space:pre-wrap">{{ $folder->ticketing_general_notes }}</div>
     </div>
 @endif
-
-@if ($timeline['alerts'])
-    <div class="tk-c-alert">
-        <strong>{{ __('À vérifier') }}</strong>
-        <ul>@foreach ($timeline['alerts'] as $a)<li>{{ $a["label"] }}</li>@endforeach</ul>
-    </div>
-@endif
+@include('filament.commercial.alerts', ['alerts' => $timeline['alerts']])
 
 <div class="tk-c-cards">
     <div class="tk-c-card"><div class="n">{{ $plannedCount }}</div><div class="l">{{ __('Prestations en préparation') }}</div></div>

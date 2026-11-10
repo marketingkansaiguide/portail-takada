@@ -29,7 +29,6 @@ function page($test)
 it('sélectionne des lignes, affiche la barre et commande seulement la sélection', function () {
     $ids = $this->planned->pluck('id');
     $component = page($this)
-        ->assertSee('Aucune prestation sélectionnée')
         ->call('togglePlannedSelection', $ids[0])
         ->call('togglePlannedSelection', $ids[2])
         ->assertSet('selectedPlannedIds', [$ids[0], $ids[2]])
@@ -60,4 +59,18 @@ it('refuse la commande si le dossier a été modifié entre-temps et ne double p
     \App\Models\Folder::whereKey($this->folder->id)->increment('lock_version');
     $c->callMountedAction();
     expect(FolderItem::where('folder_id', $this->folder->id)->count())->toBe(0);
+});
+
+it('affiche les alertes d’hébergement avec un lien d’ouverture et un récapitulatif sans colonne achat', function () {
+    $this->folder->stays()->create(['hotel_name' => 'Hôtel Sans Départ', 'check_in' => '2027-04-01', 'status' => 'to_book', 'booked_by' => 'takada']);
+    $ids = $this->planned->pluck('id');
+
+    page($this)
+        ->assertSee('Hôtel sans date de départ')
+        ->assertSee('tkOpenTarget')
+        ->call('togglePlannedSelection', $ids[0])
+        ->call('orderSelected')
+        ->assertActionMounted('orderPlannedItems')
+        ->assertSee('Total')
+        ->assertDontSee('>Achat<', false);
 });

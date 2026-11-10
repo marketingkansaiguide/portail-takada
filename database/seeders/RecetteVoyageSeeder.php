@@ -58,6 +58,7 @@ class RecetteVoyageSeeder extends Seeder
             'sale_type' => 'b2b', 'quote_reference' => 'DEV-EXEMPLE-0001',
             'start_date' => '2026-12-17', 'end_date' => '2027-01-03', 'pax_adults' => 2, 'pax_children' => 2,
             'ticketing_urgent' => true,
+            'ticketing_urgent_note' => 'Bus à réserver pour le 23/12.',
             'ticketing_general_notes' => "ATTENTION BILLETTERIE : bus à réserver pour le 23/12.\nNuits du 29/12 au 01/01 réservées par le client (location libre).",
             'internal_notes' => 'Clients résidant à l’étranger. Téléphone à confirmer.',
         ]);

@@ -3,9 +3,7 @@
 <div class="tk-c-muted" style="font-size:.8rem;margin-bottom:.5rem">
     {{ __('Lecture seule, d’après les données enregistrées. Trait plein vert : commandée. Trait pointillé : simplement préparée (non commandée, non confirmée).') }}
 </div>
-@if ($timeline['alerts'])
-    <div class="tk-c-alert"><strong>{{ __('À vérifier') }}</strong><ul>@foreach ($timeline['alerts'] as $a)<li>{{ $a["label"] }}</li>@endforeach</ul></div>
-@endif
+@include('filament.commercial.alerts', ['alerts' => $timeline['alerts']])
 @forelse ($timeline['days'] as $day)
     <div class="tk-c-day">
         <div class="d">{{ $day['date']->locale('fr')->isoFormat('ddd D MMM') }}</div>
