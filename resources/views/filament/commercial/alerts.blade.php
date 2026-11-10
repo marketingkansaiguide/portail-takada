@@ -21,18 +21,4 @@
             @endforeach
         </ul>
     </div>
-    <script>
-        window.tkOpenTarget = window.tkOpenTarget || function (tabLabel, key) {
-            const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.innerText.trim().startsWith(tabLabel));
-            if (tab) tab.click();
-            if (! key) return;
-            setTimeout(() => {
-                const panel = document.querySelector('[role=tabpanel].fi-active') || document; const item = panel.querySelector('[x-sortable-item="' + key + '"]');
-                if (item) {
-                    item.dispatchEvent(new CustomEvent('expand'));
-                    item.scrollIntoView({block: 'center', behavior: 'smooth'});
-                }
-            }, 350);
-        };
-    </script>
 @endif

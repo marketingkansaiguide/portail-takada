@@ -42,17 +42,6 @@
     @endforeach
     </tbody>
 </table>
+<div style="margin-top:.5rem"><button type="button" style="text-decoration:underline;font-weight:600;min-height:32px" onclick="window.tkAddStay()">+ {{ __('Ajouter un hôtel') }}</button></div>
 </div>
-<script>
-    window.tkOpenTarget = window.tkOpenTarget || function (tabLabel, key) {
-        const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.innerText.trim().startsWith(tabLabel));
-        if (tab) tab.click();
-        if (! key) return;
-        setTimeout(() => {
-            const panel = document.querySelector('[role=tabpanel].fi-active') || document;
-            const item = panel.querySelector('[x-sortable-item="' + key + '"]');
-            if (item) { item.dispatchEvent(new CustomEvent('expand')); item.scrollIntoView({block: 'center', behavior: 'smooth'}); }
-        }, 350);
-    };
-</script>
 @endif

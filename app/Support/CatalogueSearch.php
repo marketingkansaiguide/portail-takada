@@ -26,29 +26,34 @@ final class CatalogueSearch
         }
         $like = '%' . addcslashes($term, '%_\\') . '%';
 
-        $products = Product::query()
-            ->select('products.id', 'products.name', 'products.guide_city', 'products.category_id')
-            ->with('category:id,name')
-            ->where(function ($q) use ($alsoId) {
-                $q->where('products.is_public', true);
-                if ($alsoId) {
-                    $q->orWhere('products.id', $alsoId);
-                }
-            })
-            ->where(function ($q) use ($like) {
-                $q->where('products.name', 'like', $like)
-                    ->orWhere('products.guide_city', 'like', $like)
-                    ->orWhere('products.departure_station', 'like', $like)
-                    ->orWhere('products.arrival_station', 'like', $like)
-                    ->orWhereHas('category', fn ($c) => $c->where('name', 'like', $like))
-                    ->orWhereExists(fn ($e) => $e->select(DB::raw(1))->from('product_options')
-                        ->whereColumn('product_options.product_id', 'products.id')->where('product_options.name', 'like', $like));
-            })
-            ->orderByRaw('CASE WHEN products.name LIKE ? THEN 0 ELSE 1 END', [$like])
-            ->orderBy('products.name')
-            ->limit($limit)
-            ->get();
+        // Trois requêtes simples plutôt qu'un OR avec sous-requêtes corrélées (beaucoup plus rapide sur un grand catalogue).
+        $visible = fn ($q) => $q->where(function ($w) use ($alsoId) {
+            $w->where('products.is_public', true);
+            if ($alsoId) {
+                $w->orWhere('products.id', $alsoId);
+            }
+        });
+        $ids = Product::query()->where($visible)
+            ->where(fn ($q) => $q->where('products.name', 'like', $like)->orWhere('products.guide_city', 'like', $like)
+                ->orWhere('products.departure_station', 'like', $like)->orWhere('products.arrival_station', 'like', $like))
+            ->orderByRaw('CASE WHEN products.name LIKE ? THEN 0 ELSE 1 END', [$like])->orderBy('products.name')
+            ->limit($limit)->pluck('products.id')->all();
 
+        if (count($ids) < $limit) {
+            $categoryIds = DB::table('categories')->where('name', 'like', $like)->pluck('id');
+            $viaCategory = $categoryIds->isEmpty() ? [] : Product::query()->where($visible)->whereIn('products.category_id', $categoryIds)
+                ->whereNotIn('products.id', $ids)->orderBy('products.name')->limit($limit - count($ids))->pluck('products.id')->all();
+            $ids = array_merge($ids, $viaCategory);
+        }
+        if (count($ids) < $limit) {
+            $viaOptions = DB::table('product_options')->where('name', 'like', $like)->whereNotIn('product_id', $ids)->distinct()->limit($limit * 4)->pluck('product_id');
+            $viaOptions = $viaOptions->isEmpty() ? [] : Product::query()->where($visible)->whereIn('products.id', $viaOptions)->orderBy('products.name')
+                ->limit($limit - count($ids))->pluck('products.id')->all();
+            $ids = array_merge($ids, $viaOptions);
+        }
+
+        $byId = Product::query()->select('products.id', 'products.name', 'products.guide_city', 'products.category_id')->with('category:id,name')->whereIn('products.id', $ids)->get()->keyBy('id');
+        $products = collect($ids)->map(fn ($id) => $byId[$id] ?? null)->filter();
         return $products->mapWithKeys(fn (Product $p) => [$p->id => self::html($p)])->all();
     }
 

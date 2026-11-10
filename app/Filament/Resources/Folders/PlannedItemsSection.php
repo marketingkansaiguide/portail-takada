@@ -45,10 +45,8 @@ final class PlannedItemsSection
                             $text = __('Nouvelle prestation en préparation');
                         } else {
                             $name = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
-                            if ($commercial && filled($state['route_from'] ?? null) && filled($state['route_to'] ?? null)) {
-                                $base = \Illuminate\Support\Str::before($name, ' / ');
-                                $name = \Illuminate\Support\Str::ucfirst(trim((string) preg_replace('/^ticket\s+(de\s+|d[’\']\s*)?/iu', '', $base))) . ' ' . $state['route_from'] . ' → ' . $state['route_to']
-                                    . (filled($state['end_time'] ?? null) ? ' (' . __('arr.') . ' ' . $state['end_time'] . ')' : '');
+                            if ($commercial) {
+                                $name = \App\Support\EntryProfile::itemLabel($name, (array) ($state['custom_values'] ?? []), $state['route_from'] ?? null, $state['route_to'] ?? null);
                             }
                             $date = ! empty($state['service_date']) ? \Carbon\Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
                             $sale = number_format((float) ($state['total_price'] ?? 0), 0, ',', ' ');
@@ -102,7 +100,10 @@ final class PlannedItemsSection
         $profileOf = fn (\Filament\Schemas\Components\Utilities\Get $get): string => \App\Support\EntryProfile::for(
             $get('product_id') ? \App\Models\Product::with('category')->find($get('product_id')) : null
         );
-        $show = fn (string $field) => fn (\Filament\Schemas\Components\Utilities\Get $get): bool => in_array($field, \App\Support\EntryProfile::fields($profileOf($get)), true);
+        // Un produit à trajets (billets train / bus) a déjà son bloc « Trajets » : seule source du trajet et des heures.
+        $hasRoutes = fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('product_id') && \App\Models\Product::whereKey($get('product_id'))->value('product_type') === 'transport';
+        $show = fn (string $field) => fn (\Filament\Schemas\Components\Utilities\Get $get): bool => ! $hasRoutes($get)
+            && in_array($field, \App\Support\EntryProfile::fields($profileOf($get)), true);
         $timeRule = 'regex:/^([01]\d|2[0-3]):[0-5]\d$/';
         $places = fn ($get) => \App\Support\MeetingSuggestions::options($get('service_date'), $get('../../stays') ?? [], $get('../../flightSegments') ?? []);
 

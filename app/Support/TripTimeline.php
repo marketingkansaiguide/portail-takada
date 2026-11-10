@@ -80,7 +80,7 @@ final class TripTimeline
 
         return [
             'type' => 'item', 'sort' => 5,
-            'label' => $time . EntryProfile::routeLabel((string) ($item->product?->name ?? $item->title ?? __('Prestation')), $item->route_from, $item->route_to),
+            'label' => $time . EntryProfile::itemLabel((string) ($item->product?->name ?? $item->title ?? __('Prestation')), (array) $item->custom_values, $item->route_from, $item->route_to),
             'sub' => $status . $where,
             'state' => $state, 'note' => $item->ticketing_notes ? true : false,
         ];

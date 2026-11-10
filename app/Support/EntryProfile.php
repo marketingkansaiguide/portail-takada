@@ -65,4 +65,28 @@ final class EntryProfile
 
         return $base . ' ' . $from . ' → ' . $to;
     }
+
+    /**
+     * Libellé d'une ligne : « Train Kanazawa → Takayama · 09:20 → 11:52 » pour un produit à trajets
+     * (premier trajet du bloc catalogue), « Transfert Narita → Tokyo » pour les champs trajet des transferts.
+     *
+     * @param  array<string, mixed>|null  $customValues
+     */
+    public static function itemLabel(string $name, ?array $customValues, ?string $from = null, ?string $to = null): string
+    {
+        $routes = array_values(array_filter((array) ($customValues['transport_routes'] ?? []), 'is_array'));
+        $first = $routes[0] ?? null;
+        if ($first && (filled($first['departure_station'] ?? null) && filled($first['arrival_station'] ?? null))) {
+            $label = self::routeLabel($name, $first['departure_station'], $first['arrival_station']);
+            $dep = trim((string) ($first['departure_time'] ?? ''));
+            $arr = trim((string) ($first['arrival_time'] ?? ''));
+            if ($dep !== '' || $arr !== '') {
+                $label .= ' · ' . ($dep !== '' ? $dep : '…') . ($arr !== '' ? ' → ' . $arr : '');
+            }
+
+            return $label . (count($routes) > 1 ? ' (+' . (count($routes) - 1) . ')' : '');
+        }
+
+        return self::routeLabel($name, $from, $to);
+    }
 }

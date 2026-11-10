@@ -55,3 +55,20 @@ it('duplique un séjour à la suite avec les mêmes chambres', function () {
     expect($copy->check_in->format('Y-m-d'))->toBe('2026-12-20')->and($copy->check_out->format('Y-m-d'))->toBe('2026-12-23')
         ->and($copy->rooms)->toBe(2);
 });
+
+it('retire les catégories de l’ancien hôtel quand on change d’hôtel et garde les libellés saisis', function () {
+    $a = Hotel::create(['name' => 'Hôtel A', 'city' => 'Tokyo']);
+    $b = Hotel::create(['name' => 'Hôtel B', 'city' => 'Kyoto']);
+    $double = HotelRoomType::create(['hotel_id' => $a->id, 'name' => 'Double']);
+    $stay = $this->folder->stays()->create([
+        'hotel_name' => 'Hôtel A', 'hotel_id' => $a->id, 'check_in' => '2026-12-21', 'check_out' => '2026-12-24', 'status' => 'confirmed', 'booked_by' => 'takada',
+        'room_lines' => [['room_type_id' => $double->id, 'label' => 'Double', 'quantity' => 1], ['room_type_id' => null, 'label' => 'Twin saisie', 'quantity' => 1]],
+    ]);
+
+    $component = Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->set('data.stays.record-' . $stay->id . '.hotel_id', $b->id);
+
+    $lines = array_values($component->get('data.stays.record-' . $stay->id . '.room_lines'));
+    expect($lines)->toHaveCount(1)->and($lines[0]['label'])->toBe('Twin saisie');
+    $component->assertNotified();
+});

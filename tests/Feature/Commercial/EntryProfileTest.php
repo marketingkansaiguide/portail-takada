@@ -47,3 +47,19 @@ it('copie trajet, heure d’arrivée et date de fin à la commande et libelle «
     $labels = collect(TripTimeline::build($this->folder->fresh())['days'])->flatMap(fn ($d) => collect($d['entries'])->pluck('label'))->implode(' | ');
     expect($labels)->toContain('Kanazawa → Takayama')->toContain('09:20 → 11:52');
 });
+
+it('construit le libellé d’un train à partir du premier trajet du bloc catalogue', function () {
+    $routes = ['transport_routes' => [
+        ['departure_station' => 'Kanazawa', 'arrival_station' => 'Takayama', 'departure_time' => '09:20', 'arrival_time' => '11:52'],
+        ['departure_station' => 'Takayama', 'arrival_station' => 'Nagoya'],
+    ]];
+
+    expect(EntryProfile::itemLabel('Ticket de train / bus', $routes))->toBe('Train Kanazawa → Takayama · 09:20 → 11:52 (+1)')
+        ->and(EntryProfile::itemLabel('Transfert privé aéroport', [], 'Narita', 'Tokyo'))->toBe('Transfert privé aéroport Narita → Tokyo')
+        ->and(EntryProfile::itemLabel('Visite guidée', []))->toBe('Visite guidée');
+});
+
+it('résume les chambres, avec « catégorie à préciser » quand aucune n’est saisie', function () {
+    $stay = new \App\Models\FolderStay(['rooms' => 1]);
+    expect($stay->roomsSummary())->toBe('1 ch., catégorie à préciser');
+});

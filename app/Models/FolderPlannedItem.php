@@ -109,11 +109,7 @@ class FolderPlannedItem extends Model
     public function label(): string
     {
         $name = $this->title ?: ($this->product?->name ?? __('Prestation'));
-        if (filled($this->route_from) && filled($this->route_to)) {
-            $base = trim(\Illuminate\Support\Str::before($name, ' / '));
-            $base = \Illuminate\Support\Str::ucfirst(trim((string) preg_replace('/^ticket\s+(de\s+|d[’\']\s*)?/iu', '', $base)));
-            $name = $base . ' ' . $this->route_from . ' → ' . $this->route_to;
-        }
+        $name = \App\Support\EntryProfile::itemLabel($name, $this->custom_values, $this->route_from, $this->route_to);
 
         return $this->service_date ? $name . ' (' . $this->service_date->format('d/m/Y') . ')' : $name;
     }

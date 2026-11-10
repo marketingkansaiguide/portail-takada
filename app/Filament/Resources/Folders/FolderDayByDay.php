@@ -111,7 +111,11 @@ class FolderDayByDay
                 'repeater' => 'folderItems',
                 'internal' => false,
                 'date' => static::parseDate($state['service_date'] ?? null),
-                'name' => $productId ? ($products->get($productId) ?? __('Produit inconnu')) : __('Nouvelle ligne de prestation'),
+                'name' => $productId
+                    ? (! empty($state['planned_item_id'])
+                        ? \App\Support\EntryProfile::itemLabel((string) ($products->get($productId) ?? __('Produit inconnu')), (array) ($state['custom_values'] ?? []), $state['route_from'] ?? null, $state['route_to'] ?? null)
+                        : ($products->get($productId) ?? __('Produit inconnu')))
+                    : __('Nouvelle ligne de prestation'),
                 'options' => $optionNames->isNotEmpty() ? $optionNames->implode(', ') : ($productId ? __('Sans option') : ''),
                 'quantity' => $state['quantity'] ?? 1,
                 'product_id' => $productId,

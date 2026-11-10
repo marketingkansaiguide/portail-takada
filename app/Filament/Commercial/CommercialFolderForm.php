@@ -54,7 +54,9 @@ final class CommercialFolderForm
                         ->schema([self::flights()]),
                     Tab::make(__('Hébergements'))->icon('heroicon-o-building-office')
                         ->badge(fn (?Folder $record) => $record?->stays()->count() ?: null)
-                        ->schema([View::make('filament.commercial.stays-table')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(), self::stays()]),
+                        ->schema([View::make('filament.commercial.stays-table')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(),
+                            Section::make(__('Modifier ou ajouter un hébergement'))->id('stays-section')->collapsible()->collapsed()->compact()->schema([self::stays()]),
+                        ]),
                     Tab::make(__('Prestations'))->icon('heroicon-o-ticket')->schema([
                         PlannedItemsSection::make(commercial: true),
                         View::make('filament.commercial.selection-bar')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record?->isInternal())->columnSpanFull(),
@@ -287,6 +289,8 @@ final class CommercialFolderForm
                 ]),
                 Group::make()->columns(4)->schema([
                     DatePicker::make('check_in')->label(__('Arrivée'))->native(false)->displayFormat('d/m/Y')->live()
+                        // Arrivée proposée : départ du séjour précédent (le plus tardif des départs déjà saisis).
+                        ->default(fn (\Livewire\Component $livewire): ?string => collect((array) ($livewire->data['stays'] ?? []))->pluck('check_out')->filter()->sort()->last())
                         ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'check_in')),
                     TextInput::make('nights')->label(__('Nuits'))->numeric()->minValue(1)->live(debounce: 400)->dehydrated(false)
                         ->afterStateHydrated(function (TextInput $component, $record) {

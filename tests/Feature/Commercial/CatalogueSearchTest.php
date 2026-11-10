@@ -19,7 +19,7 @@ it('ne cherche rien sous 2 caractères', function () {
     expect(CatalogueSearch::search('a'))->toBe([])->and(CatalogueSearch::search(' '))->toBe([]);
 });
 
-it('limite à 15 résultats avec une seule requête et cherche nom, ville, catégorie et variantes', function () {
+it('limite à 15 résultats en peu de requêtes et cherche nom, ville, catégorie et variantes', function () {
     $count = Product::where('is_public', true)->count();
     Product::where('is_public', true)->orderBy('id')->limit(1)->update(['guide_city' => 'Zzvilleunique']);
     $cityHit = Product::where('guide_city', 'Zzvilleunique')->first();
@@ -30,7 +30,7 @@ it('limite à 15 résultats avec une seule requête et cherche nom, ville, caté
     $queries = count(DB::getQueryLog());
     DB::disableQueryLog();
 
-    expect(count($byName))->toBeLessThanOrEqual(15)->and($queries)->toBeLessThanOrEqual(2);
+    expect(count($byName))->toBeLessThanOrEqual(15)->and($queries)->toBeLessThanOrEqual(6);
     expect(array_keys(CatalogueSearch::search('Zzvilleunique')))->toContain($cityHit->id);
     expect(strlen($category) >= 2 ? count(CatalogueSearch::search($category)) : 1)->toBeLessThanOrEqual(15)->and($count)->toBeGreaterThan(0);
     expect(CatalogueSearch::search('Zzvilleunique')[$cityHit->id])->toContain('Zzvilleunique');

@@ -32,6 +32,7 @@ class EditCommercialFolder extends EditFolder
         $copy->status = 'to_book';
         $copy->save();
         $this->fillForm();
+        $this->js('window.tkOpenTarget(' . json_encode(__('Hébergements')) . ', "record-' . $copy->id . '")');
     }
 
     /** Ajoute un séjour à compléter sur une plage de nuits manquantes. */
@@ -39,11 +40,12 @@ class EditCommercialFolder extends EditFolder
     {
         $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
         $in = \Carbon\Carbon::parse($from);
-        $this->getRecord()->stays()->create([
+        $new = $this->getRecord()->stays()->create([
             'hotel_name' => __('Hôtel à préciser'), 'check_in' => $in, 'check_out' => $in->copy()->addDays(max(1, $nights)),
             'status' => 'to_book', 'booked_by' => 'takada',
         ]);
         $this->fillForm();
+        $this->js('window.tkOpenTarget(' . json_encode(__('Hébergements')) . ', "record-' . $new->id . '")');
     }
 
 

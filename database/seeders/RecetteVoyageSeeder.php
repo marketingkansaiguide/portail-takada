@@ -80,19 +80,20 @@ class RecetteVoyageSeeder extends Seeder
         $stay(['hotel_name' => 'Location libre à Hakone', 'city' => 'Hakone', 'check_in' => '2026-12-29', 'check_out' => '2027-01-01', 'status' => 'booked_by_client', 'booked_by' => 'client', 'notes' => 'Réservé par le client (plateforme de location).']);
         $stay(['hotel_id' => $h['asakusa']->id, 'hotel_name' => $h['asakusa']->name, 'city' => 'Tokyo', 'check_in' => '2027-01-01', 'check_out' => '2027-01-03', 'status' => 'confirmed']);
 
-        $plan = fn (int $productId, string $date, int $qty, array $extra = []) => World::plannedItem($folder, $productId, ['service_date' => $date, 'quantity' => $qty] + $extra);
+        $route = fn (string $date, string $from, string $to, string $dep, ?string $arr = null) => ['transport_routes' => [['departure_station' => $from, 'arrival_station' => $to, 'departure_date' => $date, 'departure_time' => $dep, 'arrival_time' => $arr, 'pax_count' => 4]]];
+        $plan = fn (int $productId, string $date, int $qty, array $extra = []) => World::plannedItem($folder, $productId, ['service_date' => $date, 'quantity' => $qty, 'created_by_user_id' => $owner->id] + $extra);
         $items = [
             $plan(3, '2026-12-17', 4),
             $plan(175, '2026-12-17', 4, ['meeting_point' => 'Aéroport NRT — vol XX454, arrivée 17/12 08:10', 'meeting_time' => '08:30', 'ticketing_notes' => 'Accueil à l’arrivée puis transfert vers l’hôtel de Tokyo.']),
             $plan(139, '2026-12-17', 4, ['meeting_point' => 'Aéroport NRT', 'meeting_time' => '08:30']),
             $plan(160, '2026-12-18', 4, ['meeting_point' => $h['asakusa']->name . ' — ' . $h['asakusa']->address, 'meeting_time' => '09:00']),
-            $plan(4, '2026-12-21', 4, ['meeting_time' => '09:20', 'ticketing_notes' => 'Shinkansen Tokyo → Kanazawa, 09:20 → 11:52.']),
-            $plan(4, '2026-12-23', 4, ['meeting_time' => '09:30', 'ticketing_notes' => 'Bus Kanazawa → Shirakawa-go vers 09:30, retour vers 15:00. À réserver impérativement.']),
-            $plan(4, '2026-12-24', 4, ['meeting_time' => '09:05']),
+            $plan(4, '2026-12-21', 4, ['custom_values' => $route('2026-12-21', 'Tokyo', 'Kanazawa', '09:20', '11:52'), 'ticketing_notes' => 'Shinkansen, places non réservées.']),
+            $plan(4, '2026-12-23', 4, ['custom_values' => $route('2026-12-23', 'Kanazawa', 'Shirakawa-go', '09:30'), 'ticketing_notes' => 'Bus Kanazawa → Shirakawa-go vers 09:30, retour vers 15:00. À réserver impérativement.']),
+            $plan(4, '2026-12-24', 4, ['custom_values' => $route('2026-12-24', 'Kanazawa', 'Takayama', '09:05', '11:30')]),
             $plan(163, '2026-12-26', 4, ['meeting_point' => $h['kyoto']->name]),
-            $plan(4, '2026-12-28', 4, ['meeting_time' => '09:43']),
+            $plan(4, '2026-12-28', 4, ['custom_values' => $route('2026-12-28', 'Kyoto', 'Hakone', '09:43')]),
             $plan(5, '2026-12-29', 4, ['ticketing_notes' => 'Hakone Free Pass 3 jours.']),
-            $plan(4, '2027-01-03', 4, ['meeting_time' => '07:00', 'ticketing_notes' => 'Skyliner Ueno → aéroport NRT, départ 07:00.']),
+            $plan(4, '2027-01-03', 4, ['custom_values' => $route('2027-01-03', 'Ueno', 'Narita Airport', '07:00'), 'ticketing_notes' => 'Skyliner Ueno → aéroport NRT, départ 07:00.']),
         ];
 
         // Commande partielle : les trois premières lignes (arrivée) seulement.

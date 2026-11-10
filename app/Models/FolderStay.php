@@ -53,15 +53,23 @@ class FolderStay extends Model
         });
     }
 
-    /** « 1 × Double + 1 × Twin », à partir des lignes ou, à défaut, des colonnes historiques. */
+    /** « 1 × Double + 1 × Twin » ; « 1 ch., catégorie à préciser » quand aucune catégorie n'est saisie. */
     public function roomsSummary(): string
     {
-        $lines = $this->room_lines ?: (($this->room_type_id || filled($this->room_label)) ? [['room_type_id' => $this->room_type_id, 'label' => $this->room_label, 'quantity' => max(1, (int) $this->rooms)]] : []);
+        $lines = $this->room_lines ?: (($this->room_type_id || filled($this->room_label))
+            ? [['room_type_id' => $this->room_type_id, 'label' => $this->room_label, 'quantity' => max(1, (int) $this->rooms)]]
+            : []);
+        if ($lines === []) {
+            return max(1, (int) $this->rooms) . ' ' . __('ch.') . ', ' . __('catégorie à préciser');
+        }
         $types = HotelRoomType::whereIn('id', collect($lines)->pluck('room_type_id')->filter())->pluck('name', 'id');
 
-        return collect($lines)->map(fn ($l) => ((int) ($l['quantity'] ?? 1)) . ' × ' . ($l['label'] ?: ($types[$l['room_type_id'] ?? 0] ?? __('chambre'))))->implode(' + ');
-    }
+        return collect($lines)->map(function ($l) use ($types) {
+            $name = $l['label'] ?: ($types[$l['room_type_id'] ?? 0] ?? null);
 
+            return $name ? ((int) ($l['quantity'] ?? 1)) . ' × ' . $name : ((int) ($l['quantity'] ?? 1)) . ' ' . __('ch.') . ', ' . __('catégorie à préciser');
+        })->implode(' + ');
+    }
     public function folder(): BelongsTo
     {
         return $this->belongsTo(Folder::class);

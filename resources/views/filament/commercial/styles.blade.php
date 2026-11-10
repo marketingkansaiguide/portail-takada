@@ -12,6 +12,8 @@
     .tk-c-card .n { font-size:1.35rem; font-weight:700; line-height:1.1; } .tk-c-card .l { font-size:.75rem; color:var(--gray-500,#6b7280); }
     .tk-c-alert { border:1px solid #fcd34d; background:#fffbeb; color:#92400e; border-radius:.6rem; padding:.55rem .8rem; margin-bottom:.9rem; font-size:.85rem; }
     .tk-c-alert.urgent { border-color:#f87171; background:#fef2f2; color:#991b1b; }
+    .tk-flat-repeater .fi-fo-repeater-item { border:0 !important; box-shadow:none !important; background:transparent !important; padding:0 !important; }
+    .tk-flat-repeater .fi-fo-repeater-item-header { display:none; }
     .tk-c-alert ul { margin:.25rem 0 0 1.1rem; list-style:disc; }
     .tk-c-table { width:100%; border-collapse:collapse; font-size:.82rem; }
     .tk-c-table th { text-align:left; font-weight:600; color:var(--gray-500,#6b7280); padding:.3rem .5rem; border-bottom:1px solid var(--gray-200,#e5e7eb); }
@@ -28,3 +30,25 @@
     .tk-c-ent.stay { border-left:2px solid #6b7280; padding-left:.4rem; }
     .tk-c-ent.info { border-left:2px solid #3b82f6; padding-left:.4rem; }
 </style>
+
+<script>
+    window.tkOpenTarget = function (tabLabel, key) {
+        const tab = [...document.querySelectorAll('[role=tab]')].find(t => t.innerText.trim().startsWith(tabLabel));
+        if (tab) tab.click();
+        if (! key) return;
+        window.dispatchEvent(new CustomEvent('expand-section', {detail: {id: 'stays-section'}}));
+        setTimeout(() => {
+            const panel = document.querySelector('[role=tabpanel].fi-active') || document;
+            const item = panel.querySelector('[x-sortable-item="' + key + '"]');
+            if (item) { item.dispatchEvent(new CustomEvent('expand')); item.scrollIntoView({block: 'center', behavior: 'smooth'}); }
+        }, 350);
+    };
+    window.tkAddStay = function () {
+        window.dispatchEvent(new CustomEvent('expand-section', {detail: {id: 'stays-section'}}));
+        setTimeout(() => {
+            const panel = document.querySelector('[role=tabpanel].fi-active') || document;
+            const add = [...panel.querySelectorAll('button')].find(b => b.innerText.trim() === 'Ajouter un hébergement');
+            if (add) { add.click(); add.scrollIntoView({block: 'center', behavior: 'smooth'}); }
+        }, 350);
+    };
+</script>

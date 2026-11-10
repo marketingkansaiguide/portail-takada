@@ -421,6 +421,25 @@ class FolderResource extends Resource
      *
      * @return array<int, mixed>
      */
+    /** Date de la dernière ligne préparée du formulaire (défaut d'une nouvelle ligne dans l'espace commercial). */
+    public static function lastPlannedDate(\Livewire\Component $livewire): ?string
+    {
+        $dates = collect((array) ($livewire->data['plannedItems'] ?? []))->pluck('service_date')->filter()->values();
+
+        return $dates->isEmpty() ? null : (string) $dates->last();
+    }
+
+    /** Vrai si le produit n'a qu'un seul groupe d'options. */
+    public static function hasSingleOptionGroup($productId): bool
+    {
+        if (! $productId) {
+            return false;
+        }
+        $groups = \App\Models\ProductOption::where('product_id', $productId)->get()->map(fn ($o) => $o->group_name ?: 'option-' . $o->id)->unique();
+
+        return $groups->count() === 1;
+    }
+
     public static function folderItemSchema(string $mode = 'ordered'): array
     {
         return [
@@ -477,10 +496,11 @@ class FolderResource extends Resource
                             ->relationship('product', 'name', fn ($query, Get $get) => $query->where(
                                 fn ($q) => $q->where('products.is_public', true)->orWhere('products.id', $get('product_id'))
                             ))
-                            ->label(__('Produit / Activité'))
+                            ->label($mode === 'commercial' ? __('Prestation') : __('Produit / Activité'))
                             ->required()
                             ->searchable()
-                            ->preload($mode !== 'commercial')
+                            ->placeholder($mode === 'commercial' ? __('Rechercher par nom, ville ou catégorie…') : null)
+                            ->preload()
                             // Espace commercial : recherche côté serveur (2 caractères minimum, 15 résultats),
                             // prestations fréquentes à champ vide ; le catalogue n'est jamais préchargé.
                             ->when($mode === 'commercial', fn (Select $select) => $select
@@ -492,7 +512,7 @@ class FolderResource extends Resource
                                 ->getSearchResultsUsing(fn (string $search, Get $get): array => \App\Support\CatalogueSearch::search($search, \App\Support\CatalogueSearch::LIMIT, (int) $get('product_id') ?: null))
                                 ->getOptionLabelUsing(fn ($value): ?string => ($name = \App\Models\Product::whereKey($value)->value('name')) ? e($name) : null))
                             ->live()
-                            ->afterStateUpdated(function ($set, $get, $state, $old) {
+                            ->afterStateUpdated(function ($set, $get, $state, $old) use ($mode) {
                                 if ($state !== $old) {
                                     $set('selected_options', []);
                                     $set('custom_values', []); 
@@ -508,9 +528,19 @@ class FolderResource extends Resource
                                         $set('supplier_id', null);
                                     }
                                 }
+                                if ($mode === 'commercial' && $state && \App\Models\Product::whereKey($state)->value('product_type') === 'transport' && blank($get('custom_values.transport_routes'))) {
+                                    // Un produit à trajets reçoit d'office son premier trajet (date et pax repris de la ligne).
+                                    $set('custom_values.transport_routes', [(string) \Illuminate\Support\Str::uuid() => [
+                                        'departure_date' => $get('service_date'), 'pax_count' => max(1, (int) $get('quantity')),
+                                    ]]);
+                                }
+                                if ($mode === 'commercial' && $state && \App\Models\Product::whereKey($state)->value('product_type') !== 'transport' && self::hasSingleOptionGroup($state)) {
+                                    // Un seul groupe d'options : sa ligne est créée d'office, sans cadre ni bouton d'ajout.
+                                    $set('selected_options', [(string) \Illuminate\Support\Str::uuid() => ['product_option_id' => null, 'quantity' => 1]]);
+                                }
                                 self::updateItemPrices($set, $get);
                             })
-                            ->columnSpan(4),
+                            ->columnSpan($mode === 'commercial' ? 12 : 4),
 
                         Select::make('item_status_id')
                             ->hidden(in_array($mode, ['planned', 'commercial'], true)) // statut fournisseur : seulement après commande
@@ -564,6 +594,7 @@ class FolderResource extends Resource
                          DatePicker::make('service_date')
                              ->label(__('Date'))
                             ->native(false)->displayFormat($mode === 'commercial' ? 'd/m/Y' : null)
+                            ->default($mode === 'commercial' ? fn (\Livewire\Component $livewire): ?string => self::lastPlannedDate($livewire) : null)
                             ->required()
                             ->live()
                             ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
@@ -649,7 +680,9 @@ class FolderResource extends Resource
                          TextInput::make('quantity')
                              ->label(__('Total Pax'))
                             ->numeric()
-                            ->default(1)
+                            ->default($mode === 'commercial'
+                                ? fn (\Livewire\Component $livewire): int => max(1, (int) ($livewire->data['pax_adults'] ?? 0) + (int) ($livewire->data['pax_children'] ?? 0))
+                                : 1)
                             ->minValue(1)
                             ->maxValue(fn (Get $get) => \App\Models\Product::find($get('product_id'))?->max_pax)
                             ->extraInputAttributes(function (Get $get) {
@@ -713,8 +746,13 @@ class FolderResource extends Resource
 
                     Repeater::make('selected_options')
                         ->label(__('Options Sélectionnées'))
+                        ->visible(fn (Get $get): bool => $mode !== 'commercial' || (filled($get('product_id')) && \App\Models\Product::whereKey($get('product_id'))->value('product_type') !== 'transport'))
                         ->reorderable($mode !== 'commercial')
                         ->compact($mode === 'commercial')
+                        // Un seul groupe d'options : pas de cadre de répéteur ni d'ajout d'option en pleine largeur.
+                        ->addable(fn (Get $get): bool => $mode !== 'commercial' || ! self::hasSingleOptionGroup($get('product_id')) || blank($get('selected_options')))
+                        ->deletable(fn (Get $get): bool => $mode !== 'commercial' || ! self::hasSingleOptionGroup($get('product_id')))
+                        ->extraAttributes(fn (Get $get): array => $mode === 'commercial' && self::hasSingleOptionGroup($get('product_id')) ? ['class' => 'tk-flat-repeater'] : [])
                         ->addActionLabel(__('Ajouter une option tarifaire'))
                         ->defaultItems(0)
                         ->live()
@@ -790,7 +828,7 @@ class FolderResource extends Resource
 
                     Group::make()
                         ->statePath('custom_values')
-                        ->schema(function (Get $get) {
+                        ->schema(function (Get $get) use ($mode) {
                             $productId = $get('product_id');
                             if (!$productId) return [];
 
@@ -812,6 +850,7 @@ class FolderResource extends Resource
                                         ->compact()
                                         ->schema([
 Repeater::make('transport_routes')
+    ->label(__('Trajets'))
     ->hiddenLabel()
     ->addActionLabel(__('Ajouter un trajet'))
     // Libellé lisible même replié : « Trajet 2 · Kyoto → Tokyo · 07/08 · 2 pax »
@@ -946,6 +985,7 @@ TextInput::make('pax_count')
 
 Select::make('supplier_id')
     ->label(__('Fournisseur'))
+    ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
     ->hintColor('gray')
     ->hintIcon('heroicon-m-information-circle', tooltip: __('Qui émet ce billet (JR, Willer Express...)'))
     ->options(fn () => \App\Models\Supplier::pluck('name', 'id'))
@@ -955,6 +995,7 @@ Select::make('supplier_id')
 
 TextInput::make('purchase_price')
     ->label(__('Prix d\'achat'))
+    ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
     ->hintColor('gray')
     ->hintIcon('heroicon-m-information-circle', tooltip: __('Total du trajet, refacturé à l\'agence au prix coûtant.'))
     ->suffix('¥')
@@ -1703,6 +1744,10 @@ TextInput::make('purchase_price')
                                 if (!isset($state['product_id'])) return __('Nouvelle ligne de prestation');
                                 
                                 $productName = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
+                                if (! empty($state['planned_item_id'])) {
+                                    // Prestation issue de l'espace commercial : « Train A → B · 09:20 → 11:52 ».
+                                    $productName = e(\App\Support\EntryProfile::itemLabel($productName, (array) ($state['custom_values'] ?? []), $state['route_from'] ?? null, $state['route_to'] ?? null));
+                                }
                                 $date = !empty($state['service_date']) ? Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
                                 $quantity = $state['quantity'] ?? 1;
 
