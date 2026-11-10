@@ -16,6 +16,37 @@ class EditCommercialFolder extends EditFolder
 {
     protected static string $resource = CommercialFolderResource::class;
 
+    /** Duplique un séjour : mêmes hôtel et chambres, dates décalées à la suite (arrivée = départ du séjour copié). */
+    public function duplicateStay(int $id): void
+    {
+        // Le formulaire est enregistré d’abord : le répéteur supprimerait sinon un séjour créé hors de lui.
+        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+        $stay = $this->getRecord()->stays()->whereKey($id)->first();
+        if (! $stay) {
+            return;
+        }
+        $nights = $stay->nights() ?? 1;
+        $copy = $stay->replicate(['confirmation_ref']);
+        $copy->check_in = $stay->check_out ?? $stay->check_in;
+        $copy->check_out = $copy->check_in?->copy()->addDays($nights);
+        $copy->status = 'to_book';
+        $copy->save();
+        $this->fillForm();
+    }
+
+    /** Ajoute un séjour à compléter sur une plage de nuits manquantes. */
+    public function addStayOnGap(string $from, int $nights): void
+    {
+        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+        $in = \Carbon\Carbon::parse($from);
+        $this->getRecord()->stays()->create([
+            'hotel_name' => __('Hôtel à préciser'), 'check_in' => $in, 'check_out' => $in->copy()->addDays(max(1, $nights)),
+            'status' => 'to_book', 'booked_by' => 'takada',
+        ]);
+        $this->fillForm();
+    }
+
+
     protected function usesRowSelection(): bool
     {
         return true;

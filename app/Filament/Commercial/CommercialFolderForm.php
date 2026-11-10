@@ -54,7 +54,7 @@ final class CommercialFolderForm
                         ->schema([self::flights()]),
                     Tab::make(__('Hébergements'))->icon('heroicon-o-building-office')
                         ->badge(fn (?Folder $record) => $record?->stays()->count() ?: null)
-                        ->schema([self::stays()]),
+                        ->schema([View::make('filament.commercial.stays-table')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull(), self::stays()]),
                     Tab::make(__('Prestations'))->icon('heroicon-o-ticket')->schema([
                         PlannedItemsSection::make(commercial: true),
                         View::make('filament.commercial.selection-bar')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record?->isInternal())->columnSpanFull(),
@@ -263,8 +263,18 @@ final class CommercialFolderForm
                         ->getSearchResultsUsing(fn (string $search) => self::searchHotels($search))
                         ->getOptionLabelUsing(fn ($value) => ($h = Hotel::find($value)) ? self::hotelLabel($h) : null)
                         ->live()
-                        ->afterStateUpdated(function ($state, Set $set) {
-                            $set('room_type_id', null);
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            // Changer d'hôtel retire les catégories de l'ancien hôtel ; les libellés saisis à la main restent.
+                            $lines = collect($get('room_lines') ?? []);
+                            $kept = $lines->filter(fn ($l) => blank($l['room_type_id'] ?? null))->all();
+                            $removed = $lines->count() - count($kept);
+                            if ($removed > 0) {
+                                $set('room_lines', $kept);
+                                \Filament\Notifications\Notification::make()
+                                    ->title(trans_choice(':count catégorie de chambre retirée|:count catégories de chambre retirées', $removed, ['count' => $removed]))
+                                    ->body(__('Elles appartenaient à l’ancien hôtel : choisissez celles du nouvel hôtel.'))
+                                    ->warning()->send();
+                            }
                             if ($h = $state ? Hotel::find($state) : null) {
                                 $set('hotel_name', $h->name);
                                 $set('city', $h->city);
@@ -276,29 +286,54 @@ final class CommercialFolderForm
                     TextInput::make('city')->label(__('Ville / destination')),
                 ]),
                 Group::make()->columns(4)->schema([
-                    DatePicker::make('check_in')->label(__('Check-in'))->native(false)->displayFormat('d/m/Y')->live(),
-                    DatePicker::make('check_out')->label(__('Check-out'))->native(false)->displayFormat('d/m/Y')->afterOrEqual('check_in')->live(),
-                    Placeholder::make('nights')->label(__('Nuits'))->content(function (Get $get) {
-                        try {
-                            return ($get('check_in') && $get('check_out')) ? (string) max(0, Carbon::parse($get('check_in'))->diffInDays(Carbon::parse($get('check_out')))) : '—';
-                        } catch (\Throwable) {
-                            return '—';
+                    DatePicker::make('check_in')->label(__('Arrivée'))->native(false)->displayFormat('d/m/Y')->live()
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'check_in')),
+                    TextInput::make('nights')->label(__('Nuits'))->numeric()->minValue(1)->live(debounce: 400)->dehydrated(false)
+                        ->afterStateHydrated(function (TextInput $component, $record) {
+                            $component->state($record instanceof FolderStay ? $record->nights() : null);
+                        })
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'nights'))
+                        ->helperText(__('Nuits ou départ : l’un calcule l’autre.')),
+                    DatePicker::make('check_out')->label(__('Départ'))->native(false)->displayFormat('d/m/Y')->afterOrEqual('check_in')->live()
+                        ->afterStateUpdated(fn (Get $get, Set $set) => self::syncNights($get, $set, 'check_out')),
+                    Select::make('meal_plan')->label(__('Repas'))->options(FolderStay::MEAL_PLANS)->native(false),
+                ]),
+                Repeater::make('room_lines')
+                    ->label(__('Chambres'))
+                    ->addActionLabel(__('Ajouter une catégorie de chambre'))
+                    ->helperText(__('Une ligne par catégorie : « quantité × catégorie ». Les catégories viennent de l’hôtel choisi ; vous pouvez aussi saisir un libellé.'))
+                    ->defaultItems(0)->reorderable(false)->compact()->live()
+                    ->schema([
+                        Group::make()->columns(6)->schema([
+                            TextInput::make('quantity')->label(__('Quantité'))->numeric()->minValue(1)->default(1)->required()->columnSpan(1),
+                            Select::make('room_type_id')
+                                ->label(__('Catégorie de l’hôtel'))
+                                ->placeholder(fn (Get $get) => $get('../../hotel_id') ? __('Choisir…') : __('Choisissez d’abord un hôtel'))
+                                ->options(fn (Get $get) => $get('../../hotel_id') ? HotelRoomType::where('hotel_id', $get('../../hotel_id'))->orderBy('name')->pluck('name', 'id')->all() : [])
+                                ->searchable()->live()
+                                ->afterStateUpdated(fn ($state, Set $set) => $state ? $set('label', HotelRoomType::find($state)?->name) : null)
+                                ->columnSpan(2),
+                            TextInput::make('label')->label(__('Libellé (personnalisable)'))->columnSpan(3),
+                        ]),
+                    ]),
+                Select::make('copy_rooms_from')
+                    ->label(__('Reprendre les chambres de…'))
+                    ->placeholder(__('Un autre séjour du dossier'))
+                    ->options(function (\Livewire\Component $livewire, Get $get) {
+                        return collect($get('../../stays') ?? [])
+                            ->filter(fn ($s) => filled($s['room_lines'] ?? null) && filled($s['hotel_name'] ?? null))
+                            ->mapWithKeys(fn ($s, $k) => [$k => ($s['hotel_name'] ?? '') . (filled($s['check_in'] ?? null) ? ' · ' . Carbon::parse($s['check_in'])->format('d/m') : '')])
+                            ->all();
+                    })
+                    ->live()->dehydrated(false)
+                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                        if (filled($state)) {
+                            $set('room_lines', collect($get('../../stays')[$state]['room_lines'] ?? [])->map(fn ($l) => ['quantity' => $l['quantity'] ?? 1, 'room_type_id' => null, 'label' => $l['label'] ?? null])->values()->all());
+                            $set('copy_rooms_from', null);
                         }
                     }),
-                    TextInput::make('rooms')->label(__('Chambres'))->numeric()->minValue(1)->default(1),
-                ]),
                 Group::make()->columns(4)->schema([
-                    Select::make('room_type_id')
-                        ->label(__('Catégorie de chambre du référentiel'))
-                        ->placeholder(fn (Get $get) => $get('hotel_id') ? __('Choisir…') : __('Choisissez d’abord un hôtel'))
-                        ->options(fn (Get $get) => $get('hotel_id') ? HotelRoomType::where('hotel_id', $get('hotel_id'))->orderBy('name')->pluck('name', 'id')->all() : [])
-                        ->searchable()
-                        ->live()
-                        ->afterStateUpdated(fn ($state, Set $set) => $state ? $set('room_label', HotelRoomType::find($state)?->name) : null)
-                        ->helperText(fn (Get $get) => $get('hotel_id') && ! HotelRoomType::where('hotel_id', $get('hotel_id'))->exists() ? __('Aucune catégorie référencée pour cet hôtel : saisissez le libellé.') : null),
-                    TextInput::make('room_label')->label(__('Libellé de la chambre (personnalisable)')),
                     Select::make('room_category')->label(__('Type de chambre'))->options(FolderStay::ROOM_CATEGORIES)->native(false),
-                    Select::make('meal_plan')->label(__('Repas'))->options(FolderStay::MEAL_PLANS)->native(false),
                 ]),
                 Group::make()->columns(4)->schema([
                     Select::make('status')->label(__('Statut'))->options(FolderStay::STATUSES)->default('to_book')->required()->native(false),
@@ -316,6 +351,33 @@ final class CommercialFolderForm
                     TextInput::make('sale_price')->label(__('Prix de vente (¥, facultatif)'))->numeric()->minValue(0),
                 ]),
             ]);
+    }
+
+    private static function nightsBetween(mixed $in, mixed $out): ?int
+    {
+        try {
+            $a = $in ? Carbon::parse($in)->startOfDay() : null;
+            $b = $out ? Carbon::parse($out)->startOfDay() : null;
+
+            return ($a && $b && $b->gte($a)) ? (int) round($a->floatDiffInDays($b)) : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** Nuits ↔ départ : modifier l'un calcule l'autre. */
+    private static function syncNights(Get $get, Set $set, string $changed): void
+    {
+        try {
+            if ($changed === 'nights' && $get('check_in') && (int) $get('nights') > 0) {
+                $set('check_out', Carbon::parse($get('check_in'))->addDays((int) $get('nights'))->format('Y-m-d'));
+            } elseif ($get('check_in') && $get('check_out')) {
+                $set('nights', self::nightsBetween($get('check_in'), $get('check_out')));
+            } elseif ($changed === 'check_in' && $get('check_in') && (int) $get('nights') > 0) {
+                $set('check_out', Carbon::parse($get('check_in'))->addDays((int) $get('nights'))->format('Y-m-d'));
+            }
+        } catch (\Throwable) {
+        }
     }
 
     /** @return array<int|string, string> */

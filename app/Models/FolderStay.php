@@ -32,8 +32,35 @@ class FolderStay extends Model
 
     protected $casts = [
         'check_in' => 'date', 'check_out' => 'date', 'passenger_ids' => 'array',
-        'rooms' => 'integer', 'purchase_price' => 'integer', 'sale_price' => 'integer',
+        'rooms' => 'integer', 'room_lines' => 'array', 'purchase_price' => 'integer', 'sale_price' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        // La première ligne de chambres alimente les colonnes historiques ; le total de chambres est la somme.
+        static::saving(function (FolderStay $stay): void {
+            $lines = collect($stay->room_lines ?? [])
+                ->map(fn ($l) => ['room_type_id' => $l['room_type_id'] ?? null, 'label' => filled($l['label'] ?? null) ? trim((string) $l['label']) : null, 'quantity' => max(1, (int) ($l['quantity'] ?? 1))])
+                ->filter(fn ($l) => $l['room_type_id'] || $l['label'])
+                ->values();
+            $stay->room_lines = $lines->isEmpty() ? null : $lines->all();
+            if ($lines->isNotEmpty()) {
+                $first = $lines->first();
+                $stay->rooms = (int) $lines->sum('quantity');
+                $stay->room_type_id = $first['room_type_id'];
+                $stay->room_label = $first['label'] ?? ($first['room_type_id'] ? HotelRoomType::find($first['room_type_id'])?->name : null);
+            }
+        });
+    }
+
+    /** « 1 × Double + 1 × Twin », à partir des lignes ou, à défaut, des colonnes historiques. */
+    public function roomsSummary(): string
+    {
+        $lines = $this->room_lines ?: (($this->room_type_id || filled($this->room_label)) ? [['room_type_id' => $this->room_type_id, 'label' => $this->room_label, 'quantity' => max(1, (int) $this->rooms)]] : []);
+        $types = HotelRoomType::whereIn('id', collect($lines)->pluck('room_type_id')->filter())->pluck('name', 'id');
+
+        return collect($lines)->map(fn ($l) => ((int) ($l['quantity'] ?? 1)) . ' × ' . ($l['label'] ?: ($types[$l['room_type_id'] ?? 0] ?? __('chambre'))))->implode(' + ');
+    }
 
     public function folder(): BelongsTo
     {
