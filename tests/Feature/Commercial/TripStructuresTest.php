@@ -119,7 +119,7 @@ it("signale les incohérences dans la chronologie et distingue préparé et comm
     $timeline = TripTimeline::build($this->folder->fresh());
     $alerts = implode(' | ', array_column($timeline['alerts'], 'label'));
 
-    expect($alerts)->toContain('Aucun vol')->and($alerts)->toContain('Nuits sans hébergement')->and($alerts)->toContain('Hôtel à réserver');
+    expect($alerts)->toContain('Aucun vol')->and($alerts)->toContain('sans hébergement')->and($alerts)->toContain('Hôtel à réserver');
     $states = collect($timeline['days'])->flatMap(fn ($d) => collect($d['entries'])->pluck('state'));
     expect($states)->toContain('planned');
 });
@@ -220,7 +220,7 @@ it("T3 : un trou réel est regroupé en une plage, jamais tronqué", function ()
 
     expect($gaps)->toHaveCount(1)
         ->and($gaps[0]['range'])->toMatchArray(['from' => '2026-12-25', 'to' => '2026-12-28', 'nights' => 4])
-        ->and($gaps[0]['label'])->toContain('25/12 → 28/12')->toContain('4');
+        ->and($gaps[0]['label'])->toContain('Du 25/12 au 29/12, 4 nuits');
 });
 
 it("T3 : un séjour réservé par le client couvre ses nuits sans action de commande", function () {

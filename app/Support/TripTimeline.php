@@ -148,7 +148,9 @@ final class TripTimeline
                 foreach (self::groupNights($missing) as [$from, $to, $n]) {
                     $add(
                         'nights_missing',
-                        __('Nuits sans hébergement : :from → :to, :n nuit(s)', ['from' => $from->format('d/m'), 'to' => $to->format('d/m'), 'n' => $n]),
+                        $n === 1
+                            ? __('Nuit du :from au :to sans hébergement', ['from' => $from->format('d/m'), 'to' => $to->copy()->addDay()->format('d/m')])
+                            : __('Du :from au :to, :n nuits sans hébergement', ['from' => $from->format('d/m'), 'to' => $to->copy()->addDay()->format('d/m'), 'n' => $n]),
                         ['kind' => 'stay', 'id' => null, 'tab' => 'stays', 'check_in' => $from->format('Y-m-d'), 'nights' => $n],
                         ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d'), 'nights' => $n],
                     );

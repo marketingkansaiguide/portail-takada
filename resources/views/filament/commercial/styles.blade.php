@@ -53,7 +53,30 @@
     };
 </script><style>
     /* En-tête collé au défilement et onglets sans défilement horizontal (7 libellés courts, tiennent à 1280 px). */
-    .tk-c-sticky { position: sticky; top: 4rem; z-index: 15; box-shadow: 0 4px 10px -8px rgba(15,23,42,.35); }
+    .tk-c-stuck { position: sticky !important; top: var(--tk-top, 4rem); z-index: 20; background: var(--gray-50, #f9fafb); padding-bottom: .25rem; }
+    .tk-c-shell .fi-tabs { position: sticky; top: calc(var(--tk-top, 4rem) + var(--tk-header-h, 0px)); z-index: 19; background: #fff; }
     .tk-c-tabs .fi-tabs { overflow-x: visible !important; flex-wrap: wrap; max-width: 100%; }
     .tk-c-tabs .fi-tabs-item { padding-inline: .6rem; white-space: nowrap; }
 </style>
+
+<script>
+    // En-tête et barre d'onglets collés au défilement : la cellule de la grille qui porte l'en-tête devient sticky
+    // (son conteneur englobe l'en-tête et les onglets), et la barre d'onglets se cale juste dessous.
+    window.tkStick = function () {
+        const bar = document.querySelector('.tk-c-bar');
+        if (! bar) return;
+        let cell = bar;
+        while (cell.parentElement && ! (cell.parentElement.classList.contains('fi-sc') && cell.parentElement.children.length > 1)) cell = cell.parentElement;
+        if (! cell.parentElement) return;
+        cell.classList.add('tk-c-stuck');
+        const h = Math.round(cell.getBoundingClientRect().height);
+        document.documentElement.style.setProperty('--tk-header-h', h + 'px');
+    };
+    (function () {
+        let t = null;
+        const run = () => { clearTimeout(t); t = setTimeout(window.tkStick, 60); };
+        new MutationObserver(run).observe(document.body, {childList: true, subtree: true});
+        window.addEventListener('resize', run);
+        run();
+    })();
+</script>

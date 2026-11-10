@@ -25,7 +25,7 @@
         @if ($r['kind'] === 'gap')
             @php $g = $r['gap']; @endphp
             <tr style="background:#fffbeb;color:#92400e">
-                <td colspan="8" style="padding:6px;font-weight:600">⚠ {{ \Carbon\Carbon::parse($g['from'])->format('d/m') }} → {{ \Carbon\Carbon::parse($g['to'])->format('d/m') }} : {{ trans_choice(':count nuit sans hébergement|:count nuits sans hébergement', $g['nights'], ['count' => $g['nights']]) }}</td>
+                <td colspan="8" style="padding:6px;font-weight:600">⚠ @if ($g['nights'] === 1){{ __('Nuit du :from au :to sans hébergement', ['from' => \Carbon\Carbon::parse($g['from'])->format('d/m'), 'to' => \Carbon\Carbon::parse($g['to'])->addDay()->format('d/m')]) }}@else{{ __('Du :from au :to, :n nuits sans hébergement', ['from' => \Carbon\Carbon::parse($g['from'])->format('d/m'), 'to' => \Carbon\Carbon::parse($g['to'])->addDay()->format('d/m'), 'n' => $g['nights']]) }}@endif</td>
                 <td style="padding:6px"><button type="button" style="text-decoration:underline;font-weight:600;min-height:28px" wire:click="mountAction('editStay', {id: null, check_in: '{{ $g['from'] }}', nights: {{ $g['nights'] }}})">{{ __('Ajouter un hôtel sur ces dates') }}</button></td>
             </tr>
         @else

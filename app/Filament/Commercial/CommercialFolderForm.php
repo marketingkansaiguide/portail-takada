@@ -41,6 +41,7 @@ final class CommercialFolderForm
         $view = fn (string $name) => View::make($name)->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record)->columnSpanFull();
 
         return [
+            Group::make([
             $view('filament.commercial.header'),
 
             // Sept onglets courts, sans icône : ils tiennent à 1280 px sans défilement horizontal.
@@ -76,6 +77,7 @@ final class CommercialFolderForm
                         $view('filament.commercial.note-link'),
                     ]),
                 ]),
+            ])->columnSpanFull()->extraAttributes(['class' => 'tk-c-shell']),
 
             Section::make(__('Historique des modifications'))
                 ->description(__('Replié par défaut : qui a modifié quoi, et quand.'))

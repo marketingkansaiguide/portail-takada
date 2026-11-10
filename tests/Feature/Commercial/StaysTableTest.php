@@ -39,7 +39,7 @@ it('affiche le tableau des hôtels avec le trou à sa place et ouvre le panneau 
     $this->folder->stays()->create(['hotel_name' => 'B', 'check_in' => '2026-12-29', 'check_out' => '2027-01-03', 'status' => 'confirmed', 'booked_by' => 'takada']);
 
     ($this->page)()
-        ->assertSee('25/12 → 28/12')
+        ->assertSee('Du 25/12 au 29/12, 4 nuits sans hébergement')
         ->assertSee('Ajouter un hôtel sur ces dates')
         ->mountAction('editStay', ['id' => null, 'check_in' => '2026-12-25', 'nights' => 4])
         ->assertActionDataSet(fn (array $data) => $data['check_in'] === '2026-12-25' && $data['check_out'] === '2026-12-29' && (int) $data['nights'] === 4);
