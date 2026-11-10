@@ -258,7 +258,7 @@ final class CommercialFolderForm
                                 ->searchable()->live()
                                 ->afterStateUpdated(fn ($state, Set $set) => $state ? $set('label', HotelRoomType::find($state)?->name) : null)
                                 ->columnSpan(3),
-                            Select::make('category')->label(__('Type'))->options(FolderStay::ROOM_CATEGORIES)->native(false)->columnSpan(2),
+                            Select::make('category')->label(__('Type'))->options(FolderStay::ROOM_CATEGORIES)->native(false)->placeholder(__('Choisir…'))->columnSpan(2),
                             TextInput::make('label')->label(__('Libellé (personnalisable)'))->columnSpan(2),
                         ]),
                     ]),

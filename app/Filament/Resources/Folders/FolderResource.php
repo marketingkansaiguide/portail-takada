@@ -859,6 +859,12 @@ class FolderResource extends Resource
                                     // Le libellé porte la déclinaison (groupe) de l'option choisie
                                     $optionId = $get('product_option_id');
                                     $group = $optionId ? \App\Models\ProductOption::find($optionId)?->group_name : null;
+                                    if (blank($group)) {
+                                        // Aucune option choisie : on reprend le nom du groupe d'options du produit (« Trajet »), comme le récapitulatif de commande.
+                                        $groups = \App\Models\ProductOption::where('product_id', $get('../../product_id'))->pluck('group_name')->filter()->unique();
+                                        $group = $groups->count() === 1 ? $groups->first() : null;
+                                    }
+
                                     return filled($group) ? $group : __('Option proposée');
                                 })
                                 ->options(function ($get) {

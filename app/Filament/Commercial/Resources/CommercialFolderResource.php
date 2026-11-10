@@ -44,7 +44,7 @@ class CommercialFolderResource extends FolderResource
                 \Filament\Tables\Columns\TextColumn::make('pax_adults')->label(__('Pax'))
                     ->getStateUsing(fn (\App\Models\Folder $r) => (int) $r->pax_adults + (int) $r->pax_children),
                 \Filament\Tables\Columns\TextColumn::make('owner.name')->label(__('Commercial'))->formatStateUsing(fn (?string $state) => $state ? \Illuminate\Support\Str::before($state, ' ') : '—'),
-                \Filament\Tables\Columns\TextColumn::make('ops_status')->label(__('Avancement'))->badge()->wrap()->extraCellAttributes(['style' => 'max-width:8.5rem'])
+                \Filament\Tables\Columns\TextColumn::make('ops_status')->label(__('Avancement'))->badge()->wrap()
                     ->formatStateUsing(fn (?string $state) => __(\App\Models\Folder::OPS_STATUSES[$state] ?? (string) $state)),
                 \Filament\Tables\Columns\TextColumn::make('planned_items_count')->label(__('Prestations'))->wrap()->extraHeaderAttributes(['style' => 'min-width:8.5rem'])->extraCellAttributes(['style' => 'min-width:8.5rem'])
                     ->getStateUsing(fn (\App\Models\Folder $r) => $r->isInternal()
