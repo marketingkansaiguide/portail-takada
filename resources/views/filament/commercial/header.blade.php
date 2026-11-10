@@ -8,6 +8,7 @@
 @endphp
 {{-- En-tête du dossier : visible sur tous les onglets, collé en haut au défilement. Le titre de la page est le nom du voyage. --}}
 <div class="tk-c-bar">
+    <strong class="tk-c-bar-name" style="display:none;flex-basis:100%">{{ $folder->folder_name ?: $folder->reference }}</strong>
     <span class="tk-c-muted">{{ $folder->start_date?->format('d/m/Y') ?? '—' }} → {{ $folder->end_date?->format('d/m/Y') ?? '—' }}@if ($nights !== null) · {{ trans_choice(':count nuit|:count nuits', $nights, ['count' => $nights]) }}@endif · {{ trans_choice(':count voyageur|:count voyageurs', $pax, ['count' => $pax]) }}@if ($owner) · {{ $owner }}@endif</span>
     <span class="tk-c-badge info">{{ $folder->sale_type === 'b2b' ? 'B2B' : ($folder->sale_type === 'b2c' ? 'B2C' : __('Type de vente à préciser')) }}</span>
     @if ($folder->clientAgency)<span class="tk-c-muted">{{ $folder->clientAgency->name }}</span>@endif

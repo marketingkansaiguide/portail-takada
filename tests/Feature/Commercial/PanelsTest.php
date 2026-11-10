@@ -212,3 +212,27 @@ it('sans surcharge, un écart de tarif reste signalé et le tarif est appliqué 
     $summary = app(\App\Services\PlannedItemOrderService::class)->summary($this->folder->fresh(), [$planned->id], $this->fit);
     expect($summary['has_price_changes'])->toBeTrue();
 });
+
+it('préremplit une ligne de chambres depuis les colonnes d’un séjour existant sans lignes', function () {
+    $stay = $this->folder->stays()->create(['hotel_name' => 'Hôtel Exemple', 'check_in' => '2026-12-17', 'check_out' => '2026-12-20', 'status' => 'confirmed', 'booked_by' => 'takada', 'rooms' => 2]);
+    \Illuminate\Support\Facades\DB::table('folder_stays')->where('id', $stay->id)->update(['room_lines' => null, 'rooms' => 2]);
+
+    ($this->page)()->mountAction('editStay', ['id' => $stay->id])
+        ->assertActionDataSet(fn (array $data) => count($data['room_lines'] ?? []) === 1 && (int) array_values($data['room_lines'])[0]['quantity'] === 2);
+});
+
+it('affiche « ch., catégorie à préciser » pour des chambres sans catégorie et n’a plus de carte vide ni de gestionnaire de relations', function () {
+    $component = ($this->page)();
+    expect($component->instance()->getRelationManagers())->toBe([]);
+});
+
+it('bloque la confirmation de commande quand une ligne sélectionnée est bloquée', function () {
+    // Ligne sans date : bloquée au récapitulatif.
+    $planned = World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-18']);
+    \Illuminate\Support\Facades\DB::table('folder_planned_items')->where('id', $planned->id)->update(['service_date' => null]);
+
+    $component = ($this->page)()->call('togglePlannedSelection', $planned->id);
+    $method = new ReflectionMethod($component->instance(), 'selectionIsBlocking');
+    $method->setAccessible(true);
+    expect($method->invoke($component->instance(), app(\App\Services\PlannedItemOrderService::class)))->toBeTrue();
+});

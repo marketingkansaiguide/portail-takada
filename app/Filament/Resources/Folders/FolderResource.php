@@ -163,11 +163,22 @@ class FolderResource extends Resource
         $purchaseLocked = (bool) $get('purchase_price_overridden');
         if ($saleLocked || $purchaseLocked) {
             $originalSet = $set;
-            $set = function ($key, $value) use ($originalSet, $saleLocked, $purchaseLocked) {
-                if ($saleLocked && in_array($key, ['unit_price', 'total_price'], true)) {
+            $set = function ($key, $value) use ($originalSet, $get, $saleLocked, $purchaseLocked) {
+                // Le total saisi est figé ; le prix unitaire suit le nombre de pax.
+                if ($saleLocked && $key === 'total_price') {
                     return;
                 }
-                if ($purchaseLocked && in_array($key, ['purchase_unit_price', 'purchase_total_price'], true)) {
+                if ($saleLocked && $key === 'unit_price') {
+                    $originalSet('unit_price', (int) round((float) $get('total_price') / max(1, (int) ($get('quantity') ?? 1))));
+
+                    return;
+                }
+                if ($purchaseLocked && $key === 'purchase_total_price') {
+                    return;
+                }
+                if ($purchaseLocked && $key === 'purchase_unit_price') {
+                    $originalSet('purchase_unit_price', filled($get('purchase_total_price')) ? (int) round((float) $get('purchase_total_price') / max(1, (int) ($get('quantity') ?? 1))) : null);
+
                     return;
                 }
                 $originalSet($key, $value);
@@ -442,6 +453,30 @@ class FolderResource extends Resource
         $dates = collect((array) ($livewire->data['plannedItems'] ?? []))->pluck('service_date')->filter()->values();
 
         return $dates->isEmpty() ? null : (string) $dates->last();
+    }
+
+    /** Ligne d'état d'un prix dans le panneau commercial : « Tarif : … » ou « Saisi à la main · … ». */
+    public static function priceStatus(Get $get, string $side): string
+    {
+        $locked = (bool) $get($side === 'sale' ? 'sale_price_overridden' : 'purchase_price_overridden');
+        if ($locked) {
+            return __('Saisi à la main · le total est figé, le prix unitaire suit le nombre de pax.');
+        }
+        $qty = max(1, (int) ($get('quantity') ?? 1));
+        try {
+            $tariff = ($get('product_id') && $get('service_date'))
+                ? \App\Support\ItemPricer::price(['product_id' => $get('product_id'), 'service_date' => $get('service_date'), 'quantity' => $qty,
+                    'selected_options' => $get('selected_options') ?? [], 'custom_values' => $get('custom_values') ?? []])
+                : null;
+        } catch (\Throwable) {
+            $tariff = null;
+        }
+        $total = $tariff[$side === 'sale' ? 'total_price' : 'purchase_total_price'] ?? null;
+        if ($total === null) {
+            return __('Tarif : non calculé (prestation, date et options requises).');
+        }
+
+        return __('Tarif :') . ' ' . number_format((float) $total, 0, ',', ' ') . ' ¥ (' . number_format((float) $total / $qty, 0, ',', ' ') . ' ¥ × ' . $qty . ')';
     }
 
     /** Vrai si le produit n'a qu'un seul groupe d'options. */
@@ -728,11 +763,12 @@ class FolderResource extends Resource
                                     $set('purchase_unit_price', filled($state) ? (int) round((float) $state / max(1, (int) ($get('quantity') ?? 1))) : null);
                                 }
                             })
-                            ->columnSpan($mode === 'commercial' ? 3 : 2),
+                            ->visible($mode !== 'commercial')
+                            ->columnSpan(2),
 
                         \Filament\Forms\Components\Placeholder::make('price_line')
                             ->hiddenLabel()
-                            ->visible($mode === 'commercial')
+                            ->visible(false)
                             ->content(function (Get $get) {
                                 $total = (float) ($get('total_price') ?? 0);
                                 $qty = max(1, (int) ($get('quantity') ?? 1));
@@ -769,18 +805,36 @@ class FolderResource extends Resource
                             })
                             ->dehydrated()
                             ->required(false)
+                            ->helperText($mode === 'commercial' ? fn (Get $get) => self::priceStatus($get, 'sale') : null)
+                            ->columnStart($mode === 'commercial' ? 1 : null)
                             ->columnSpan($mode === 'commercial' ? 3 : 1),
 
+                        // Espace commercial : l'achat se saisit à côté de la vente, sur la même ligne.
+                        TextInput::make('purchase_total_price')
+                            ->label(__('Achat total (¥) : prix pour ce dossier'))
+                            ->visible($mode === 'commercial')
+                            ->numeric()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, $set, $get) {
+                                $set('purchase_price_overridden', true);
+                                $set('purchase_unit_price', filled($state) ? (int) round((float) $state / max(1, (int) ($get('quantity') ?? 1))) : null);
+                            })
+                            ->helperText(fn (Get $get) => self::priceStatus($get, 'purchase'))
+                            ->columnStart(4)
+                            ->columnSpan(3),
+
                         \Filament\Forms\Components\Toggle::make('sale_price_overridden')
-                            ->label(__('Prix de vente saisi à la main (désactiver pour revenir au tarif)'))
+                            ->label(__('Vente saisie à la main · désactiver pour revenir au tarif'))
                             ->visible($mode === 'commercial')->live()->dehydrated()->default(false)
                             ->afterStateUpdated(fn ($state, $set, $get) => $state ? null : self::updateItemPrices($set, $get))
+                            ->columnStart(1)
                             ->columnSpan(3),
 
                         \Filament\Forms\Components\Toggle::make('purchase_price_overridden')
-                            ->label(__('Prix d’achat saisi à la main (désactiver pour revenir au tarif)'))
+                            ->label(__('Achat saisi à la main · désactiver pour revenir au tarif'))
                             ->visible($mode === 'commercial')->live()->dehydrated()->default(false)
                             ->afterStateUpdated(fn ($state, $set, $get) => $state ? null : self::updateItemPrices($set, $get))
+                            ->columnStart(4)
                             ->columnSpan(3),
                     ])->columns(6),
 

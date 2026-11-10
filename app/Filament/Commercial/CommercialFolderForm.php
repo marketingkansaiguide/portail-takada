@@ -249,7 +249,7 @@ final class CommercialFolderForm
                     ->helperText(__('Une ligne par catégorie : « quantité × catégorie ». Les catégories viennent de l’hôtel choisi ; vous pouvez aussi saisir un libellé.'))
                     ->defaultItems(0)->reorderable(false)->compact()->live()
                     ->schema([
-                        Group::make()->columns(6)->schema([
+                        Group::make()->columns(8)->schema([
                             TextInput::make('quantity')->label(__('Quantité'))->numeric()->minValue(1)->default(1)->required()->columnSpan(1),
                             Select::make('room_type_id')
                                 ->label(__('Catégorie de l’hôtel'))
@@ -257,8 +257,8 @@ final class CommercialFolderForm
                                 ->options(fn (Get $get) => $get('../../hotel_id') ? HotelRoomType::where('hotel_id', $get('../../hotel_id'))->orderBy('name')->pluck('name', 'id')->all() : [])
                                 ->searchable()->live()
                                 ->afterStateUpdated(fn ($state, Set $set) => $state ? $set('label', HotelRoomType::find($state)?->name) : null)
-                                ->columnSpan(2),
-                            Select::make('category')->label(__('Type'))->options(FolderStay::ROOM_CATEGORIES)->native(false)->columnSpan(1),
+                                ->columnSpan(3),
+                            Select::make('category')->label(__('Type'))->options(FolderStay::ROOM_CATEGORIES)->native(false)->columnSpan(2),
                             TextInput::make('label')->label(__('Libellé (personnalisable)'))->columnSpan(2),
                         ]),
                     ]),

@@ -67,6 +67,12 @@ class EditCommercialFolder extends EditFolder
         return parent::orderPlannedItemsAction();
     }
 
+    /** Pas de gestionnaire de relations : l'historique est une section repliée de la fiche (plus de carte vide en bas). */
+    public function getRelationManagers(): array
+    {
+        return [];
+    }
+
     /** Aucun bouton d'enregistrement global : chaque panneau enregistre son élément. */
     protected function getFormActions(): array
     {
@@ -330,6 +336,10 @@ class EditCommercialFolder extends EditFolder
                     $state['check_in'] = $stay->check_in?->format('Y-m-d');
                     $state['check_out'] = $stay->check_out?->format('Y-m-d');
                     $state['nights'] = $stay->nights();
+                    // Séjour existant sans lignes de chambres : une ligne est préremplie depuis rooms, room_type_id et room_label.
+                    if (blank($state['room_lines'] ?? null) && ($stay->room_type_id || filled($stay->room_label) || (int) $stay->rooms > 0)) {
+                        $state['room_lines'] = [['quantity' => max(1, (int) $stay->rooms), 'room_type_id' => $stay->room_type_id, 'label' => $stay->room_label, 'category' => $stay->room_category]];
+                    }
                 } else {
                     // Arrivée proposée : départ du séjour précédent (le plus tardif des départs déjà saisis), ou la plage vide cliquée.
                     $in = $arguments['check_in'] ?? $folder->stays()->max('check_out');

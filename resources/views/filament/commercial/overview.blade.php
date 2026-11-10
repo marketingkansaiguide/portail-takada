@@ -40,7 +40,7 @@
             <div class="tk-c-ent info">
                 <strong>{{ $f->direction === 'outbound' ? __('Aller') : ($f->direction === 'return' ? __('Retour') : __('Vol')) }}</strong>
                 <span>{{ trim(($f->airline ? $f->airline.' ' : '').$f->flight_number) }} {{ $f->departure_airport }} → {{ $f->arrival_airport }}</span>
-                <span class="tk-c-muted">{{ $f->departure_local?->format('d/m H:i') }}</span>
+                <span class="tk-c-muted">{{ $f->departure_local?->format('d/m H:i') ?? ($f->arrival_local ? __('arrivée').' '.$f->arrival_local->format('d/m H:i') : '') }}</span>
             </div>
         @empty
             <span class="tk-c-muted">{{ __('Aucun vol renseigné.') }}</span>

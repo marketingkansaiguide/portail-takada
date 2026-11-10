@@ -80,3 +80,28 @@
         run();
     })();
 </script>
+<script>
+    // Au changement d'onglet, le haut du contenu revient juste sous la barre collée (au lieu de garder la position de défilement).
+    // Le nom du voyage apparaît en petit dans la barre collée une fois la page défilée.
+    (function () {
+        if (window.__tkTabs) return;
+        window.__tkTabs = true;
+        document.addEventListener('click', function (e) {
+            if (! e.target.closest('.tk-c-shell [role=tab]')) return;
+            setTimeout(function () {
+                const shell = document.querySelector('.tk-c-shell');
+                if (! shell) return;
+                const top = shell.getBoundingClientRect().top + window.scrollY - 64;
+                if (window.scrollY > top) window.scrollTo({top: Math.max(0, top), behavior: 'auto'});
+            }, 80);
+        }, true);
+        const sync = function () {
+            const name = document.querySelector('.tk-c-bar-name');
+            if (! name) return;
+            const stuck = window.scrollY > 120;
+            name.style.display = stuck ? 'block' : 'none';
+            document.documentElement.style.setProperty('--tk-header-h', Math.round(document.querySelector('.tk-c-stuck')?.getBoundingClientRect().height || 0) + 'px');
+        };
+        window.addEventListener('scroll', sync, {passive: true});
+    })();
+</script>

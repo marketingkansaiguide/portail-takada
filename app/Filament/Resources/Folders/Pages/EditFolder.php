@@ -118,6 +118,8 @@ class EditFolder extends EditRecord
                 ? __('Seules les prestations cochées seront commandées et entreront dans le processus opérationnel (statut « En attente de validation »). Les autres restent en préparation. Vos modifications ont été enregistrées avant ce récapitulatif.')
                 : __('Seules les prestations cochées seront commandées et entreront dans le processus opérationnel (statut « En attente de validation »). Les autres restent en préparation. Les modifications non enregistrées du formulaire ne sont pas prises en compte.'))
             ->modalSubmitActionLabel(__('Confirmer la commande'))
+            // Espace commercial : pas de confirmation tant qu'une ligne sélectionnée est bloquée (le récapitulatif dit pourquoi).
+            ->modalSubmitAction(fn (Actions\Action $action) => ($this->usesRowSelection() && $this->selectionIsBlocking($service)) ? $action->disabled() : $action)
             ->modalWidth('5xl')
             ->fillForm(fn () => [
                 'planned_ids' => $this->usesRowSelection() ? $this->selectedPlannedIds : [],
@@ -165,6 +167,15 @@ class EditFolder extends EditRecord
             });
     }
 
+    private function selectionIsBlocking(\App\Services\PlannedItemOrderService $service): bool
+    {
+        if ($this->selectedPlannedIds === []) {
+            return false;
+        }
+
+        return (bool) ($service->summary($this->getRecord(), $this->selectedPlannedIds, auth('web')->user())['has_blocking'] ?? false);
+    }
+
     private function renderOrderSummary(\App\Services\PlannedItemOrderService $service, array $ids): HtmlString
     {
         if ($ids === []) {
@@ -180,7 +191,7 @@ class EditFolder extends EditRecord
             $changed = $line['price_changed'] ? ' style="background:#fffbeb"' : '';
             $sale = $fmt($line['prepared']['total_price']) . ($line['price_changed'] ? ' → <strong>' . $fmt($line['current']['total_price']) . '</strong>' : '');
             $buy = $fmt($line['prepared']['purchase_total_price']) . ($line['price_changed'] ? ' → <strong>' . $fmt($line['current']['purchase_total_price']) . '</strong>' : '');
-            $problems = $line['problems'] ? '<div style="color:#b91c1c">⛔ ' . e(implode(', ', $line['problems'])) . '</div>' : '';
+            $problems = $line['problems'] ? '<div style="color:#b91c1c">⛔ ' . e(implode(', ', $line['problems'])) . (($commercial ?? false) ? ' · <button type="button" style="text-decoration:underline;font-weight:600" wire:click="replaceMountedAction(\'editPlanned\', {id: ' . (int) $line['planned_item_id'] . '})">' . e(__('Compléter')) . '</button>' : '') . '</div>' : '';
             if ($this->usesRowSelection() && ($planned = $plannedById[$line['planned_item_id']] ?? null)) {
                 $where = trim(($planned->meeting_time ? $planned->meeting_time . ' · ' : '') . $planned->meeting_point, ' ·');
                 $problems .= ($where !== '' ? '<div style="font-size:0.8rem">' . e(__('Rendez-vous')) . ' : ' . e($where) . '</div>' : '')
