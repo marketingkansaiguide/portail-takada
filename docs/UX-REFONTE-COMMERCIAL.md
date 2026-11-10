@@ -1,6 +1,6 @@
 # Refonte UX de l'espace commercial : audit, proposition, tâches (2026-11-10)
 
-Auteur : Fable 5.2 (rôle UX). Statut : **plan validé par Maxime le 2026-11-10, rien n'est encore implémenté**. T11 (hors catalogue) reste en attente de sa décision.
+Auteur : Fable 5.2 (rôle UX). Statut : plan validé par Maxime le 2026-11-10 ; **implémenté en local** (rapport en §7). T11 (hors catalogue) reste en attente de sa décision.
 Remplace `docs/PROPOSITION-UX-commercial.md` pour la suite (ce dernier décrit la V1 déjà codée).
 
 ## 0. Ce qui a été réellement vérifié
@@ -382,3 +382,75 @@ horizontal (646 px de largeur utile à 1280 px).
 
 Limite de méthode : décompte de champs, pas de chronométrage humain ; le gain réel vient surtout des valeurs préremplies,
 de la fin des ressaisies, de l'absence d'enregistrement global et de la sélection sur les lignes, que ce tableau ne mesure pas.
+
+
+## 7. Rapport final de l'implémentation (2026-11-10, Sonnet)
+
+Tout est **local** : aucun push, aucun déploiement, aucune donnée de production touchée. Branche `feature/dossiers-internes`.
+
+### 7.1 Ce qui a été fait
+
+| Tâche | Contenu |
+|---|---|
+| T0 | Mesure avant/après par décompte de champs (§6), **non chronométrée** |
+| T1 | Consigne urgente distincte (`ticketing_urgent_note`), visible sur tous les onglets et côté admin ; consignes générales en lecture dans l'admin ; note et rendez-vous sur la ligne repliée ; modifications tracées ; test qu'aucun gabarit guide, agenda ou e-mail ne les lit |
+| T2 | Cases sur les lignes préparées, barre de sélection fixe, récapitulatif limité aux lignes cochées ; `PlannedItemOrderService` inchangé sauf pour les prix saisis (§7.3) |
+| T3 | Alertes d'hébergement structurées et cliquables : séjour sans dates distinct des nuits manquantes, plages regroupées (« Nuit du 20/12 au 21/12 », « Du 20/12 au 22/12, 2 nuits ») |
+| T4 | Panneau prestation par profil (visite, accueil aéroport, transfert, train/bus, location), trajet et heure d'arrivée, libellé « Train A → B · 09:20 → 11:52 », défauts (pax du dossier, date de la dernière ligne) |
+| T5 | Recherche catalogue côté serveur (2 caractères, 15 résultats, prestations fréquentes) ; requête réécrite : de 400 ms à environ 2 ms sur un banc synthétique de 3 100 produits |
+| T6 | Hôtels en tableau avec les trous à leur place, chambres multiples (`room_lines`), nuits/départ liés, duplication, reprise des chambres, arrivée proposée |
+| T7 | Titre = nom du voyage, en-tête et onglets collés, sept onglets courts sans défilement, plus de formulaire global : un panneau latéral avec son propre « Enregistrer » pour le dossier, chaque voyageur, vol, hôtel, prestation, sous le verrou `lock_version` et avec historique ; saisie rapide de prestation |
+| T8 | Synthèse en lecture seule : zone « À faire » unique, indicateur de prestations unique, statut depuis la pastille de l'en-tête |
+| T9 | Planning jour par jour (tous les jours, nuit en fin de journée, tri par heure, statut par forme et libellé, incohérences sur le jour) |
+| T10 | Création en un écran sans politique tarifaire, liste sans pré-facture ni statut brut, fuseau des vols déduit, mise à jour du nombre de voyageurs, type de chambre replié |
+| Prix | Les commerciaux modifient les prix de vente et d'achat d'une prestation **pour ce dossier seulement** (drapeaux de surcharge, « revenir au tarif ») ; le produit du catalogue ne change jamais ; la commande utilise les prix saisis sans alerte de tarif |
+| T11 | Ligne libre (carnet de voyage) : libellé, date facultative, pax, prix de vente et d'achat, note ; table à part, jamais dans la commande, visible en Synthèse et en Planning. Le pocket wifi est un produit du catalogue : aucune modification |
+
+### 7.2 Commits locaux (du plus ancien au plus récent, depuis `e89b15c`)
+
+`06b0f3b` T1 · `ba68398` T2 · `f95ca5b` T3 · `c80eb7a` corrections lot 1 · `d1e986c` T1 admin · `ea15fe4` T4 · `9f2b811` T5 · `eec5a63` T6 · `bd502d7` corrections lot 2 · `d317e32` bug « Dupliquer » · `2d61bd9` T0 · `7a1901b` et `b7182e6` T7 · `f4a3777` sticky · `1ac12f4` T8 et T9 · `79975bb` T10 · `d247b60` prix modifiables · `15426fb` corrections lot 3 (**dernier état relu et validé par Opus**) · `bfa8020` retouches · `03269e2` T11 (non relu).
+
+### 7.3 Changements hors espace commercial (à connaître)
+
+- `PlannedItemOrderService` : un prix saisi à la main (`sale_price_overridden`, `purchase_price_overridden`) n'est ni comparé au tarif ni remplacé par lui à la commande. Sans drapeau, comportement inchangé.
+- `FolderResource::folderItemSchema` et `FolderItem` : ajouts conditionnés au mode `commercial` (admin et B2B inchangés, suite de référence verte), plus des libellés d'historique pour les consignes et le rendez-vous.
+- `FolderDayByDay` (vue jour par jour de l'admin) : affiche rendez-vous et note ; libellé de train pour les lignes issues de l'espace commercial.
+- `EditFolder` (admin) : l'action de commande est réutilisée ; le comportement admin est inchangé.
+
+### 7.4 Migrations à passer en production (toutes additives, réversibles)
+
+| Migration | Effet |
+|---|---|
+| `2026_11_10_100000_add_ticketing_urgent_note_to_folders` | colonne `folders.ticketing_urgent_note` ; reprend le texte des dossiers déjà urgents |
+| `2026_11_10_110000_add_route_fields_to_items` | `route_from`, `route_to`, `end_time`, `end_date` sur `folder_planned_items` et `folder_items` ; `products.entry_profile` |
+| `2026_11_10_120000_add_room_lines_to_folder_stays` | `folder_stays.room_lines` (JSON) ; remplit une ligne depuis `rooms`/`room_type_id`/`room_label` |
+| `2026_11_10_130000_add_price_overrides_to_planned_items` | `sale_price_overridden`, `purchase_price_overridden` |
+| `2026_11_10_140000_create_folder_free_lines` | table `folder_free_lines` (T11, non relue) |
+
+Aucune migration n'en supprime ni n'en modifie une existante. Les seeders de recette (`RecetteSeeder`, `RecetteVoyageSeeder`) ne doivent **jamais** tourner en production.
+
+### 7.5 Mise en ligne : écart prod/local et prérequis
+
+Le fichier `docs/DEPLOIEMENT.md` donne la production à `743869d` (2026-11-07, relevé peut-être périmé : le code y est aussi modifié par copie directe). Par rapport à ce commit, la branche locale compte **141 commits** et **37 migrations** modifiées dans `database/migrations`, dont tout le chantier des dossiers internes (origine, champs internes, permissions, `folder_planned_items` et `folder_order_batches` avec **déclencheurs MySQL**, drapeau de rôle admin, structures commerciales) en plus des 5 migrations ci-dessus. Ce n'est donc pas un petit déploiement.
+
+Prérequis du §3 non remplis à ce jour : comparaison prod/local sans écart ; tests verts sur SQLite **et** MySQL 8.4 (seul SQLite a été exécuté) ; migrations rejouées puis annulées sur une copie restaurée de la prod ; sauvegarde chiffrée GPG (clé publique installée sur le serveur ?) ; autorisation de Maxime. L'accès SSH à la production a été refusé par les permissions de la session : **rien n'a été lu ni modifié en production**. Le déploiement validé par Opus doit viser exactement `15426fb` (pas la tête de branche).
+
+### 7.6 Limites connues
+
+- Hauteur du panneau d'une visite guidée d'environ 830 px (objectif 700 px non atteint, accepté jusqu'à T7).
+- Date et passagers du trajet de train non réduits ; la classe et le trajet viennent du bloc catalogue « Trajets », conservé tel quel.
+- `products.entry_profile` (surcharge du profil de saisie) n'a pas d'écran d'administration.
+- Le premier affichage de la fiche met 1 à 2 s à peindre les onglets sur le serveur de recette (mode développement).
+- Les lignes déjà commandées ne se modifient pas depuis l'espace commercial.
+- Aucune trace d'historique propre au changement de prix (l'enregistrement du panneau est tracé).
+- La liste des dossiers tient à 1280 px ; à moins, elle redéfile horizontalement.
+
+### 7.7 Ce qui n'a pas été vérifié
+
+Chronométrage humain (seulement des décomptes de champs) · tests sur MySQL 8.4 · rejeu des migrations sur une copie de la prod · temps de recherche sur le catalogue réel (mesuré sur banc synthétique) · rendu HTML de la fenêtre de commande en test automatique (vérifié à l'écran par Opus) · accessibilité au clavier et lecteur d'écran · T11 relu visuellement par Opus · captures « avant » archivées (seules les captures « après » sont conservées dans `C:\Users\marke\Herd\_captures-ux-lot3`).
+
+### 7.8 Retour arrière
+
+1. **Code** (local ou, plus tard, serveur) : `git revert` des commits concernés, ou retour sur `e89b15c`. Les panneaux, la synthèse, le planning et la liste sont uniquement du code côté commercial.
+2. **Données** : les migrations sont additives ; l'ancien code ignore les nouvelles colonnes (`room_lines` alimente aussi `rooms`, `room_type_id`, `room_label`). Pour annuler un schéma : `php artisan migrate:rollback --step=N` (les `down()` suppriment les colonnes et la table `folder_free_lines`, donc les prix saisis et les lignes libres seraient perdus : à n'utiliser qu'en dernier recours).
+3. Pour la production, appliquer en plus la procédure de `docs/DEPLOIEMENT.md` §4 (retour du code d'abord, restauration de dump en dernier recours).
