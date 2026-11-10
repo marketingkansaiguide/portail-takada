@@ -140,7 +140,7 @@ it("affiche la fiche commerciale simplifiée sans pré-facture, chat ni fourniss
 
     Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
         ->assertSuccessful()
-        ->assertSee(__('Hébergements'))
+        ->assertSee(__('Hôtels'))
         ->assertSee(__('Vols'))
         ->assertSee(__('Historique des modifications'))
         ->assertDontSee('Pré-facture')

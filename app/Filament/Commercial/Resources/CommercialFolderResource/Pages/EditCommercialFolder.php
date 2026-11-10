@@ -167,6 +167,26 @@ class EditCommercialFolder extends EditFolder
             });
     }
 
+    /** Changement de statut depuis la pastille de l'en-tête : un statut ne commande rien. */
+    public function changeStatusAction(): Action
+    {
+        return Action::make('changeStatus')
+            ->label(__('Statut du dossier'))
+            ->modalHeading(__('Changer le statut du dossier'))
+            ->modalDescription(__('Changer ce statut ne commande aucune prestation.'))
+            ->modalSubmitActionLabel(__('Enregistrer'))
+            ->fillForm(fn () => ['ops_status' => $this->getRecord()->ops_status, '_lock' => $this->folderLock()])
+            ->schema([Hidden::make('_lock'), Select::make('ops_status')->label(__('Statut'))->options(Folder::OPS_STATUSES)->required()->native(false)])
+            ->action(function (array $data, Action $action) {
+                if ($this->lockIsStale($data)) {
+                    $action->halt();
+                }
+                $this->getRecord()->update(['ops_status' => $data['ops_status']]);
+                $this->bumpLock();
+                Notification::make()->title(__('Statut enregistré'))->success()->send();
+            });
+    }
+
     public function addNoteAction(): Action
     {
         return Action::make('addNote')

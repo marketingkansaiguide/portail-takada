@@ -69,7 +69,7 @@ it("crée, prépare et commande un dossier interne depuis l'espace commercial", 
     $planned = World::plannedItem($folder, World::activityProduct());
 
     Livewire::test(EditCommercialFolder::class, ['record' => $folder->getRouteKey()])
-        ->assertSee(__('Prestations en préparation'))
+        ->assertSee(__('À commander'))
         ->callAction('orderPlannedItems', data: ['planned_ids' => [$planned->id]])
         ->assertHasNoActionErrors()
         ->assertRedirect(CommercialFolderResource::getUrl('edit', ['record' => $folder], panel: 'commercial'));

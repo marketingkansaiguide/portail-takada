@@ -12,7 +12,7 @@
     <span class="tk-c-badge info">{{ $folder->sale_type === 'b2b' ? 'B2B' : ($folder->sale_type === 'b2c' ? 'B2C' : __('Type de vente à préciser')) }}</span>
     @if ($folder->clientAgency)<span class="tk-c-muted">{{ $folder->clientAgency->name }}</span>@endif
     @if ($folder->quote_reference)<span class="tk-c-muted">{{ __('Devis') }} {{ $folder->quote_reference }}</span>@endif
-    <span class="tk-c-badge" title="{{ __('Changer ce statut ne commande aucune prestation.') }}">{{ __($statuses[$folder->ops_status] ?? $folder->ops_status) }}</span>
+    <button type="button" class="tk-c-badge" style="cursor:pointer;min-height:24px" title="{{ __('Changer le statut du dossier (ne commande aucune prestation)') }}" wire:click="mountAction('changeStatus')">{{ __($statuses[$folder->ops_status] ?? $folder->ops_status) }} ▾</button>
     <button type="button" class="tk-c-muted" style="font-size:.75rem" title="{{ __('Copier la référence') }}" onclick="navigator.clipboard && navigator.clipboard.writeText(@js($folder->reference))">{{ $folder->reference }}</button>
     @if ($urgentText)
         <span class="tk-c-badge bad" style="flex-basis:100%;white-space:normal;border-radius:.4rem;padding:.3rem .6rem" role="alert">⚠ {{ __('URGENT billetterie') }}@if ($urgentText) : {{ $urgentText }}@endif</span>

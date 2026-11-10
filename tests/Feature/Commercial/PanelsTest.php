@@ -95,3 +95,25 @@ it('ajoute une note de suivi dans l’historique', function () {
 
     expect($this->folder->histories()->get()->contains(fn ($h) => str_contains((string) json_encode($h->changes_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'Client rappelé le 10/11')))->toBeTrue();
 });
+
+it('affiche le planning : tous les jours, la nuit en fin de journée, tri par heure et incohérences sur le jour', function () {
+    $this->folder->update(['start_date' => '2026-12-17', 'end_date' => '2026-12-20']);
+    $this->folder->stays()->create(['hotel_name' => 'Hôtel A', 'city' => 'Tokyo', 'check_in' => '2026-12-17', 'check_out' => '2026-12-19', 'status' => 'confirmed', 'booked_by' => 'takada']);
+    $this->folder->flightSegments()->create(['direction' => 'outbound', 'flight_number' => 'XX454', 'departure_airport' => 'CMB', 'arrival_airport' => 'NRT', 'arrival_local' => '2026-12-17 08:10', 'departure_local' => '2026-12-16 22:00']);
+    World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-17', 'meeting_time' => '07:30']); // avant l'arrivée du vol
+    World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-17', 'meeting_time' => '09:00']);
+    World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-17', 'meeting_time' => '09:00']);
+
+    $planning = \App\Support\TripTimeline::planning($this->folder->fresh());
+    $byDate = collect($planning)->keyBy(fn ($d) => $d['date']->format('Y-m-d'));
+
+    expect($byDate->keys()->all())->toContain('2026-12-17', '2026-12-18', '2026-12-19', '2026-12-20')   // tous les jours, même sans prestation
+        ->and($byDate['2026-12-18']['entries'])->toBe([])
+        ->and($byDate['2026-12-17']['night']['kind'])->toBe('stay')
+        ->and($byDate['2026-12-19']['night']['kind'])->toBe('missing')                                 // trou d'hébergement visible sur son jour
+        ->and($byDate['2026-12-20']['night'])->toBeNull();                                              // dernier jour : pas de nuit
+    $times = collect($byDate['2026-12-17']['entries'])->pluck('time')->filter()->values()->all();
+    expect($times)->toBe(collect($times)->sort()->values()->all());                                     // tri par heure réelle
+    $warnings = implode(' | ', $byDate['2026-12-17']['warnings']);
+    expect($warnings)->toContain('avant l’arrivée du vol')->and($warnings)->toContain('même heure');
+});
