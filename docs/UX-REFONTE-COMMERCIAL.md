@@ -1,6 +1,6 @@
 # Refonte UX de l'espace commercial : audit, proposition, tâches (2026-11-10)
 
-Auteur : Fable 5.2 (rôle UX). Statut : **proposition à valider par Maxime, rien n'est implémenté**.
+Auteur : Fable 5.2 (rôle UX). Statut : **plan validé par Maxime le 2026-11-10, rien n'est encore implémenté**. T11 (hors catalogue) reste en attente de sa décision.
 Remplace `docs/PROPOSITION-UX-commercial.md` pour la suite (ce dernier décrit la V1 déjà codée).
 
 ## 0. Ce qui a été réellement vérifié
