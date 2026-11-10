@@ -74,13 +74,13 @@ final class TripTimeline
 
     private static function itemEntry($item, string $state): array
     {
-        $time = $item->meeting_time ? $item->meeting_time . ' ' : '';
+        $time = $item->meeting_time ? $item->meeting_time . ($item->end_time ? ' → ' . $item->end_time : '') . ' ' : '';
         $where = $item->meeting_point ? ' · ' . $item->meeting_point : '';
         $status = $state === 'planned' ? __('En préparation') : ($item->itemStatus?->name ?? __('Commandée'));
 
         return [
             'type' => 'item', 'sort' => 5,
-            'label' => $time . ($item->product?->name ?? $item->title ?? __('Prestation')),
+            'label' => $time . EntryProfile::routeLabel((string) ($item->product?->name ?? $item->title ?? __('Prestation')), $item->route_from, $item->route_to),
             'sub' => $status . $where,
             'state' => $state, 'note' => $item->ticketing_notes ? true : false,
         ];

@@ -17,7 +17,7 @@ final class PlannedItemMapper
         'pax_adults', 'pax_children', 'pax_teenagers',
         'unit_price', 'total_price', 'purchase_unit_price', 'purchase_total_price',
         'custom_values', 'selected_options', 'title', 'is_internal',
-        'ticketing_notes', 'meeting_point', 'meeting_time',
+        'ticketing_notes', 'meeting_point', 'meeting_time', 'route_from', 'route_to', 'end_time', 'end_date',
     ];
 
     /** Colonnes de folder_items renseignées par la commande elle-même. */

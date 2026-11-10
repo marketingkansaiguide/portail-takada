@@ -45,6 +45,11 @@ final class PlannedItemsSection
                             $text = __('Nouvelle prestation en préparation');
                         } else {
                             $name = \App\Models\Product::find($state['product_id'])?->name ?? __('Produit inconnu');
+                            if ($commercial && filled($state['route_from'] ?? null) && filled($state['route_to'] ?? null)) {
+                                $base = \Illuminate\Support\Str::before($name, ' / ');
+                                $name = \Illuminate\Support\Str::ucfirst(trim((string) preg_replace('/^ticket\s+(de\s+|d[’\']\s*)?/iu', '', $base))) . ' ' . $state['route_from'] . ' → ' . $state['route_to']
+                                    . (filled($state['end_time'] ?? null) ? ' (' . __('arr.') . ' ' . $state['end_time'] . ')' : '');
+                            }
                             $date = ! empty($state['service_date']) ? \Carbon\Carbon::parse($state['service_date'])->format('d/m/Y') : '---';
                             $sale = number_format((float) ($state['total_price'] ?? 0), 0, ',', ' ');
                             $text = "📝 {$date} · {$name} · " . (int) ($state['quantity'] ?? 1) . " pax · {$sale} ¥ · " . __('En préparation');
@@ -94,38 +99,76 @@ final class PlannedItemsSection
      */
     private static function commercialFields(): array
     {
+        $profileOf = fn (\Filament\Schemas\Components\Utilities\Get $get): string => \App\Support\EntryProfile::for(
+            $get('product_id') ? \App\Models\Product::with('category')->find($get('product_id')) : null
+        );
+        $show = fn (string $field) => fn (\Filament\Schemas\Components\Utilities\Get $get): bool => in_array($field, \App\Support\EntryProfile::fields($profileOf($get)), true);
+        $timeRule = 'regex:/^([01]\d|2[0-3]):[0-5]\d$/';
+        $places = fn ($get) => \App\Support\MeetingSuggestions::options($get('service_date'), $get('../../stays') ?? [], $get('../../flightSegments') ?? []);
+
         return [
             \Filament\Schemas\Components\Group::make()->columns(3)->columnSpanFull()->schema([
-            \Filament\Forms\Components\Select::make('meeting_suggestion')
-                ->label(__('Lieu de rendez-vous : choisir dans le dossier'))
-                ->helperText(__('Hôtels et vols déjà saisis, le plus proche de la date de la prestation en premier. Vous pouvez toujours saisir un autre lieu ci-contre.'))
-                ->placeholder(__('Hôtel ou vol du dossier…'))
-                ->options(fn ($get) => \App\Support\MeetingSuggestions::options($get('service_date'), $get('../../stays') ?? [], $get('../../flightSegments') ?? []))
-                ->searchable()
-                ->live()
-                ->dehydrated(false)
-                ->afterStateUpdated(function ($state, $set) {
-                    if (filled($state)) {
-                        $set('meeting_point', $state);
-                    }
-                })
-                ->columnSpan(1),
-            \Filament\Forms\Components\TextInput::make('meeting_point')
-                ->label(__('Rendez-vous / point de prise en charge'))
-                ->helperText(__('Valeur conservée telle quelle sur la commande, même si la fiche hôtel change ensuite.'))
-                ->maxLength(500)
-                ->columnSpan(1),
-            \Filament\Forms\Components\TextInput::make('meeting_time')
-                ->label(__('Heure'))
-                ->placeholder('09:30')
-                ->rule('regex:/^([01]\d|2[0-3]):[0-5]\d$/')
-                ->maxLength(5)
-                ->columnSpan(1),
+                \Filament\Forms\Components\Select::make('flight')
+                    ->label(__('Vol du dossier'))
+                    ->placeholder(__('Choisir le vol d’arrivée…'))
+                    ->options(function ($get) {
+                        $options = [];
+                        foreach (($get('../../flightSegments') ?? []) as $flight) {
+                            if (blank($flight['arrival_airport'] ?? null)) {
+                                continue;
+                            }
+                            $label = trim(($flight['flight_number'] ?? '') . ' → ' . $flight['arrival_airport']);
+                            $options[$flight['arrival_airport'] . '|' . ($flight['flight_number'] ?? '') . '|' . substr((string) ($flight['arrival_local'] ?? ''), 11, 5)] = $label
+                                . (filled($flight['arrival_local'] ?? null) ? ' · ' . substr((string) $flight['arrival_local'], 11, 5) : '');
+                        }
+
+                        return $options;
+                    })
+                    ->live()
+                    ->dehydrated(false)
+                    ->afterStateUpdated(function ($state, $set) {
+                        if (filled($state)) {
+                            [$airport, $number, $time] = array_pad(explode('|', $state), 3, '');
+                            $set('meeting_point', trim(__('Aéroport :a', ['a' => $airport]) . ($number ? ' — ' . __('vol :n', ['n' => $number]) : '')));
+                            if (preg_match('/^\d{2}:\d{2}$/', $time)) {
+                                $set('meeting_time', $time);
+                            }
+                        }
+                    })
+                    ->visible($show('flight'))
+                    ->columnSpan(3),
+                \Filament\Forms\Components\TextInput::make('meeting_time')
+                    ->label(fn ($get) => $profileOf($get) === \App\Support\EntryProfile::TRAIN_BUS ? __('Heure de départ') : __('Heure'))
+                    ->placeholder('09:30')->rule($timeRule)->maxLength(5)
+                    ->visible($show('meeting_time'))->columnSpan(1),
+                \Filament\Forms\Components\TextInput::make('end_time')
+                    ->label(__('Heure d’arrivée'))->placeholder('11:52')->rule($timeRule)->maxLength(5)
+                    ->visible($show('end_time'))->columnSpan(1),
+                \Filament\Forms\Components\TextInput::make('route_from')
+                    ->label(fn ($get) => $profileOf($get) === \App\Support\EntryProfile::TRAIN_BUS ? __('Gare de départ') : __('Départ'))
+                    ->datalist(fn ($get) => array_values(array_unique(array_map(fn ($v) => trim(explode(' — ', $v)[0]), array_keys($places($get))))))
+                    ->maxLength(150)->visible($show('route_from'))->columnSpan(1),
+                \Filament\Forms\Components\TextInput::make('route_to')
+                    ->label(fn ($get) => $profileOf($get) === \App\Support\EntryProfile::TRAIN_BUS ? __('Gare d’arrivée') : __('Arrivée'))
+                    ->datalist(fn ($get) => array_values(array_unique(array_map(fn ($v) => trim(explode(' — ', $v)[0]), array_keys($places($get))))))
+                    ->maxLength(150)->visible($show('route_to'))->columnSpan(1),
+                \Filament\Forms\Components\DatePicker::make('end_date')
+                    ->label(__('Date de fin'))->native(false)->displayFormat('d/m/Y')->afterOrEqual('service_date')
+                    ->visible($show('end_date'))->columnSpan(1),
+                \Filament\Forms\Components\TextInput::make('meeting_point')
+                    ->label(fn ($get) => match ($profileOf($get)) {
+                        \App\Support\EntryProfile::AIRPORT_WELCOME => __('Lieu de prise en charge'),
+                        \App\Support\EntryProfile::RENTAL => __('Lieu de remise'),
+                        default => __('Rendez-vous'),
+                    })
+                    ->helperText(__('Suggestions : hôtels et vols du dossier. Valeur conservée sur la commande.'))
+                    ->datalist(fn ($get) => array_keys($places($get)))
+                    ->maxLength(500)->visible($show('meeting_point'))->columnSpan(2),
             ]),
             Textarea::make('ticketing_notes')
-                ->label(__('Informations complémentaires pour la billetterie'))
-                ->helperText(__('Facultatif. Horaire souhaité, hôtel de prise en charge, préférences du client, contraintes, consignes de réservation. Visible de la billetterie sur la prestation commandée ; jamais transmis automatiquement à un fournisseur, un guide ou une agence.'))
-                ->rows(4)
+                ->label(__('Note pour la billetterie'))
+                ->helperText(__('Visible de la billetterie sur la prestation commandée ; jamais transmise à un fournisseur, un guide ou une agence.'))
+                ->rows(2)
                 ->columnSpanFull(),
         ];
     }

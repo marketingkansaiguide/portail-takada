@@ -22,11 +22,11 @@ class FolderPlannedItem extends Model
         'pax_adults', 'pax_children', 'pax_teenagers',
         'unit_price', 'total_price', 'purchase_unit_price', 'purchase_total_price',
         'custom_values', 'selected_options', 'title', 'is_internal',
-        'notes', 'ticketing_notes', 'meeting_point', 'meeting_time', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
+        'notes', 'ticketing_notes', 'meeting_point', 'meeting_time', 'route_from', 'route_to', 'end_time', 'end_date', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
     ];
 
     protected $casts = [
-        'service_date' => 'date',
+        'service_date' => 'date', 'end_date' => 'date',
         'quantity' => 'integer', 'pax_adults' => 'integer', 'pax_children' => 'integer', 'pax_teenagers' => 'integer',
         'unit_price' => 'integer', 'total_price' => 'integer', 'purchase_unit_price' => 'integer', 'purchase_total_price' => 'integer',
         'custom_values' => 'array', 'selected_options' => 'array',
@@ -109,6 +109,11 @@ class FolderPlannedItem extends Model
     public function label(): string
     {
         $name = $this->title ?: ($this->product?->name ?? __('Prestation'));
+        if (filled($this->route_from) && filled($this->route_to)) {
+            $base = trim(\Illuminate\Support\Str::before($name, ' / '));
+            $base = \Illuminate\Support\Str::ucfirst(trim((string) preg_replace('/^ticket\s+(de\s+|d[’\']\s*)?/iu', '', $base)));
+            $name = $base . ' ' . $this->route_from . ' → ' . $this->route_to;
+        }
 
         return $this->service_date ? $name . ' (' . $this->service_date->format('d/m/Y') . ')' : $name;
     }

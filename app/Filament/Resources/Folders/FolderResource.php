@@ -553,7 +553,7 @@ class FolderResource extends Resource
                     Group::make()->schema([
                          DatePicker::make('service_date')
                              ->label(__('Date'))
-                            ->native(false)
+                            ->native(false)->displayFormat($mode === 'commercial' ? 'd/m/Y' : null)
                             ->required()
                             ->live()
                             ->minDate(fn ($get) => $get('../../start_date') ? Carbon::parse($get('../../start_date'))->startOfDay() : null)
@@ -666,8 +666,23 @@ class FolderResource extends Resource
                             ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
                             ->columnSpan(2),
 
+                        \Filament\Forms\Components\Placeholder::make('price_line')
+                            ->hiddenLabel()
+                            ->visible($mode === 'commercial')
+                            ->content(function (Get $get) {
+                                $total = (float) ($get('total_price') ?? 0);
+                                $qty = max(1, (int) ($get('quantity') ?? 1));
+                                if ($total <= 0) {
+                                    return __('Prix : non calculé (date et produit requis).');
+                                }
+
+                                return __('Prix :') . ' ' . number_format($total, 0, ',', ' ') . ' ¥ (' . number_format($total / $qty, 0, ',', ' ') . ' ¥ × ' . $qty . ')';
+                            })
+                            ->columnSpan(6),
+
                         TextInput::make('unit_price')
                             ->label(__('Vente Unit. (¥)'))
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
                             ->numeric()
                             ->default(0) 
                             ->readOnly() 
@@ -677,6 +692,7 @@ class FolderResource extends Resource
 
                         TextInput::make('total_price')
                             ->label(__('Total Vente (¥)'))
+                            ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
                             ->numeric()
                             ->default(0) 
                             ->readOnly() 
@@ -687,6 +703,8 @@ class FolderResource extends Resource
 
                     Repeater::make('selected_options')
                         ->label(__('Options Sélectionnées'))
+                        ->reorderable($mode !== 'commercial')
+                        ->compact($mode === 'commercial')
                         ->addActionLabel(__('Ajouter une option tarifaire'))
                         ->defaultItems(0)
                         ->live()
