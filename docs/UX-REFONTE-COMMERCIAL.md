@@ -352,3 +352,18 @@ Dossier de démonstration complet, par multiplication (champs à parcourir, hors
   (date et pax déjà saisis sur la ligne) ; supprimées ou préremplies depuis.
 
 À refaire sur le code final après T7 à T10 (même script).
+
+### Mise à jour après T7 (même script, panneaux latéraux)
+
+| Élément | AVANT | Après T7 |
+|---|---|---|
+| Dossier (panneau « Modifier le dossier », dates et voyageurs inclus) | 11 champs à la création, puis 2 champs obligatoires à saisir ailleurs, plus 14 champs au pied de la synthèse | 18 champs (6 obligatoires) dans un seul panneau, avec ses propres dates et nombre de voyageurs |
+| Voyageur | 10 (2) | 10 (2) |
+| Vol | 10 (0) | 10 (0) (fuseaux : T10) |
+| Hôtel | 18 (3) | 18 (3), dont arrivée proposée, nuits/départ liés, plusieurs chambres |
+| Prestation (ajout rapide) | 10 (3) après un clic « Préparer une prestation » | 3 champs (prestation, date, pax), puis le panneau de 6 champs |
+
+Enregistrements : AVANT un seul bouton global (en haut et en bas) pour tous les onglets, avec des modifications
+non enregistrées perdues ou ignorées par la commande ; APRÈS un « Enregistrer » par panneau, chaque enregistrement
+sous le verrou du dossier (`lock_version`) et tracé dans l'historique. Onglets : sept libellés courts, sans défilement
+horizontal (646 px de largeur utile à 1280 px).

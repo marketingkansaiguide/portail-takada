@@ -93,5 +93,5 @@ it('supprime une ligne préparée sans toucher aux commandes', function () {
 it('ajoute une note de suivi dans l’historique', function () {
     ($this->page)()->callAction('addNote', data: ['note' => 'Client rappelé le 10/11']);
 
-    expect($this->folder->histories()->get()->contains(fn ($h) => str_contains((string) json_encode($h->changes_payload, JSON_UNESCAPED_UNICODE), 'Client rappelé le 10/11')))->toBeTrue();
+    expect($this->folder->histories()->get()->contains(fn ($h) => str_contains((string) json_encode($h->changes_payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'Client rappelé le 10/11')))->toBeTrue();
 });
