@@ -57,6 +57,7 @@ final class CommercialFolderForm
                         ->schema([self::stays()]),
                     Tab::make(__('Prestations'))->icon('heroicon-o-ticket')->schema([
                         PlannedItemsSection::make(commercial: true),
+                        View::make('filament.commercial.selection-bar')->viewData(fn (?Folder $record) => ['folder' => $record])->visible(fn (?Folder $record) => (bool) $record?->isInternal())->columnSpanFull(),
                         Section::make(__('Prestations commandées'))
                             ->description(__('Suivi des demandes transmises à la billetterie. La gestion des fournisseurs reste du ressort de la billetterie.'))
                             ->schema([View::make('filament.commercial.ordered-items')->viewData(fn (?Folder $record) => ['folder' => $record])])

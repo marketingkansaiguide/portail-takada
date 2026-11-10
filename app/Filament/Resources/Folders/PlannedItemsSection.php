@@ -20,7 +20,7 @@ final class PlannedItemsSection
     {
         return Section::make(__('Prestations en préparation'))
             ->extraAttributes(['data-tk-anchor' => 'prestations'])
-            ->description(__('Préparez librement les prestations (budget prévisionnel). Rien n’est commandé ni transmis tant que vous n’utilisez pas « Commander les prestations sélectionnées ». Enregistrez le dossier avant de commander.'))
+            ->description(__('Préparez librement les prestations (budget prévisionnel). Rien n’est commandé ni transmis tant que vous ne cochez pas des lignes puis ne confirmez pas la commande depuis la barre en bas de l’onglet.'))
             ->visible(fn (?Folder $record): bool => (bool) $record?->isInternal())
             ->columnSpanFull()
             ->schema([
@@ -36,6 +36,7 @@ final class PlannedItemsSection
                     ->collapsed()
                     ->live()
                     ->defaultItems(0)
+                    ->extraItemActions($commercial ? [self::selectionAction()] : [])
                     ->itemLabel(function (array $state) {
                         if (empty($state['product_id'])) {
                             return __('Nouvelle prestation en préparation');
@@ -57,6 +58,27 @@ final class PlannedItemsSection
                     ->label(__('Historique des commandes'))
                     ->content(fn (?Folder $record) => self::history($record)),
             ]);
+    }
+
+    /** Case de sélection d'une ligne préparée (état porté par la page, jamais enregistré). */
+    private static function selectionAction(): \Filament\Actions\Action
+    {
+        $id = fn (array $arguments): ?int => preg_match('/^record-(\d+)$/', (string) ($arguments['item'] ?? ''), $m) ? (int) $m[1] : null;
+
+        return \Filament\Actions\Action::make('selectPlannedItem')
+            ->label(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? __('Retirer de la sélection') : __('Sélectionner pour commander'))
+            ->icon(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? 'heroicon-s-check-circle' : 'heroicon-o-stop')
+            ->color(fn (array $arguments, $livewire) => in_array($id($arguments), $livewire->selectedPlannedIds, true) ? 'primary' : 'gray')
+            ->iconButton()
+            ->action(function (array $arguments, $livewire) use ($id): void {
+                $plannedId = $id($arguments);
+                if ($plannedId === null) {
+                    \Filament\Notifications\Notification::make()->title(__('Enregistrez d’abord cette ligne pour pouvoir la commander.'))->warning()->send();
+
+                    return;
+                }
+                $livewire->togglePlannedSelection($plannedId);
+            });
     }
 
     /**

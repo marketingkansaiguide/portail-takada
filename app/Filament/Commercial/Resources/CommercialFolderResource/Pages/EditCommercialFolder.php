@@ -16,6 +16,11 @@ class EditCommercialFolder extends EditFolder
 {
     protected static string $resource = CommercialFolderResource::class;
 
+    protected function usesRowSelection(): bool
+    {
+        return true;
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->columns(1)->components(CommercialFolderForm::components());
@@ -27,6 +32,13 @@ class EditCommercialFolder extends EditFolder
             parent::getHeaderActions(),
             fn ($action) => ! in_array($action->getName(), ['download_pdf', 'delete'], true),
         ));
+        // La commande se déclenche depuis la barre de sélection de l'onglet Prestations ; l'action reste
+        // montable (récapitulatif, verrou, idempotence) mais n'a plus de bouton dans l'en-tête.
+        foreach ($kept as $action) {
+            if ($action->getName() === 'orderPlannedItems') {
+                $action->extraAttributes(['style' => 'display:none']);
+            }
+        }
 
         return [
             Action::make('saveTop')->label(__('Enregistrer'))->icon('heroicon-o-check')->action(fn () => $this->save()),

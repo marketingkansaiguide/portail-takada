@@ -18,6 +18,46 @@ class EditFolder extends EditRecord
 
     protected ?string $historyNote = null;
 
+    /** Prestations préparées cochées dans la liste (espace commercial uniquement). */
+    public array $selectedPlannedIds = [];
+
+    protected function usesRowSelection(): bool
+    {
+        return false;
+    }
+
+    public function togglePlannedSelection(int $id): void
+    {
+        $valid = $this->getRecord()->plannedItems()->whereKey($id)->exists();
+        if (! $valid) {
+            return;
+        }
+        $this->selectedPlannedIds = in_array($id, $this->selectedPlannedIds, true)
+            ? array_values(array_diff($this->selectedPlannedIds, [$id]))
+            : [...$this->selectedPlannedIds, $id];
+    }
+
+    public function selectAllPlanned(bool $all): void
+    {
+        $this->selectedPlannedIds = $all ? $this->getRecord()->plannedItems()->pluck('id')->map(fn ($v) => (int) $v)->all() : [];
+    }
+
+    /** Enregistre le formulaire puis ouvre le récapitulatif de commande des lignes cochées. */
+    public function orderSelected(): void
+    {
+        if ($this->selectedPlannedIds === []) {
+            return;
+        }
+        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+        $this->selectedPlannedIds = array_values(array_intersect(
+            $this->selectedPlannedIds,
+            $this->getRecord()->plannedItems()->pluck('id')->map(fn ($v) => (int) $v)->all(),
+        ));
+        if ($this->selectedPlannedIds !== []) {
+            $this->mountAction('orderPlannedItems');
+        }
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -73,7 +113,7 @@ class EditFolder extends EditRecord
             ->modalSubmitActionLabel(__('Confirmer la commande'))
             ->modalWidth('5xl')
             ->fillForm(fn () => [
-                'planned_ids' => [],
+                'planned_ids' => $this->usesRowSelection() ? $this->selectedPlannedIds : [],
                 'idempotency_key' => (string) \Illuminate\Support\Str::uuid(),
                 'lock_version' => (int) \App\Models\Folder::query()->whereKey($this->getRecord()->getKey())->value('lock_version'),
                 'accept_new_prices' => false,
@@ -81,13 +121,15 @@ class EditFolder extends EditRecord
             ->schema([
                 \Filament\Forms\Components\Hidden::make('idempotency_key'),
                 \Filament\Forms\Components\Hidden::make('lock_version'),
-                \Filament\Forms\Components\CheckboxList::make('planned_ids')
-                    ->label(__('Prestations à commander'))
-                    ->options(fn () => $this->getRecord()->plannedItems()->with('product')->orderBy('service_date')->orderBy('id')->get()
-                        ->mapWithKeys(fn ($item) => [$item->id => $item->label() . ' · ' . (int) $item->quantity . ' pax · ' . number_format((float) $item->total_price, 0, ',', ' ') . ' ¥'])->all())
-                    ->required()
-                    ->bulkToggleable()
-                    ->live(),
+                $this->usesRowSelection()
+                    ? \Filament\Forms\Components\Hidden::make('planned_ids')
+                    : \Filament\Forms\Components\CheckboxList::make('planned_ids')
+                        ->label(__('Prestations à commander'))
+                        ->options(fn () => $this->getRecord()->plannedItems()->with('product')->orderBy('service_date')->orderBy('id')->get()
+                            ->mapWithKeys(fn ($item) => [$item->id => $item->label() . ' · ' . (int) $item->quantity . ' pax · ' . number_format((float) $item->total_price, 0, ',', ' ') . ' ¥'])->all())
+                        ->required()
+                        ->bulkToggleable()
+                        ->live(),
                 \Filament\Forms\Components\Placeholder::make('order_summary')
                     ->label(__('Récapitulatif'))
                     ->content(fn ($get) => $this->renderOrderSummary($service, (array) $get('planned_ids'))),
@@ -124,11 +166,17 @@ class EditFolder extends EditRecord
         $summary = $service->summary($this->getRecord(), $ids, auth('web')->user());
         $fmt = fn ($v) => $v === null ? '—' : number_format((float) $v, 0, ',', ' ') . ' ¥';
         $rows = '';
+        $plannedById = $this->usesRowSelection() ? $this->getRecord()->plannedItems()->whereKey($ids)->get()->keyBy('id') : collect();
         foreach ($summary['lines'] as $line) {
             $changed = $line['price_changed'] ? ' style="background:#fffbeb"' : '';
             $sale = $fmt($line['prepared']['total_price']) . ($line['price_changed'] ? ' → <strong>' . $fmt($line['current']['total_price']) . '</strong>' : '');
             $buy = $fmt($line['prepared']['purchase_total_price']) . ($line['price_changed'] ? ' → <strong>' . $fmt($line['current']['purchase_total_price']) . '</strong>' : '');
             $problems = $line['problems'] ? '<div style="color:#b91c1c">⛔ ' . e(implode(', ', $line['problems'])) . '</div>' : '';
+            if ($this->usesRowSelection() && ($planned = $plannedById[$line['planned_item_id']] ?? null)) {
+                $where = trim(($planned->meeting_time ? $planned->meeting_time . ' · ' : '') . $planned->meeting_point, ' ·');
+                $problems .= ($where !== '' ? '<div style="font-size:0.8rem">' . e(__('Rendez-vous')) . ' : ' . e($where) . '</div>' : '')
+                    . ($planned->ticketing_notes ? '<div style="font-size:0.8rem;white-space:pre-wrap">📝 ' . e($planned->ticketing_notes) . '</div>' : '');
+            }
             $rows .= '<tr' . $changed . '><td style="padding:4px 8px">' . e($line['service_date'] ?? '—') . '</td><td style="padding:4px 8px">' . e($line['label']) . $problems
                 . '<div style="color:#6b7280;font-size:0.8rem">' . e(implode(', ', $line['options'])) . '</div></td><td style="padding:4px 8px;text-align:center">' . (int) $line['pax']
                 . '</td><td style="padding:4px 8px;text-align:right">' . $sale . '</td><td style="padding:4px 8px;text-align:right">' . $buy . '</td></tr>';
