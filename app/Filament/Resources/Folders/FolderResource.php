@@ -1721,6 +1721,15 @@ TextInput::make('purchase_price')
 
                                 $mainText = "{$productName}  |  {$date}  |  {$optionName}  |  " . __('Qté : ') . $quantity . $supplierText;
 
+                                // Consignes du commercial visibles sans déplier : rendez-vous, puis début de la note.
+                                $where = trim(trim((string) ($state['meeting_time'] ?? '')) . ' ' . trim((string) ($state['meeting_point'] ?? '')));
+                                if ($where !== '') {
+                                    $mainText .= "  |  🕘 " . e(\Illuminate\Support\Str::limit($where, 60));
+                                }
+                                if (filled($state['ticketing_notes'] ?? null)) {
+                                    $mainText .= "  |  📝 " . e(\Illuminate\Support\Str::limit(preg_replace('/\s+/', ' ', (string) $state['ticketing_notes']), 70));
+                                }
+
                                 return new \Illuminate\Support\HtmlString("
                                     <span style='display: flex; justify-content: space-between; align-items: center; width: 100%;'>
                                         <span style='margin-right: 15px;'>{$mainText}</span>

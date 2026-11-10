@@ -74,3 +74,32 @@ it('affiche les alertes d’hébergement avec un lien d’ouverture et un récap
         ->assertSee('Total')
         ->assertDontSee('>Achat<', false);
 });
+
+it('un double clic sur Commander (même clé d’idempotence) ne crée qu’une commande', function () {
+    $id = $this->planned[0]->id;
+    $folder = $this->folder->fresh();
+    $key = (string) \Illuminate\Support\Str::uuid();
+    $service = app(\App\Services\PlannedItemOrderService::class);
+
+    $first = $service->order($folder, [$id], $this->fit, (int) $folder->lock_version, $key, true);
+    $second = $service->order($this->folder->fresh(), [$id], $this->fit, (int) $folder->lock_version, $key, true);
+
+    expect($first['status'])->toBe('completed')
+        ->and($second['status'])->toBe('completed')
+        ->and(FolderItem::where('planned_item_id', $id)->count())->toBe(1);
+});
+
+it('côté admin : consignes générales en lecture et note de la prestation commandée sur la ligne repliée', function () {
+    Filament::setCurrentPanel(Filament::getPanel('admin'));
+    $this->folder->update(['ticketing_urgent' => true, 'ticketing_urgent_note' => 'Bus 23/12', 'ticketing_general_notes' => 'Consigne générale du commercial']);
+    $user = \App\Models\User::where('role', 'super_admin')->first() ?? World::staff('super_admin');
+    $this->actingAs($user, 'web');
+    $folder = $this->folder->fresh();
+    app(\App\Services\PlannedItemOrderService::class)->order($folder, [$this->planned[0]->id], $user, (int) $folder->lock_version, (string) \Illuminate\Support\Str::uuid(), true);
+
+    Livewire::test(\App\Filament\Resources\Folders\Pages\EditFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->assertSee('Bus 23/12')
+        ->assertSee('Consigne générale du commercial')
+        ->assertSee('NOTE-0')
+        ->assertSee('RDV-0');
+});

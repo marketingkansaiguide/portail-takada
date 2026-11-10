@@ -121,6 +121,8 @@ class FolderDayByDay
                 'status' => ! empty($state['item_status_id']) ? $statuses->get((int) $state['item_status_id']) : null,
                 'price' => (float) ($state['total_price'] ?? 0),
                 'routes' => static::routes((array) data_get($state, 'custom_values.transport_routes', []), $options, static::parseDate($state['service_date'] ?? null)),
+                'where' => trim(trim((string) ($state['meeting_time'] ?? '')) . ' ' . trim((string) ($state['meeting_point'] ?? ''))),
+                'note' => preg_replace('/\s+/', ' ', trim((string) ($state['ticketing_notes'] ?? ''))),
                 'purchase' => (float) ($state['purchase_total_price'] ?? 0),
             ];
         }

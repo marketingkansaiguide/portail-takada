@@ -352,6 +352,12 @@
                                             @foreach ($row['routes'] ?? [] as $route)
                                                 <span class="tk-route"><b>{{ $route['from'] }} → {{ $route['to'] }}</b>@if ($route['details'])<span> · {{ $route['details'] }}</span>@endif</span>
                                             @endforeach
+                                            @if (! empty($row['where']))
+                                                <span class="tk-opt" title="{{ __('Rendez-vous') }}">🕘 {{ \Illuminate\Support\Str::limit($row['where'], 60) }}</span>
+                                            @endif
+                                            @if (! empty($row['note']))
+                                                <span class="tk-opt" title="{{ $row['note'] }}">📝 {{ \Illuminate\Support\Str::limit($row['note'], 80) }}</span>
+                                            @endif
                                         </td>
                                         <td class="tk-c">{{ $row['quantity'] }}</td>
                                         <td>

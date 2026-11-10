@@ -44,6 +44,7 @@ class FolderStickyHeader
                     'urgentNote' => $record->ticketing_urgent
                         ? ($record->ticketing_urgent_note ?: (\Illuminate\Support\Str::limit(trim((string) strtok((string) $record->ticketing_general_notes, "\n")), 120) ?: __('Consigne urgente (voir les consignes du dossier)')))
                         : null,
+                    'generalNotes' => $record->ticketing_general_notes,
                     'countItems' => count($items),
                     'countInternal' => count($internalItems),
                 ]);

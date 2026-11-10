@@ -133,6 +133,12 @@
     @if (! empty($urgentNote))
         <div class="tk-dsh-urgent" role="alert" style="margin-bottom:.375rem;padding:.375rem .625rem;border:1px solid #f87171;background:#fef2f2;color:#991b1b;border-radius:.375rem;font-weight:600">⚠ {{ __('URGENT billetterie') }} : {{ $urgentNote }}</div>
     @endif
+    @if (! empty($generalNotes))
+        <details class="tk-dsh-notes" @if (mb_strlen($generalNotes) < 160 && substr_count($generalNotes, "\n") < 2) open @endif style="margin-bottom:.375rem;padding:.375rem .625rem;border:1px solid var(--gray-200,#e5e7eb);border-radius:.375rem;background:#f9fafb">
+            <summary style="cursor:pointer;font-weight:600">{{ __('Consignes du commercial') }}</summary>
+            <div style="white-space:pre-wrap;margin-top:.25rem">{{ $generalNotes }}</div>
+        </details>
+    @endif
     <div class="tk-dsh-line">
         <div class="tk-dsh-ident">
             <span class="tk-dsh-ref">{{ $reference }}</span>
