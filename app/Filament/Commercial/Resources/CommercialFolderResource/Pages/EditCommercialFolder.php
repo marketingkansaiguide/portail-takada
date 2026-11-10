@@ -389,7 +389,7 @@ class EditCommercialFolder extends EditFolder
 
     private const ITEM_FIELDS = ['product_id', 'service_date', 'quantity', 'pax_adults', 'pax_children', 'pax_teenagers', 'unit_price', 'total_price',
         'purchase_unit_price', 'purchase_total_price', 'custom_values', 'selected_options', 'supplier_id', 'ticketing_notes', 'meeting_point', 'meeting_time',
-        'route_from', 'route_to', 'end_time', 'end_date', 'product_option_id', 'title', 'is_internal'];
+        'route_from', 'route_to', 'end_time', 'end_date', 'product_option_id', 'title', 'is_internal', 'sale_price_overridden', 'purchase_price_overridden'];
 
     public function editPlannedAction(): Action
     {

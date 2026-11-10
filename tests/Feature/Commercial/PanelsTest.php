@@ -153,3 +153,62 @@ it('met à jour le nombre de voyageurs du dossier depuis les voyageurs saisis', 
     $folder = $this->folder->fresh();
     expect((int) $folder->pax_adults)->toBe(1)->and((int) $folder->pax_children)->toBe(1);
 });
+
+it('permet au commercial de saisir les prix de vente et d’achat pour ce dossier, sans jamais modifier le produit', function () {
+    $product = World::activityProduct();
+    $before = Product::whereKey($product->id)->first()->getAttributes();
+    $beforePrices = DB::table('product_prices')->orderBy('id')->get()->toArray();
+    $planned = World::plannedItem($this->folder, $product, ['service_date' => '2026-12-18', 'quantity' => 4]);
+    $lock = (int) $this->folder->fresh()->lock_version;
+
+    ($this->page)()
+        ->mountAction('editPlanned', ['id' => $planned->id])
+        ->setActionData(['_lock' => $lock, 'plannedItems' => ['item' => [
+            'product_id' => $product->id, 'service_date' => '2026-12-18', 'quantity' => 4, 'total_price' => 12345, 'unit_price' => 3086, 'sale_price_overridden' => true,
+            'purchase_total_price' => 8000, 'purchase_unit_price' => 2000, 'purchase_price_overridden' => true,
+        ]]])
+        ->callMountedAction()->assertHasNoActionErrors();
+
+    $planned->refresh();
+    expect((int) $planned->total_price)->toBe(12345)->and((int) $planned->purchase_total_price)->toBe(8000)
+        ->and($planned->sale_price_overridden)->toBeTrue()->and($planned->purchase_price_overridden)->toBeTrue();
+    // Le produit du catalogue et ses tarifs ne changent jamais.
+    expect(Product::whereKey($product->id)->first()->getAttributes())->toBe($before)
+        ->and(DB::table('product_prices')->orderBy('id')->get()->toArray())->toEqual($beforePrices);
+});
+
+it('le recalcul du tarif ne touche pas un prix saisi à la main', function () {
+    $product = World::activityProduct();
+    $state = ['product_id' => $product->id, 'service_date' => '2026-12-18', 'quantity' => 2, 'selected_options' => [], 'custom_values' => [],
+        'total_price' => 999, 'unit_price' => 500, 'sale_price_overridden' => true, 'purchase_total_price' => 1, 'purchase_price_overridden' => false];
+    $get = fn ($k) => $state[$k] ?? null;
+    $set = function ($k, $v) use (&$state) { $state[$k] = $v; };
+
+    \App\Filament\Resources\Folders\FolderResource::updateItemPrices($set, $get);
+
+    expect($state['total_price'])->toBe(999)->and($state['unit_price'])->toBe(500);   // vente conservée
+});
+
+it('commande au prix saisi, sans alerte de tarif, et le revient au tarif quand le drapeau est retiré', function () {
+    $product = World::activityProduct();
+    $planned = World::plannedItem($this->folder, $product, ['service_date' => '2026-12-18', 'quantity' => 4]);
+    $tariff = (int) $planned->total_price;
+    $planned->update(['total_price' => $tariff + 777, 'unit_price' => (int) round(($tariff + 777) / 4), 'sale_price_overridden' => true]);
+
+    $service = app(\App\Services\PlannedItemOrderService::class);
+    $summary = $service->summary($this->folder->fresh(), [$planned->id], $this->fit);
+    expect($summary['has_price_changes'])->toBeFalse();
+
+    $folder = $this->folder->fresh();
+    $result = $service->order($folder, [$planned->id], $this->fit, (int) $folder->lock_version, (string) \Illuminate\Support\Str::uuid(), false);
+    expect($result['status'])->toBe('completed')
+        ->and((int) \App\Models\FolderItem::where('planned_item_id', $planned->id)->value('total_price'))->toBe($tariff + 777);
+});
+
+it('sans surcharge, un écart de tarif reste signalé et le tarif est appliqué à la commande', function () {
+    $planned = World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-18', 'quantity' => 4]);
+    $planned->update(['total_price' => (int) $planned->total_price + 500]);   // écart sans drapeau
+
+    $summary = app(\App\Services\PlannedItemOrderService::class)->summary($this->folder->fresh(), [$planned->id], $this->fit);
+    expect($summary['has_price_changes'])->toBeTrue();
+});

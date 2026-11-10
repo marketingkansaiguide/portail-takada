@@ -137,7 +137,7 @@ final class PlannedItemOrderService
                     $attributes = PlannedItemMapper::toFolderItemAttributes($planned);
                     if ($line['price_changed']) {
                         foreach (['unit_price', 'total_price', 'purchase_unit_price', 'purchase_total_price'] as $k) {
-                            if ($line['current'][$k] !== null) {
+                            if ($line['current'][$k] !== null && ! self::isOverridden($planned, $k)) {
                                 $attributes[$k] = (int) round($line['current'][$k]);
                             }
                         }
@@ -248,6 +248,12 @@ final class PlannedItemOrderService
         return ['status' => 'completed', 'batch_id' => $batch->id, 'replayed' => true, 'message' => __('Commande déjà enregistrée (aucun doublon créé).'), 'lines' => $batch->result ?? []];
     }
 
+    /** Vrai si le prix est saisi à la main sur cette ligne (vente : unit_price/total_price ; achat : purchase_*). */
+    private static function isOverridden(FolderPlannedItem $item, string $column): bool
+    {
+        return str_starts_with($column, 'purchase_') ? (bool) $item->purchase_price_overridden : (bool) $item->sale_price_overridden;
+    }
+
     /** Contrôles d'une ligne + comparaison prix préparés / tarif actuel. */
     private function checkLine(Folder $folder, FolderPlannedItem $item): array
     {
@@ -287,6 +293,10 @@ final class PlannedItemOrderService
         $changed = false;
         if ($current) {
             foreach (['total_price', 'purchase_total_price'] as $k) {
+                // Un prix saisi à la main pour ce dossier n'est jamais comparé au tarif ni remplacé par lui.
+                if (self::isOverridden($item, $k)) {
+                    continue;
+                }
                 if ($current[$k] !== null && (int) round($current[$k]) !== (int) ($prepared[$k] ?? 0)) {
                     $changed = true;
                 }

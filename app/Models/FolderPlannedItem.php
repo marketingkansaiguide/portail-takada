@@ -22,11 +22,11 @@ class FolderPlannedItem extends Model
         'pax_adults', 'pax_children', 'pax_teenagers',
         'unit_price', 'total_price', 'purchase_unit_price', 'purchase_total_price',
         'custom_values', 'selected_options', 'title', 'is_internal',
-        'notes', 'ticketing_notes', 'meeting_point', 'meeting_time', 'route_from', 'route_to', 'end_time', 'end_date', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
+        'notes', 'ticketing_notes', 'meeting_point', 'meeting_time', 'route_from', 'route_to', 'end_time', 'end_date', 'sale_price_overridden', 'purchase_price_overridden', 'priced_at', 'created_by_user_id', 'updated_by_user_id',
     ];
 
     protected $casts = [
-        'service_date' => 'date', 'end_date' => 'date',
+        'service_date' => 'date', 'end_date' => 'date', 'sale_price_overridden' => 'boolean', 'purchase_price_overridden' => 'boolean',
         'quantity' => 'integer', 'pax_adults' => 'integer', 'pax_children' => 'integer', 'pax_teenagers' => 'integer',
         'unit_price' => 'integer', 'total_price' => 'integer', 'purchase_unit_price' => 'integer', 'purchase_total_price' => 'integer',
         'custom_values' => 'array', 'selected_options' => 'array',
