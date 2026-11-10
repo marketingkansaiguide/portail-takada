@@ -454,3 +454,12 @@ Chronométrage humain (seulement des décomptes de champs) · tests sur MySQL 8.
 1. **Code** (local ou, plus tard, serveur) : `git revert` des commits concernés, ou retour sur `e89b15c`. Les panneaux, la synthèse, le planning et la liste sont uniquement du code côté commercial.
 2. **Données** : les migrations sont additives ; l'ancien code ignore les nouvelles colonnes (`room_lines` alimente aussi `rooms`, `room_type_id`, `room_label`). Pour annuler un schéma : `php artisan migrate:rollback --step=N` (les `down()` suppriment les colonnes et la table `folder_free_lines`, donc les prix saisis et les lignes libres seraient perdus : à n'utiliser qu'en dernier recours).
 3. Pour la production, appliquer en plus la procédure de `docs/DEPLOIEMENT.md` §4 (retour du code d'abord, restauration de dump en dernier recours).
+
+### 7.9 Première mise en ligne (2026-11-10, version `15426fb`)
+
+- **Sauvegarde** : `~/backups/20261110-0649-avant-refonte-commercial` sur le serveur (dossier 700, fichiers 600) : `db.sql.gz` (657 894 octets, non chiffré, accord de Maxime), `code.tgz` (7 949 754 octets, sans secret), `marqueurs.txt`.
+- **Écart prod/local mesuré** : la production avait déjà les dossiers internes ; aucune modification propre à la prod (les 9 fichiers qu'elle avait en commun avec le dépôt étaient des versions historiques exactes). 17 fichiers remplacés (copies `.bak-20261110`), 30 nouveaux, aucun seeder.
+- **Migrations passées** : `2026_11_08_100000_create_commercial_trip_structures`, `2026_11_10_100000`, `110000`, `120000`, `130000`. Simulation `--pretend --force` relue en entier : aucun drop, delete, truncate ni rename ; seule modification de colonne existante : `folder_passengers.birth_date` et `nationality` passent de NOT NULL à nullable (même type).
+- **Comptes avant/après** : dossiers 6/6, prestations commandées 26/26, prestations préparées 0/0, séjours absent/0, voyageurs 5 ; 0 migration en attente.
+- **Vérifications** : `/commercial/login` et `/admin/login` répondent 200 ; journal serveur sans erreur datée du jour avant et après les vérifications connectées de Maxime (« tout semble ok »). Tests : 156 verts sur SQLite et sur MySQL 8.4.2 (base temporaire supprimée).
+- **Non fait** : rejeu des migrations sur une copie restaurée de la prod (le transfert du dump vers le PC a été refusé par les permissions ; remplacé par la simulation `--pretend` et la sauvegarde).
