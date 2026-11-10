@@ -9,8 +9,8 @@
 @endphp
 
 @if ($folder->ticketing_general_notes)
-    <div class="tk-c-alert {{ $folder->ticketing_urgent ? 'urgent' : '' }}">
-        <strong>{{ $folder->ticketing_urgent ? '⚠ '.__('Consigne urgente pour la billetterie') : __('Consignes générales pour la billetterie') }}</strong>
+    <div class="tk-c-alert">
+        <strong>{{ __('Consignes générales pour la billetterie') }}</strong>
         <div style="white-space:pre-wrap">{{ $folder->ticketing_general_notes }}</div>
     </div>
 @endif

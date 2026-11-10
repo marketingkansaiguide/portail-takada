@@ -1087,6 +1087,18 @@ TextInput::make('purchase_price')
                                     ->columns(2)
                             ];
                         }),
+
+                    // Consignes saisies par le commercial (prestations issues d'une préparation).
+                    // Les modifications après commande sont tracées dans l'historique du dossier.
+                    Section::make(__('Consignes du commercial'))
+                        ->description(__('Informations de la fiche commerciale. Jamais transmises à un fournisseur, un guide ou une agence.'))
+                        ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $mode === 'ordered' && filled($get('planned_item_id')))
+                        ->columns(2)
+                        ->schema([
+                            \Filament\Forms\Components\TextInput::make('meeting_point')->label(__('Lieu de rendez-vous'))->maxLength(255),
+                            \Filament\Forms\Components\TextInput::make('meeting_time')->label(__('Heure de rendez-vous'))->maxLength(10),
+                            Textarea::make('ticketing_notes')->label(__('Informations pour la billetterie'))->rows(3)->columnSpanFull(),
+                        ]),
         ];
     }
 

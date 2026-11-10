@@ -130,6 +130,9 @@
         },
     }"
 >
+    @if (! empty($urgentNote))
+        <div class="tk-dsh-urgent" role="alert" style="margin-bottom:.375rem;padding:.375rem .625rem;border:1px solid #f87171;background:#fef2f2;color:#991b1b;border-radius:.375rem;font-weight:600">⚠ {{ __('URGENT billetterie') }} : {{ $urgentNote }}</div>
+    @endif
     <div class="tk-dsh-line">
         <div class="tk-dsh-ident">
             <span class="tk-dsh-ref">{{ $reference }}</span>

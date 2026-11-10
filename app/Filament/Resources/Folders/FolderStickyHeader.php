@@ -41,6 +41,7 @@ class FolderStickyHeader
                     'sale' => $totals['sale'],
                     'cost' => $totals['cost'],
                     'margin' => $totals['margin'],
+                    'urgentNote' => $record->ticketing_urgent ? ($record->ticketing_urgent_note ?: __('Consigne urgente (voir les consignes du dossier)')) : null,
                     'countItems' => count($items),
                     'countInternal' => count($internalItems),
                 ]);

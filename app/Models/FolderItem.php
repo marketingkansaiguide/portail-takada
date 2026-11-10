@@ -861,6 +861,9 @@ class FolderItem extends Model
                         'title' => __('Titre'),
                         'is_internal' => __('Prestation interne'),
                         'label_exported_at' => __("Date d'export de l'étiquette"),
+                        'ticketing_notes' => __('Informations pour la billetterie'),
+                        'meeting_point' => __('Lieu de rendez-vous'),
+                        'meeting_time' => __('Heure de rendez-vous'),
                     ];
 
                     foreach ($changes as $key => $newValue) {

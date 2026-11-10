@@ -124,7 +124,10 @@ final class CommercialFolderForm
             Section::make(__('Consignes générales pour la billetterie'))
                 ->description(__('S’applique à tout le voyage. Distinct des informations destinées aux voyageurs. Aucun envoi automatique.'))
                 ->schema([
-                    Toggle::make('ticketing_urgent')->label(__('Consigne urgente'))->inline(false),
+                    Toggle::make('ticketing_urgent')->label(__('Consigne urgente'))->inline(false)->live(),
+                    TextInput::make('ticketing_urgent_note')->label(__('Consigne urgente (texte court)'))->maxLength(500)
+                        ->placeholder(__('Ex. : bus à réserver pour le 23/12.'))
+                        ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => (bool) $get('ticketing_urgent')),
                     Textarea::make('ticketing_general_notes')->hiddenLabel()->rows(4)
                         ->placeholder(__('Ex. : réserver le bus Nohi pour le 23/12.')),
                 ]),

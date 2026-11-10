@@ -58,6 +58,7 @@ class Folder extends Model
         'quote_reference',
         'ticketing_general_notes',
         'ticketing_urgent',
+        'ticketing_urgent_note',
     ];
 
     public const KIND_FULL_TRIP = 'full_trip';
