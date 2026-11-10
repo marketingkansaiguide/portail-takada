@@ -25,6 +25,16 @@ class RecetteVoyageSeeder extends Seeder
             throw new \RuntimeException('RecetteVoyageSeeder ne doit jamais être exécuté en production.');
         }
 
+        // Recette locale : aucun effet externe. Le .env local pointe vers le vrai Google Agenda
+        // et le vrai Planning Guides ; on les neutralise pour ce processus, file d'attente comprise
+        // (sync : aucun job ne reste en attente pour un worker qui aurait la vraie configuration).
+        config([
+            'services.google_calendar.calendar_id' => null,
+            'services.guide_planning.base_url' => null,
+            'services.guide_planning.api_key' => null,
+            'queue.default' => 'sync',
+        ]);
+
         $owner = User::where('email', 'commercial-fit@recette.test')->firstOrFail();
 
         $hotels = [
