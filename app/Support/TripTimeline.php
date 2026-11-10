@@ -17,7 +17,7 @@ final class TripTimeline
     private const TIME_EXPECTED = ['Guidage', 'Transferts aéroport'];
 
     /**
-     * @return array{days: array<string, array{date: Carbon, entries: array<int, array<string, mixed>>}>, alerts: array<int, string>}
+     * @return array{days: array<string, array{date: Carbon, entries: array<int, array<string, mixed>>}>, alerts: array<int, array<string, mixed>>}
      */
     public static function build(Folder $folder): array
     {
@@ -86,60 +86,126 @@ final class TripTimeline
         ];
     }
 
-    /** @return array<int, string> */
+    /**
+     * Alertes structurées : type, cible (élément à ouvrir), libellé, plage éventuelle.
+     *
+     * @return array<int, array{type: string, target: array<string, mixed>|null, label: string, range: array<string, mixed>|null}>
+     */
     private static function alerts(Folder $folder, array $days, Collection $planned, Collection $ordered): array
     {
         $alerts = [];
+        $add = function (string $type, string $label, ?array $target = null, ?array $range = null) use (&$alerts): void {
+            $alerts[] = ['type' => $type, 'target' => $target, 'label' => $label, 'range' => $range];
+        };
 
-        // Nuits non couvertes entre le début et la fin du séjour.
+        $stays = $folder->stays->where('status', '!=', 'cancelled')->values();
+
+        // 1. Séjours incomplets : l'alerte porte sur le séjour, jamais sur ses nuits.
+        $dated = $stays->filter(fn ($s) => $s->check_in && $s->check_out);
+        foreach ($stays as $stay) {
+            if ($stay->check_in && $stay->check_out) {
+                continue;
+            }
+            $target = ['kind' => 'stay', 'id' => $stay->id, 'tab' => 'stays'];
+            $name = $stay->hotel_name ?: __('hôtel à préciser');
+            if ($stay->check_in && ! $stay->check_out) {
+                $add('stay_missing_checkout', __('Hôtel sans date de départ : :h (:d)', ['h' => $name, 'd' => $stay->check_in->format('d/m')]), $target);
+            } elseif (! $stay->check_in && $stay->check_out) {
+                $add('stay_missing_checkin', __('Hôtel sans date d’arrivée : :h (départ :d)', ['h' => $name, 'd' => $stay->check_out->format('d/m')]), $target);
+            } else {
+                $add('stay_missing_dates', __('Hôtel sans dates : :h', ['h' => $name]), $target);
+            }
+        }
+
+        // 2. Nuits couvertes par aucun séjour daté. Les nuits d'un séjour dont le départ est inconnu
+        //    (de son arrivée jusqu'au séjour daté suivant) sont en attente de dates, pas manquantes.
         if ($folder->start_date && $folder->end_date) {
             $covered = [];
-            foreach ($folder->stays->where('status', '!=', 'cancelled') as $stay) {
-                if ($stay->check_in && $stay->check_out) {
-                    for ($d = $stay->check_in->copy(); $d->lt($stay->check_out); $d->addDay()) {
-                        $covered[$d->format('Y-m-d')] = ($covered[$d->format('Y-m-d')] ?? 0) + 1;
-                    }
+            foreach ($dated as $stay) {
+                for ($d = $stay->check_in->copy(); $d->lt($stay->check_out); $d->addDay()) {
+                    $covered[$d->format('Y-m-d')] = ($covered[$d->format('Y-m-d')] ?? 0) + 1;
                 }
             }
+            $pending = [];
+            foreach ($stays->filter(fn ($s) => $s->check_in && ! $s->check_out) as $stay) {
+                $next = $dated->filter(fn ($s) => $s->check_in->gt($stay->check_in))->min(fn ($s) => $s->check_in->format('Y-m-d'));
+                $limit = $next ? Carbon::parse($next) : $folder->end_date->copy();
+                for ($d = $stay->check_in->copy(); $d->lt($limit); $d->addDay()) {
+                    $pending[$d->format('Y-m-d')] = true;
+                }
+            }
+
             $missing = [];
             for ($d = $folder->start_date->copy(); $d->lt($folder->end_date); $d->addDay()) {
-                if (empty($covered[$d->format('Y-m-d')])) {
-                    $missing[] = $d->format('d/m');
+                $k = $d->format('Y-m-d');
+                if (empty($covered[$k]) && empty($pending[$k])) {
+                    $missing[] = $d->copy();
                 }
             }
-            if ($missing && $folder->stays->isNotEmpty()) {
-                $alerts[] = __('Nuit(s) sans hébergement : :d', ['d' => implode(', ', array_slice($missing, 0, 8)) . (count($missing) > 8 ? '…' : '')]);
-            } elseif ($missing) {
-                $alerts[] = __('Aucun hébergement renseigné.');
+            if ($missing && $stays->isEmpty()) {
+                $add('no_lodging', __('Aucun hébergement renseigné.'), ['kind' => 'stay', 'id' => null, 'tab' => 'stays']);
+            } else {
+                foreach (self::groupNights($missing) as [$from, $to, $n]) {
+                    $add(
+                        'nights_missing',
+                        __('Nuits sans hébergement : :from → :to, :n nuit(s)', ['from' => $from->format('d/m'), 'to' => $to->format('d/m'), 'n' => $n]),
+                        ['kind' => 'stay', 'id' => null, 'tab' => 'stays', 'check_in' => $from->format('Y-m-d'), 'nights' => $n],
+                        ['from' => $from->format('Y-m-d'), 'to' => $to->format('Y-m-d'), 'nights' => $n],
+                    );
+                }
             }
+
             $overlap = array_keys(array_filter($covered, fn ($n) => $n > 1));
             if ($overlap) {
-                $alerts[] = __('Hébergements qui se chevauchent : :d', ['d' => implode(', ', array_map(fn ($k) => Carbon::parse($k)->format('d/m'), array_slice($overlap, 0, 6)))]);
+                $add('stays_overlap', __('Hébergements qui se chevauchent : :d', ['d' => implode(', ', array_map(fn ($k) => Carbon::parse($k)->format('d/m'), array_slice($overlap, 0, 6)))]), ['kind' => 'stay', 'id' => null, 'tab' => 'stays']);
             }
         }
 
         if ($folder->flightSegments->isEmpty()) {
-            $alerts[] = __('Aucun vol renseigné.');
+            $add('no_flight', __('Aucun vol renseigné.'), ['kind' => 'flight', 'id' => null, 'tab' => 'flights']);
         }
 
-        foreach ($folder->stays as $stay) {
+        // 3. Un séjour réservé par le client ne produit jamais d'action « à commander » (needsTakadaBooking).
+        foreach ($stays as $stay) {
             if ($stay->needsTakadaBooking()) {
-                $alerts[] = __('Hôtel à réserver ou en attente : :h', ['h' => $stay->hotel_name]);
+                $add('stay_to_book', __('Hôtel à réserver ou en attente : :h', ['h' => $stay->hotel_name]), ['kind' => 'stay', 'id' => $stay->id, 'tab' => 'stays']);
             }
         }
 
         $timed = $planned->concat($ordered)->filter(fn ($i) => in_array($i->product?->category?->name, self::TIME_EXPECTED, true) && blank($i->meeting_time));
         if ($timed->isNotEmpty()) {
-            $alerts[] = __(':n prestation(s) de guidage ou de transfert sans horaire de rendez-vous.', ['n' => $timed->count()]);
+            $add('items_without_time', __(':n prestation(s) de guidage ou de transfert sans horaire de rendez-vous.', ['n' => $timed->count()]), ['kind' => 'item', 'id' => $timed->first()->id, 'tab' => 'items']);
         }
 
         foreach ($days as $key => $day) {
             $transports = collect($day['entries'])->filter(fn ($e) => $e['type'] === 'item')->filter(fn ($e) => str_contains($e['label'], 'Shinkansen') || str_contains($e['label'], 'Train') || str_contains($e['label'], 'Bus'))->count();
             if ($transports > 2) {
-                $alerts[] = __('Plus de deux transports le :d : à vérifier.', ['d' => $day['date']->format('d/m')]);
+                $add('many_transports', __('Plus de deux transports le :d : à vérifier.', ['d' => $day['date']->format('d/m')]), ['kind' => 'day', 'id' => $key, 'tab' => 'timeline']);
             }
         }
 
         return $alerts;
+    }
+
+    /**
+     * Regroupe des nuits consécutives en plages.
+     *
+     * @param  array<int, Carbon>  $nights
+     * @return array<int, array{0: Carbon, 1: Carbon, 2: int}>
+     */
+    private static function groupNights(array $nights): array
+    {
+        $ranges = [];
+        foreach ($nights as $night) {
+            $last = count($ranges) - 1;
+            if ($last >= 0 && $ranges[$last][1]->copy()->addDay()->isSameDay($night)) {
+                $ranges[$last][1] = $night;
+                $ranges[$last][2]++;
+            } else {
+                $ranges[] = [$night, $night, 1];
+            }
+        }
+
+        return $ranges;
     }
 }

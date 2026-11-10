@@ -117,9 +117,9 @@ it("signale les incohérences dans la chronologie et distingue préparé et comm
     World::plannedItem($this->folder, World::guideProduct(), ['service_date' => '2026-12-18']);
 
     $timeline = TripTimeline::build($this->folder->fresh());
-    $alerts = implode(' | ', $timeline['alerts']);
+    $alerts = implode(' | ', array_column($timeline['alerts'], 'label'));
 
-    expect($alerts)->toContain('Aucun vol')->and($alerts)->toContain('Nuit(s) sans hébergement')->and($alerts)->toContain('Hôtel à réserver');
+    expect($alerts)->toContain('Aucun vol')->and($alerts)->toContain('Nuits sans hébergement')->and($alerts)->toContain('Hôtel à réserver');
     $states = collect($timeline['days'])->flatMap(fn ($d) => collect($d['entries'])->pluck('state'));
     expect($states)->toContain('planned');
 });
@@ -171,4 +171,43 @@ it("enregistre voyageurs sans date de naissance, vols, hébergements et consigne
         ->and($folder->folderPassengers()->first()->birth_date)->toBeNull()
         ->and($folder->flightSegments()->count())->toBe(1)
         ->and($folder->stays()->first()->booked_by)->toBe('client');
+});
+
+function tlAlerts($folder): array
+{
+    return TripTimeline::build($folder->fresh())['alerts'];
+}
+
+it("T3 : un séjour sans départ donne une alerte sur le séjour et aucune nuit manquante déduite", function () {
+    $this->folder->stays()->create(['hotel_name' => 'Hôtel Exemple Asakusa', 'check_in' => '2026-12-17', 'status' => 'confirmed', 'booked_by' => 'takada']);
+    $this->folder->stays()->create(['hotel_name' => 'Hôtel Kanazawa', 'check_in' => '2026-12-21', 'check_out' => '2027-01-03', 'status' => 'confirmed', 'booked_by' => 'takada']);
+
+    $alerts = tlAlerts($this->folder);
+    $types = array_column($alerts, 'type');
+
+    expect($types)->toContain('stay_missing_checkout')->and($types)->not->toContain('nights_missing');
+    $a = collect($alerts)->firstWhere('type', 'stay_missing_checkout');
+    expect($a['label'])->toContain('Hôtel Exemple Asakusa')->and($a['target']['kind'])->toBe('stay')->and($a['target']['id'])->not->toBeNull();
+});
+
+it("T3 : un séjour sans aucune date est signalé distinctement", function () {
+    $this->folder->stays()->create(['hotel_name' => 'Machiya Exemple', 'status' => 'to_book', 'booked_by' => 'takada']);
+    expect(array_column(tlAlerts($this->folder), 'type'))->toContain('stay_missing_dates');
+});
+
+it("T3 : un trou réel est regroupé en une plage, jamais tronqué", function () {
+    $this->folder->stays()->create(['hotel_name' => 'A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-25', 'status' => 'confirmed', 'booked_by' => 'takada']);
+    $this->folder->stays()->create(['hotel_name' => 'B', 'check_in' => '2026-12-29', 'check_out' => '2027-01-03', 'status' => 'confirmed', 'booked_by' => 'takada']);
+
+    $gaps = array_values(array_filter(tlAlerts($this->folder), fn ($a) => $a['type'] === 'nights_missing'));
+
+    expect($gaps)->toHaveCount(1)
+        ->and($gaps[0]['range'])->toMatchArray(['from' => '2026-12-25', 'to' => '2026-12-28', 'nights' => 4])
+        ->and($gaps[0]['label'])->toContain('25/12 → 28/12')->toContain('4');
+});
+
+it("T3 : un séjour réservé par le client couvre ses nuits sans action de commande", function () {
+    $this->folder->stays()->create(['hotel_name' => 'Location libre', 'check_in' => '2026-12-17', 'check_out' => '2027-01-03', 'status' => 'booked_by_client', 'booked_by' => 'client']);
+    $types = array_column(tlAlerts($this->folder), 'type');
+    expect($types)->not->toContain('nights_missing')->and($types)->not->toContain('stay_to_book');
 });

@@ -18,7 +18,7 @@
 @if ($timeline['alerts'])
     <div class="tk-c-alert">
         <strong>{{ __('À vérifier') }}</strong>
-        <ul>@foreach ($timeline['alerts'] as $a)<li>{{ $a }}</li>@endforeach</ul>
+        <ul>@foreach ($timeline['alerts'] as $a)<li>{{ $a["label"] }}</li>@endforeach</ul>
     </div>
 @endif
 
