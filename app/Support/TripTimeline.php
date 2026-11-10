@@ -140,6 +140,16 @@ final class TripTimeline
             ];
         }
 
+        // Lignes libres datées (carnet de voyage…) : « à fournir », jamais une commande.
+        foreach ($folder->freeLines as $free) {
+            if (! $free->service_date) {
+                continue;
+            }
+            $k = $day($free->service_date);
+            $days[$k]['entries'][] = ['type' => 'free', 'time' => null, 'min' => null, 'label' => $free->label, 'status' => 'free',
+                'target' => ['kind' => 'free', 'id' => $free->id], 'note' => filled($free->note), 'time_missing' => false];
+        }
+
         // Nuits : séjour daté, séjour sans départ (en attente) ou nuit sans hébergement.
         $nextStart = fn (Carbon $from) => $dated->filter(fn ($s) => $s->check_in->gt($from))->min(fn ($s) => $s->check_in->format('Y-m-d'));
         foreach ($days as $k => &$d) {

@@ -240,6 +240,12 @@ class Folder extends Model
         return false;
     }
 
+    /** Lignes libres (carnet de voyage…) : à fournir, jamais une commande. */
+    public function freeLines(): HasMany
+    {
+        return $this->hasMany(FolderFreeLine::class)->orderByRaw('service_date is null')->orderBy('service_date')->orderBy('id');
+    }
+
     public function stays(): HasMany
     {
         // Les dates encore inconnues passent en dernier.

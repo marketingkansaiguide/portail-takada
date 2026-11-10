@@ -33,6 +33,17 @@
     </div>
 </div>
 
+@php $freeLines = $folder->freeLines()->get(); @endphp
+@if ($freeLines->isNotEmpty())
+    <div class="tk-c-box" style="margin-bottom:.9rem">
+        <strong>📓 {{ __('Lignes libres à fournir') }} ({{ $freeLines->count() }})</strong>
+        <span class="tk-c-muted">{{ __('sans commande fournisseur') }}</span>
+        @foreach ($freeLines as $fl)
+            <div class="tk-c-ent info"><strong>{{ $fl->label }}</strong><span class="tk-c-muted">{{ $fl->service_date?->format('d/m') ?? __('date à préciser') }} · {{ $fl->pax }} pax @if ($fl->sale_price !== null) · {{ number_format($fl->sale_price, 0, ',', ' ') }} ¥@endif</span></div>
+        @endforeach
+    </div>
+@endif
+
 <div class="tk-c-two">
     <div class="tk-c-box">
         <h4>✈️ {{ __('Vols') }}</h4>

@@ -2,8 +2,8 @@
 @php
     $planning = \App\Support\TripTimeline::planning($folder);
     // Statut par forme et libellé, jamais par la couleur seule : ○ préparée, ● commandée, ✔ confirmée, barré annulée.
-    $mark = ['planned' => ['○', __('Préparée')], 'ordered' => ['●', __('Commandée')], 'confirmed' => ['✔', __('Confirmée')], 'cancelled' => ['✕', __('Annulée')], 'info' => ['', '']];
-    $icon = ['flight' => '✈', 'transport' => '🚆', 'item' => '🎟'];
+    $mark = ['planned' => ['○', __('Préparée')], 'ordered' => ['●', __('Commandée')], 'confirmed' => ['✔', __('Confirmée')], 'cancelled' => ['✕', __('Annulée')], 'info' => ['', ''], 'free' => ['', __('À fournir')]];
+    $icon = ['flight' => '✈', 'transport' => '🚆', 'item' => '🎟', 'free' => '📓'];
 @endphp
 <div class="tk-c-muted" style="font-size:.8rem;margin-bottom:.5rem;width:100%">
     {{ __('Un bloc par jour, avec la nuit en fin de journée. Cliquez sur une ligne préparée, un vol ou une nuit pour l’ouvrir.') }}
@@ -27,7 +27,7 @@
                     <span aria-hidden="true">{{ $icon[$e['type']] ?? '•' }}</span>
                     @if ($t)
                         <button type="button" style="text-align:left;text-decoration:underline;min-height:28px;{{ $e['status'] === 'cancelled' ? 'text-decoration:line-through;' : '' }}"
-                                wire:click="mountAction('{{ $t['kind'] === 'flight' ? 'editFlight' : 'editPlanned' }}', {id: {{ $t['id'] }}})">{{ $e['label'] }}</button>
+                                wire:click="mountAction('{{ ['flight' => 'editFlight', 'free' => 'editFreeLine'][$t['kind']] ?? 'editPlanned' }}', {id: {{ $t['id'] }}})">{{ $e['label'] }}</button>
                     @else
                         <span style="{{ $e['status'] === 'cancelled' ? 'text-decoration:line-through;' : '' }}">{{ $e['label'] }}</span>
                     @endif

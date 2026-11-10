@@ -236,3 +236,47 @@ it('bloque la confirmation de commande quand une ligne sélectionnée est bloqu�
     $method->setAccessible(true);
     expect($method->invoke($component->instance(), app(\App\Services\PlannedItemOrderService::class)))->toBeTrue();
 });
+
+it('T11 : une ligne libre (carnet de voyage) se saisit, avec ses deux prix, et n’entre jamais dans le flux de commande', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    \Illuminate\Support\Facades\Mail::fake();
+    $lock = (int) $this->folder->fresh()->lock_version;
+
+    ($this->page)()->callAction('editFreeLine', data: [
+        '_lock' => $lock, 'label' => 'Carnet de voyage', 'service_date' => '2026-12-18', 'pax' => 4, 'sale_price' => 5000, 'purchase_price' => 1200, 'note' => 'Impression couleur',
+    ])->assertHasNoActionErrors();
+
+    $line = \App\Models\FolderFreeLine::where('folder_id', $this->folder->id)->firstOrFail();
+    expect($line->label)->toBe('Carnet de voyage')->and($line->sale_price)->toBe(5000)->and($line->purchase_price)->toBe(1200)->and($line->pax)->toBe(4);
+
+    // Aucun effet hors dossier : ni commande, ni ligne préparée, ni mission, ni agenda, ni file d'attente, ni e-mail.
+    expect(\App\Models\FolderItem::where('folder_id', $this->folder->id)->count())->toBe(0)
+        ->and(FolderPlannedItem::where('folder_id', $this->folder->id)->count())->toBe(0);
+    Queue::assertNothingPushed();
+    Mail::assertNothingSent();
+
+    // La sélection et la commande ne la voient pas.
+    $component = ($this->page)()->call('selectAllPlanned', true)->assertSet('selectedPlannedIds', []);
+});
+
+it('T11 : la ligne libre est visible dans la synthèse et dans le planning, sans prix d’achat côté planning', function () {
+    $this->folder->update(['start_date' => '2026-12-17', 'end_date' => '2026-12-20']);
+    $this->folder->freeLines()->create(['label' => 'Carnet de voyage', 'service_date' => '2026-12-18', 'pax' => 4, 'sale_price' => 5000]);
+    $this->folder->freeLines()->create(['label' => 'Attention client sans date', 'pax' => 1]);
+
+    ($this->page)()->assertSee('Lignes libres à fournir')->assertSee('Carnet de voyage')->assertSee('date à préciser');
+
+    $planning = collect(\App\Support\TripTimeline::planning($this->folder->fresh()))->keyBy(fn ($d) => $d['date']->format('Y-m-d'));
+    $labels = collect($planning['2026-12-18']['entries'])->pluck('label')->all();
+    expect($labels)->toContain('Carnet de voyage')
+        ->and(collect($planning['2026-12-18']['entries'])->firstWhere('label', 'Carnet de voyage')['status'])->toBe('free');
+});
+
+it('T11 : supprimer une ligne libre ne touche ni aux commandes ni aux prestations préparées', function () {
+    $planned = World::plannedItem($this->folder, World::activityProduct(), ['service_date' => '2026-12-18']);
+    $line = $this->folder->freeLines()->create(['label' => 'Carnet', 'pax' => 2]);
+
+    ($this->page)()->callAction('deleteFreeLine', arguments: ['id' => $line->id]);
+
+    expect(\App\Models\FolderFreeLine::count())->toBe(0)->and(FolderPlannedItem::whereKey($planned->id)->exists())->toBeTrue();
+});

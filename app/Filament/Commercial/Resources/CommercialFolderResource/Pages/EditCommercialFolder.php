@@ -463,6 +463,64 @@ class EditCommercialFolder extends EditFolder
             });
     }
 
+    // ───────────────────────── Lignes libres (T11) ─────────────────────────
+
+    public function editFreeLineAction(): Action
+    {
+        $fields = ['label', 'service_date', 'pax', 'sale_price', 'purchase_price', 'note'];
+
+        return Action::make('editFreeLine')
+            ->label(__('Ligne libre'))
+            ->slideOver()->modalWidth('2xl')
+            ->modalHeading(fn (array $arguments) => ($arguments['id'] ?? null) ? __('Modifier la ligne libre') : __('Ajouter une ligne libre'))
+            ->modalDescription(__('À fournir, sans commande fournisseur : cette ligne n’entre jamais dans la commande, ne crée aucune mission guide ni aucun événement d’agenda.'))
+            ->modalSubmitActionLabel(__('Enregistrer'))
+            ->fillForm(function (array $arguments) use ($fields) {
+                $line = ($arguments['id'] ?? null) ? $this->getRecord()->freeLines()->whereKey($arguments['id'])->first() : null;
+                $state = $line ? Arr::only($line->attributesToArray(), $fields) : ['pax' => max(1, (int) $this->getRecord()->pax_adults + (int) $this->getRecord()->pax_children)];
+                if ($line) {
+                    $state['service_date'] = $line->service_date?->format('Y-m-d');
+                }
+
+                return $state + ['_lock' => $this->folderLock()];
+            })
+            ->schema([
+                Hidden::make('_lock'),
+                TextInput::make('label')->label(__('Libellé'))->placeholder(__('Ex. : Carnet de voyage'))->required()->maxLength(255),
+                Group::make()->columns(4)->schema([
+                    DatePicker::make('service_date')->label(__('Date (facultative)'))->native(false)->displayFormat('d/m/Y')->columnSpan(2),
+                    TextInput::make('pax')->label(__('Pax'))->numeric()->minValue(1)->required()->columnSpan(2),
+                    TextInput::make('sale_price')->label(__('Prix de vente (¥)'))->numeric()->minValue(0)->columnSpan(2),
+                    TextInput::make('purchase_price')->label(__('Prix d’achat (¥)'))->numeric()->minValue(0)->columnSpan(2),
+                ]),
+                Textarea::make('note')->label(__('Note'))->rows(3)->maxLength(2000),
+            ])
+            ->action(function (array $data, array $arguments, Action $action) use ($fields) {
+                if ($this->lockIsStale($data)) {
+                    $action->halt();
+                }
+                $values = Arr::only($data, $fields);
+                $line = ($arguments['id'] ?? null) ? $this->getRecord()->freeLines()->whereKey($arguments['id'])->first() : null;
+                $line ? $line->update($values) : $this->getRecord()->freeLines()->create($values);
+                $this->bumpLock();
+                $this->log($line ? __('Ligne libre modifiée') : __('Ligne libre ajoutée'), (string) $values['label']);
+            });
+    }
+
+    public function deleteFreeLineAction(): Action
+    {
+        return Action::make('deleteFreeLine')->label(__('Supprimer'))->color('danger')->requiresConfirmation()
+            ->modalHeading(__('Supprimer cette ligne libre ?'))
+            ->action(function (array $arguments) {
+                $line = $this->getRecord()->freeLines()->whereKey($arguments['id'] ?? 0)->first();
+                if ($line) {
+                    $line->delete();
+                    $this->bumpLock();
+                    $this->log(__('Ligne libre supprimée'), (string) $line->label);
+                }
+            });
+    }
+
     // ───────────────────────── Ajout rapide ─────────────────────────
 
     public function quickAddForm(Schema $schema): Schema

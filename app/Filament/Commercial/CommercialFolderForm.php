@@ -66,6 +66,7 @@ final class CommercialFolderForm
                             $view('filament.commercial.quick-add'),
                             $view('filament.commercial.planned-list'),
                             $view('filament.commercial.selection-bar'),
+                            $view('filament.commercial.free-lines'),
                             Section::make(__('Prestations commandées'))
                                 ->description(__('Suivi des demandes transmises à la billetterie. La gestion des fournisseurs reste du ressort de la billetterie.'))
                                 ->schema([$view('filament.commercial.ordered-items')])
