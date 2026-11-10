@@ -16,39 +16,49 @@ class EditCommercialFolder extends EditFolder
 {
     protected static string $resource = CommercialFolderResource::class;
 
-    /** Duplique un séjour : mêmes hôtel et chambres, dates décalées à la suite (arrivée = départ du séjour copié). */
+    /**
+     * Duplique un séjour dans le formulaire : mêmes hôtel et chambres, arrivée = départ du séjour copié,
+     * même nombre de nuits. La copie est ajoutée à l'état du formulaire (aucun enregistrement forcé, donc
+     * aucune validation d'un autre onglet) et dépliée ; elle est enregistrée avec le reste du dossier.
+     */
     public function duplicateStay(int $id): void
     {
-        // Le formulaire est enregistré d’abord : le répéteur supprimerait sinon un séjour créé hors de lui.
-        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
-        $stay = $this->getRecord()->stays()->whereKey($id)->first();
-        if (! $stay) {
+        $source = $this->data['stays']['record-' . $id] ?? null;
+        if (! is_array($source)) {
             return;
         }
-        $nights = $stay->nights() ?? 1;
-        $copy = $stay->replicate(['confirmation_ref']);
-        $copy->check_in = $stay->check_out ?? $stay->check_in;
-        $copy->check_out = $copy->check_in?->copy()->addDays($nights);
-        $copy->status = 'to_book';
-        $copy->save();
-        $this->fillForm();
-        $this->js('window.tkOpenTarget(' . json_encode(__('Hébergements')) . ', "record-' . $copy->id . '")');
+        $in = filled($source['check_in'] ?? null) ? \Carbon\Carbon::parse($source['check_in'])->startOfDay() : null;
+        $out = filled($source['check_out'] ?? null) ? \Carbon\Carbon::parse($source['check_out'])->startOfDay() : null;
+        $nights = ($in && $out && $out->gte($in)) ? (int) round($in->floatDiffInDays($out)) : 1;
+        $start = $out ?? $in;
+
+        $copy = array_diff_key($source, array_flip(['id', 'folder_id', 'confirmation_ref', 'created_at', 'updated_at']));
+        $copy['check_in'] = $start?->format('Y-m-d');
+        $copy['check_out'] = $start?->copy()->addDays($nights)->format('Y-m-d');
+        $copy['nights'] = $start ? $nights : null;
+        $copy['status'] = 'to_book';
+
+        $this->addStayToForm($copy);
     }
 
-    /** Ajoute un séjour à compléter sur une plage de nuits manquantes. */
+    /** Ajoute un séjour à compléter sur une plage de nuits manquantes (dans le formulaire, non enregistré). */
     public function addStayOnGap(string $from, int $nights): void
     {
-        $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
-        $in = \Carbon\Carbon::parse($from);
-        $new = $this->getRecord()->stays()->create([
-            'hotel_name' => __('Hôtel à préciser'), 'check_in' => $in, 'check_out' => $in->copy()->addDays(max(1, $nights)),
+        $in = \Carbon\Carbon::parse($from)->startOfDay();
+        $this->addStayToForm([
+            'hotel_name' => __('Hôtel à préciser'), 'check_in' => $in->format('Y-m-d'),
+            'check_out' => $in->copy()->addDays(max(1, $nights))->format('Y-m-d'), 'nights' => max(1, $nights),
             'status' => 'to_book', 'booked_by' => 'takada',
         ]);
-        $this->fillForm();
-        $this->js('window.tkOpenTarget(' . json_encode(__('Hébergements')) . ', "record-' . $new->id . '")');
     }
 
-
+    private function addStayToForm(array $stay): void
+    {
+        $key = (string) \Illuminate\Support\Str::uuid();
+        $this->data['stays'][$key] = $stay;
+        $this->js('window.tkOpenTarget(' . json_encode(__('Hébergements')) . ', ' . json_encode($key) . ')');
+        \Filament\Notifications\Notification::make()->title(__('Séjour ajouté : complétez-le puis enregistrez.'))->success()->send();
+    }
     protected function usesRowSelection(): bool
     {
         return true;

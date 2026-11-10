@@ -37,25 +37,48 @@ it('affiche le tableau des hôtels avec le trou à sa place et ajoute un séjour
     $this->folder->stays()->create(['hotel_name' => 'A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-25', 'status' => 'confirmed', 'booked_by' => 'takada']);
     $this->folder->stays()->create(['hotel_name' => 'B', 'check_in' => '2026-12-29', 'check_out' => '2027-01-03', 'status' => 'confirmed', 'booked_by' => 'takada']);
 
-    Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
+    $component = Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
         ->assertSee('25/12 → 28/12')
         ->assertSee('Ajouter un hôtel sur ces dates')
         ->call('addStayOnGap', '2026-12-25', 4);
 
+    // Ajouté au formulaire (dépliable tout de suite), enregistré avec le dossier.
+    expect(count($component->get('data.stays')))->toBe(3)->and($this->folder->stays()->count())->toBe(2);
+    $component->call('save')->assertHasNoFormErrors();
     expect($this->folder->stays()->count())->toBe(3)
         ->and($this->folder->stays()->where('hotel_name', 'Hôtel à préciser')->first()->check_out->format('Y-m-d'))->toBe('2026-12-29');
 });
 
-it('duplique un séjour à la suite avec les mêmes chambres', function () {
+it('duplique un séjour à la suite, dans l’onglet Hébergements, même si une autre ligne du dossier est invalide', function () {
     $stay = $this->folder->stays()->create(['hotel_name' => 'A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-20', 'status' => 'confirmed', 'booked_by' => 'takada', 'room_lines' => [['room_type_id' => null, 'label' => 'Twin', 'quantity' => 2]]]);
 
-    Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])->call('duplicateStay', $stay->id);
+    $component = Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
+        // Une prestation vide (invalide) : l'ancien « enregistrer d'abord » échouait ici et basculait sur Prestations.
+        ->set('data.plannedItems.nouvelle', ['product_id' => null, 'quantity' => 1])
+        ->call('duplicateStay', $stay->id)
+        ->assertHasNoErrors();
 
-    $copy = FolderStay::where('folder_id', $this->folder->id)->where('id', '!=', $stay->id)->firstOrFail();
-    expect($copy->check_in->format('Y-m-d'))->toBe('2026-12-20')->and($copy->check_out->format('Y-m-d'))->toBe('2026-12-23')
-        ->and($copy->rooms)->toBe(2);
+    $stays = array_values($component->get('data.stays'));
+    expect($stays)->toHaveCount(2);
+    $copy = collect($stays)->first(fn ($s) => ($s['check_in'] ?? null) === '2026-12-20');
+    expect($copy)->not->toBeNull()
+        ->and($copy['check_out'])->toBe('2026-12-23')
+        ->and($copy['status'])->toBe('to_book')
+        ->and(collect($copy['room_lines'])->first()['label'])->toBe('Twin');
+    expect($this->folder->stays()->count())->toBe(1); // rien d'enregistré de force
 });
 
+it('reprend les chambres d’un autre séjour', function () {
+    $this->folder->stays()->create(['hotel_name' => 'A', 'check_in' => '2026-12-17', 'check_out' => '2026-12-20', 'status' => 'confirmed', 'booked_by' => 'takada', 'room_lines' => [['room_type_id' => null, 'label' => 'Twin', 'quantity' => 2]]]);
+    $b = $this->folder->stays()->create(['hotel_name' => 'B', 'check_in' => '2026-12-20', 'check_out' => '2026-12-22', 'status' => 'confirmed', 'booked_by' => 'takada']);
+
+    $a = $this->folder->stays()->where('hotel_name', 'A')->first();
+    $component = Livewire::test(EditCommercialFolder::class, ['record' => $this->folder->getRouteKey()])
+        ->set('data.stays.record-' . $b->id . '.copy_rooms_from', 'record-' . $a->id);
+
+    $lines = array_values($component->get('data.stays.record-' . $b->id . '.room_lines'));
+    expect($lines)->toHaveCount(1)->and($lines[0]['label'])->toBe('Twin')->and((int) $lines[0]['quantity'])->toBe(2);
+});
 it('retire les catégories de l’ancien hôtel quand on change d’hôtel et garde les libellés saisis', function () {
     $a = Hotel::create(['name' => 'Hôtel A', 'city' => 'Tokyo']);
     $b = Hotel::create(['name' => 'Hôtel B', 'city' => 'Kyoto']);
