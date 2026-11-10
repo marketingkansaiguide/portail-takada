@@ -324,3 +324,31 @@ Après chaque lot : revue du rendu réel dans le navigateur par le rôle UX avan
 | Consigne urgente billetterie | couvert côté commercial, côté billetterie non vérifié | couvert (T1) |
 | Cartes IC | couvert (produit au catalogue de recette) | couvert |
 | Pocket wifi, carnet de voyage | **non couvert** | T11, selon décision |
+
+## 6. T0 : mesure de référence (réalisée le 2026-11-10 par Sonnet)
+
+Méthode : deux serveurs de recette isolés (SQLite jetable, Agenda et Planning Guides vides), l'un sur le commit
+`e89b15c` (« avant », worktree séparé), l'autre sur le code courant. Dans chaque navigateur, ouverture du formulaire
+d'ajout de chaque type d'élément et décompte des champs visibles (script de mesure, pas de saisie humaine) ; durées
+**non chronométrées** : une saisie humaine ne se simule pas honnêtement. Les totaux du dossier de démonstration
+(4 voyageurs, 2 vols, 6 hôtels, 11 prestations) sont des multiplications, pas des mesures.
+
+| Élément (un exemplaire) | Champs visibles AVANT (obligatoires) | Champs visibles après lots 1 et 2 (obligatoires) |
+|---|---|---|
+| Création du dossier | 11 (4) ; ni dates ni voyageurs : 2 champs obligatoires à saisir ensuite sur la fiche | non refait (T10) |
+| Voyageur | 10 (2) | 10 (2) |
+| Vol | 10 (0), deux fuseaux à choisir dans la liste complète | 10 (0) (T10) |
+| Hébergement | 18 (3), une seule catégorie de chambre | 18 (3), plusieurs catégories, nuits ou départ liés |
+| Prestation (visite) | 10 (3), dont 2 prix en lecture seule et le bloc d'options | 6 (3) |
+| Prestation (train) | visite + bloc Trajets, champs fournisseur et prix d'achat visibles | bloc Trajets seul, fournisseur et achat masqués |
+
+Dossier de démonstration complet, par multiplication (champs à parcourir, hors champs facultatifs laissés vides) :
+- AVANT : 11 + 4×10 + 2×10 + 6×18 + 11×10 = **289 champs parcourus**, dont 4 + 8 + 0 + 18 + 33 = 63 obligatoires ;
+  un seul enregistrement global pour tous les onglets (bouton en haut et en bas) ; 7 onglets avec défilement
+  horizontal ; commande depuis un bouton d'en-tête qui rouvre la liste des lignes.
+- Après lots 1 et 2 : 11 + 40 + 20 + 108 + 11×6 = **245 champs parcourus** (-15 %), sans compter le gain des champs
+  préremplis (pax du dossier, date de la dernière ligne, arrivée de l'hôtel suivant, premier trajet d'un train).
+- Ressaisies identifiées avant : date et pax de chaque ligne, ville de l'hôtel, fuseaux des vols, trajet d'un train
+  (date et pax déjà saisis sur la ligne) ; supprimées ou préremplies depuis.
+
+À refaire sur le code final après T7 à T10 (même script).
