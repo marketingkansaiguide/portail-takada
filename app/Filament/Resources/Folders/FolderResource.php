@@ -480,11 +480,21 @@ class FolderResource extends Resource
                             ->label(__('Produit / Activité'))
                             ->required()
                             ->searchable()
-                            ->preload()
+                            ->preload($mode !== 'commercial')
+                            // Espace commercial : recherche côté serveur (2 caractères minimum, 15 résultats),
+                            // prestations fréquentes à champ vide ; le catalogue n'est jamais préchargé.
+                            ->when($mode === 'commercial', fn (Select $select) => $select
+                                ->allowHtml()
+                                ->searchDebounce(250)
+                                ->noSearchResultsMessage(__('Aucune prestation trouvée. Essayez un autre mot-clé.'))
+                                ->searchPrompt(__('Tapez au moins 2 caractères : nom, ville, catégorie…'))
+                                ->options(fn () => \App\Support\CatalogueSearch::frequent(auth('web')->id()))
+                                ->getSearchResultsUsing(fn (string $search, Get $get): array => \App\Support\CatalogueSearch::search($search, \App\Support\CatalogueSearch::LIMIT, (int) $get('product_id') ?: null))
+                                ->getOptionLabelUsing(fn ($value): ?string => ($name = \App\Models\Product::whereKey($value)->value('name')) ? e($name) : null))
                             ->live()
                             ->afterStateUpdated(function ($set, $get, $state, $old) {
                                 if ($state !== $old) {
-                                    $set('selected_options', []); 
+                                    $set('selected_options', []);
                                     $set('custom_values', []); 
                                     
                                     try {
