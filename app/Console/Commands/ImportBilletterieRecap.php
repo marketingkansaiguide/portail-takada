@@ -23,7 +23,7 @@ class ImportBilletterieRecap extends Command
 {
     protected $signature = 'billetterie:import-recap
         {file : Fichier Excel « [2026] Billetterie »}
-        {--gap=7 : Écart maximal (jours) entre deux prestations d\'un même voyage}
+        {--gap=30 : Écart maximal (jours) entre deux prestations d\'un même voyage}
         {--from= : Ne garder que les prestations à partir de cette date (AAAA-MM-JJ)}
         {--report=storage/app/imports/recap-dryrun : Dossier des rapports CSV}';
     protected $description = 'ESSAI À BLANC de la reprise du récap réservations (n\'écrit rien en base)';
@@ -120,7 +120,7 @@ class ImportBilletterieRecap extends Command
             foreach ($clientLines as $l) {
                 if ($prev && $l['date'] && $prev['date']) {
                     $diff = Carbon::parse($prev['date'])->diffInDays(Carbon::parse($l['date']));
-                    if ($diff >= 5 && $diff <= 10) {
+                    if ($diff >= 20 && $diff <= 40) {
                         $limits[] = [$l['client_label'], $prev['date'], $l['date'], $diff, $diff > $gap ? 'scindé' : 'regroupé'];
                     }
                     if ($diff > $gap) {
@@ -209,7 +209,7 @@ class ImportBilletterieRecap extends Command
             ['Agences utilisées', count($agenciesNeeded)],
             ['… dont à créer', count(array_filter(array_keys($agenciesNeeded), fn ($a) => ! isset($existingAgencies[$this->squash($a)])))],
             ['Rattachements à un dossier existant (nom + dates exacts)', count($matches)],
-            ['Cas limites (écart 5 à 10 j)', count($limits)],
+            ['Cas limites (écart 20 à 40 j)', count($limits)],
             ['Lignes sans produit (→ lignes libres)', $stats['product']['NON RAPPROCHÉ'] ?? 0],
             ['Anomalies', count($stats['anomalies'])],
         ]);

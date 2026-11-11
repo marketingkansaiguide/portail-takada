@@ -44,7 +44,7 @@ Colonnes de RÉCAP RÉSAS [C] : nom client (agence + voyageurs + « (agence) » 
 
 La prod ne compte qu'environ **6 dossiers et 26 prestations** : les 799 clients ne sont pas dans le portail. L'import **crée donc des dossiers** (chiffres repris du relevé du coordinateur ; mon propre accès SSH a été refusé, non revérifié).
 
-1. **Un dossier par client et par voyage** : lignes de même nom client, dates contiguës (règle à fixer, par exemple écart ≤ 7 jours entre deux prestations ; au-delà, nouveau voyage).
+1. **Un dossier par client et par voyage** : lignes de même nom client, dates contiguës (règle à fixer, par exemple écart ≥ 30 jours entre deux voyages (décidé par Maxime) ; au-delà, nouveau voyage).
 2. **Rattachement à un dossier existant uniquement** si le nom **et** les dates correspondent exactement ; sinon création.
 3. **Règle d'origine (correction de Maxime)** : seules les lignes de l'agence **K.V. / KV / TAKADA TRAVEL** deviennent des dossiers **internes** (`origin = internal`). **Toutes les autres agences donnent des dossiers agence**, liés à leur agence ; si l'agence n'existe pas encore dans le portail, elle est **créée** (liste au §4 bis).
 4. Les cas ambigus (homonymes, agence proche mais non identique) vont dans un rapport d'anomalies, pas d'import silencieux.
