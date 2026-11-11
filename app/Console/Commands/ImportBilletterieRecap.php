@@ -83,6 +83,20 @@ class ImportBilletterieRecap extends Command
         'Lee Ufan Museum (Naoshima)' => '/lee ufan/',
         'Musée Ando (Naoshima)' => '/ando museum|musee ando/',
         'Visite nocturne du cimetière Okuno-in – Koya-san' => '/okuno/',
+        'Affûtage et emmanchage de couteau – Osaka' => '/affutage/',
+        'Atelier de confection de kimonos avec déjeuner – Yosano (Kyoto)' => '/ateliers? (de )?confection de kimono/',
+        'Tour des temples et jardins – Kamakura' => '/kamakura/',
+        'Dégustation et découverte du thé japonais en français – Kyoto' => '/degustation.*the.*francais/',
+        'Dîner avec une maiko ou une geisha – Kanazawa' => '/(diner|dejeuner).*(geisha|maiko).*kanazawa/',
+        'Dîner avec une maiko ou une geisha – Kyoto' => '/diner.*(geisha|maiko)/',
+        'Pocket wifi' => '/e-?sim/',
+        'Affûtage et emmanchage de couteau – Osaka' => '/affutage/',
+        'Atelier de confection de kimonos avec déjeuner – Yosano (Kyoto)' => '/ateliers? (de )?confection de kimono/',
+        'Tour des temples et jardins – Kamakura' => '/kamakura/',
+        'Dégustation et découverte du thé japonais en français – Kyoto' => '/degustation.*the.*francais/',
+        'Dîner avec une maiko ou une geisha – Kanazawa' => '/(diner|dejeuner).*(geisha|maiko).*kanazawa/',
+        'Dîner avec une maiko ou une geisha – Kyoto' => '/diner.*(geisha|maiko)/',
+        'Pocket wifi' => '/e-?sim/',
         'Ferry' => '/ferry/',
         'Location de vélo' => '/location de velo|e-?bike/',
         'Tokyo Skytree' => '/sky ?tree/',
@@ -132,7 +146,38 @@ class ImportBilletterieRecap extends Command
         'Ticket de train / bus' => '/shinkansen|train|express|fare ticket|free ?pass|\bbus\b|nohi|kintetsu|tobu|skyliner|romance|nozomi|hikari|thunderbird|\bpass\b|\bjr\b/',
     ];
 
+    /** Billetterie de sites : prix de vente = PA total + frais de résa (règle de Maxime). */
+    private const RESA_FEE = 3000;
+
+    private const SITE_TICKET_PRODUCTS = [
+        'Universal Studios Japan (USJ)', 'Parc Ghibli', 'teamLab Planets Tokyo', 'teamLab Borderless', 'Tokyo DisneySea', 'Tokyo Disneyland',
+        'Musée international du manga de Kyoto', 'Musée Gion Kagai', 'Chichu Art Museum (Naoshima)', 'Lee Ufan Museum (Naoshima)', 'Musée Ando (Naoshima)',
+        'Tokyo Skytree', 'Edo Wonderland', 'Naoshima New Museum of Art', 'Snoopy Museum Tokyo', 'Aquarium d’Osaka (Kaiyukan)', 'Fuji-Q Highland', 'Legoland Japan',
+        'Croisière avec dîner – Yakatabune (Tokyo)', 'Teshima Art Museum', 'Benesse House & Valley Gallery', 'Hiroshi Sugimoto Gallery', 'Musée Kusama Yayoi', 'Musée Nintendo',
+        'SCMAGLEV and Railway Park', 'Mémorial de la Paix (Hiroshima)', 'Musée d’art contemporain de Kanazawa', 'Yokoo House', 'Yusai-Tei Gallery', 'Naruto Park',
+        'teamLab Biovortex Kyoto', 'Château de Himeji + Kokoen', 'Circuit de Suzuka', 'Gion Corner',
+        'Musée interactif ninja & samouraï – Tokyo', 'Musée interactif ninja & samouraï – Kyoto', 'Miyako Odori',
+    ];
+
+    /** Frais de résa seuls (les entrées se paient sur place). */
+    private const FEE_ONLY_PRODUCTS = ['Temple des mousses (Saihoji)', 'Villa impériale de Katsura'];
+
     private array $products = [];
+
+    private function saleTotal(?string $product, ?float $paTotal): ?float
+    {
+        if ($product === null) {
+            return null;
+        }
+        if (in_array($product, self::FEE_ONLY_PRODUCTS, true)) {
+            return (float) self::RESA_FEE;
+        }
+        if (in_array($product, self::SITE_TICKET_PRODUCTS, true)) {
+            return $paTotal === null ? null : $paTotal + self::RESA_FEE;
+        }
+
+        return null;
+    }
 
     public function handle(): int
     {
@@ -224,14 +269,14 @@ class ImportBilletterieRecap extends Command
                 if ($l['status'] && ! isset($statusIds[$l['status']])) {
                     $stats['anomalies'][] = [$l['client_label'], $l['row'], "statut introuvable en base : {$l['status']}"];
                 }
-                $rowsOut[] = [$ti + 1, $t[0]['agency'] ?? 'INTERNE', $l['client_label'], $l['row'], $l['date'], $l['label_first'], $p ?? '', $l['pax'], $l['pa_total'], $l['status'] ?? '', $l['requested_at'], $l['confirmed_at'], $l['invoice_at'], $l['delivered_at']];
+                $rowsOut[] = [$ti + 1, $t[0]['agency'] ?? 'INTERNE', $l['client_label'], $l['row'], $l['date'], $l['label_first'], $p ?? '', $l['pax'], $l['pa_total'], $l['sale_total'], $l['status'] ?? '', $l['requested_at'], $l['confirmed_at'], $l['invoice_at'], $l['delivered_at']];
             }
         }
 
         // 5. Rapports (aucune écriture en base).
         $dir = base_path($this->option('report'));
         @mkdir($dir, 0777, true);
-        $this->csv("$dir/dossiers-lignes.csv", ['dossier_n', 'agence', 'client', 'ligne_excel', 'date', 'prestation', 'produit', 'pax', 'pa_total', 'statut', 'demande', 'confirmee', 'facture', 'envoyee'], $rowsOut);
+        $this->csv("$dir/dossiers-lignes.csv", ['dossier_n', 'agence', 'client', 'ligne_excel', 'date', 'prestation', 'produit', 'pax', 'pa_total', 'pv_calcule', 'statut', 'demande', 'confirmee', 'facture', 'envoyee'], $rowsOut);
         $this->csv("$dir/agences.csv", ['agence', 'dossiers', 'existe_en_base'], array_map(fn ($a, $n) => [$a, $n, isset($existingAgencies[$this->squash($a)]) ? 'oui' : 'à créer'], array_keys($agenciesNeeded), $agenciesNeeded));
         $this->csv("$dir/cas-limites-5-10-jours.csv", ['client', 'derniere_date_avant', 'date_suivante', 'ecart_jours', 'decision'], $limits);
         arsort($stats['unmatched']);
@@ -283,7 +328,10 @@ class ImportBilletterieRecap extends Command
             $status = $rgb ? (self::COLOR_STATUS[$rgb] ?? null) : null;
             $pink = $rgb === 'F7A3F3';
 
+            $product = $this->matchProduct($norm);
+            $paTotal = is_numeric($v = $sheet->getCell("H$r")->getCalculatedValue()) ? (float) $v : null;
             $out[] = [
+                'sale_total' => $this->saleTotal($product, $paTotal),
                 'row' => $r,
                 'agency' => $agency,
                 'client_key' => ($agency ?? 'INTERNE').'|'.$this->squash($names),
@@ -291,9 +339,9 @@ class ImportBilletterieRecap extends Command
                 'first_name' => trim(explode("\n", $names)[0]),
                 'date' => $this->date($sheet->getCell("B$r")->getValue()),
                 'label_first' => trim(explode("\n", $labelText)[0]),
-                'product' => $this->matchProduct($norm),
+                'product' => $product,
                 'pax' => is_numeric($v = $sheet->getCell("F$r")->getValue()) ? (int) $v : null,
-                'pa_total' => is_numeric($v = $sheet->getCell("H$r")->getCalculatedValue()) ? (float) $v : null,
+                'pa_total' => $paTotal,
                 'status' => $status,
                 'requested_at' => $this->date($sheet->getCell("I$r")->getValue()),
                 'confirmed_at' => $this->date($sheet->getCell("J$r")->getValue()),
