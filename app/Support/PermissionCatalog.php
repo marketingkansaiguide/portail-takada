@@ -43,6 +43,7 @@ final class PermissionCatalog
                 'operations.iwa_orders' => 'Commandes IWA',
                 'operations.ic_cards' => 'Cartes IC',
                 'operations.seven_tickets' => 'Commandes Seven Tickets',
+                'operations.recap' => 'Récap réservations (suivi par prestation)',
                 'operations.statistics' => 'Statistiques financières (Business Intelligence)',
             ],
             'SEO' => ['seo.dashboard' => 'Tableau de bord SEO'] + $crud('seo_site', 'sites suivis'),

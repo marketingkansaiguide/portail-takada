@@ -23,6 +23,8 @@ class FolderItem extends Model
         'planned_item_id', 'ordered_by_user_id', 'order_batch_id',
         'calendar_sync_status', 'calendar_sync_error', 'calendar_synced_at',
         'ticketing_notes', 'meeting_point', 'meeting_time', 'route_from', 'route_to', 'end_time', 'end_date',
+        // Suivi billetterie (récap réservations)
+        'requested_at', 'supplier_confirmed_at', 'purchased_at', 'delivered_at',
     ];
 
     protected $casts = [
@@ -31,6 +33,7 @@ class FolderItem extends Model
         'unit_price' => 'integer', 'total_price' => 'integer', 
         'custom_values' => 'array', 'selected_options' => 'array',
         'invoice_received_at' => 'date',
+        'requested_at' => 'date', 'supplier_confirmed_at' => 'date', 'purchased_at' => 'date', 'delivered_at' => 'date',
         'is_internal' => 'boolean',
         'label_exported_at' => 'datetime',
         'guide_mission_id' => 'integer',
