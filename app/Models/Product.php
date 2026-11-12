@@ -188,6 +188,15 @@ class Product extends Model
     }
 
     /**
+     * Nombre de prestations de dossiers qui utilisent ce produit. La base supprime en cascade les
+     * prestations d'un produit supprimé : un produit utilisé ne doit donc jamais être supprimé.
+     */
+    public function usageCount(): int
+    {
+        return \App\Models\FolderItem::where('product_id', $this->id)->count();
+    }
+
+    /**
      * Miniature légère de la première image (listes de l'admin) : évite de télécharger
      * les originaux de plusieurs Mo pour afficher une vignette de 48 px.
      */

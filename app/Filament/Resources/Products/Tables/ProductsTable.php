@@ -66,8 +66,36 @@ class ProductsTable
                     ->searchable()
                     ->preload(),
             ])
+            ->recordActions([
+                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\DeleteAction::make()
+                    ->modalHeading(__('Supprimer ce produit ?'))
+                    ->modalDescription(__('Le produit, ses options, ses prix et ses périodes seront supprimés définitivement.'))
+                    ->before(function (\Filament\Actions\DeleteAction $action, \App\Models\Product $record) {
+                        $n = $record->usageCount();
+                        if ($n > 0) {
+                            \Filament\Notifications\Notification::make()
+                                ->title(__('Suppression impossible'))
+                                ->body(__('Ce produit est utilisé dans :n prestation(s) de dossiers. Désactivez-le (colonne « Actif ») plutôt que de le supprimer.', ['n' => $n]))
+                                ->danger()->send();
+                            $action->cancel();
+                        }
+                    }),
+            ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    \Filament\Actions\DeleteBulkAction::make()
+                        ->modalDescription(__('Les produits sélectionnés, leurs options, prix et périodes seront supprimés définitivement.'))
+                        ->before(function (\Filament\Actions\DeleteBulkAction $action, Collection $records) {
+                            $used = $records->filter(fn ($p) => $p->usageCount() > 0);
+                            if ($used->isNotEmpty()) {
+                                \Filament\Notifications\Notification::make()
+                                    ->title(__('Suppression impossible'))
+                                    ->body(__('Produits utilisés dans des dossiers : :list. Retirez-les de la sélection ou désactivez-les.', ['list' => $used->pluck('name')->take(5)->implode(', ').($used->count() > 5 ? '…' : '')]))
+                                    ->danger()->send();
+                                $action->cancel();
+                            }
+                        }),
                     BulkAction::make('activate')
                         ->label(__('Activer'))
                         ->icon('heroicon-o-eye')
