@@ -21,6 +21,7 @@ class ProductsTable
             ->columns([
                 ImageColumn::make('primary_image_url')
                     ->label(__('Photo'))
+                    ->getStateUsing(fn (\App\Models\Product $record): ?string => $record->thumbnailUrl(120))
                     ->circular()
                     ->imageSize(48),
 

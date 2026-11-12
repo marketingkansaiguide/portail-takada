@@ -188,6 +188,29 @@ class Product extends Model
     }
 
     /**
+     * Miniature légère de la première image (listes de l'admin) : évite de télécharger
+     * les originaux de plusieurs Mo pour afficher une vignette de 48 px.
+     */
+    public function thumbnailUrl(int $width = 120): ?string
+    {
+        $images = $this->images;
+        if (is_string($images)) {
+            $images = json_decode($images, true);
+        }
+        $first = is_array($images) ? collect($images)->filter(fn ($i) => filled($i))->first() : null;
+        if (! is_string($first)) {
+            return null;
+        }
+        $first = trim($first);
+        if (str_starts_with($first, 'http://') || str_starts_with($first, 'https://')) {
+            return $first;
+        }
+        $path = preg_replace('#^/?storage/#', '', $first);
+
+        return \App\Support\ImageOptimizer::thumbUrl($path, $width);
+    }
+
+    /**
      * Documents « Informations importantes » du produit, avec leur URL publique.
      *
      * @return array<int, array{label: string, url: string}>
