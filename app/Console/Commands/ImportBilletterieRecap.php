@@ -194,6 +194,9 @@ class ImportBilletterieRecap extends Command
 
     private array $products = [];
 
+    /** @var array<string, true> produits désactivés (clés « aplaties ») */
+    private array $inactive = [];
+
     private function saleTotal(?string $product, ?float $paTotal): ?float
     {
         if ($product === null) {
@@ -608,8 +611,11 @@ class ImportBilletterieRecap extends Command
 
     private function loadProducts(): void
     {
-        foreach (Product::pluck('name') as $name) {
-            $this->products[$this->squash($name)] = $name;
+        foreach (Product::orderBy('id')->get(['name', 'is_public']) as $p) {
+            $this->products[$this->squash($p->name)] = $p->name;
+            if (! $p->is_public) {
+                $this->inactive[$this->squash($p->name)] = true;
+            }
         }
     }
 
@@ -622,6 +628,11 @@ class ImportBilletterieRecap extends Command
         }
         // Nom proche d'un produit existant (tous les mots significatifs du produit présents dans le libellé).
         foreach ($this->products as $key => $name) {
+            // Le rapprochement par nom proche ne vise que des produits ACTIFS (les produits créés pour la billetterie
+            // passent par les règles explicites ci-dessus).
+            if (isset($this->inactive[$key])) {
+                continue;
+            }
             $tokens = array_filter(explode(' ', Str::lower(Str::ascii($name))), fn ($w) => strlen($w) > 3 && ! in_array($w, ['visite', 'guidee', 'journee', 'groupe', 'prive', 'avec', 'dans']));
             $tokens = array_map(fn ($w) => preg_replace('/[^a-z0-9]/', '', $w), $tokens);
             $tokens = array_filter($tokens);
