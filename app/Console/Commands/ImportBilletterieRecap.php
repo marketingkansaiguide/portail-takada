@@ -9,21 +9,23 @@ use App\Models\Product;
 use App\Models\ProductOption;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as XlDate;
 
 /**
- * Reprise de l'onglet « RÉCAP RÉSAS » de l'Excel billetterie : ESSAI À BLANC UNIQUEMENT.
+ * Reprise de l'onglet « RÉCAP RÉSAS » de l'Excel billetterie : essai à blanc par défaut, écriture réelle avec --apply.
  * Lit l'Excel, regroupe les lignes en dossiers (un par client et par voyage), rapproche agences,
- * produits et statuts, puis écrit des rapports. N'écrit RIEN dans la base.
- * L'import réel n'est volontairement pas implémenté : il attend le feu vert de Maxime.
+ * produits et statuts, puis écrit des rapports. N'écrit RIEN dans la base sans --apply.
+ * Feu vert de Maxime reçu le 2026-11-12 pour l'import réel.
  */
 class ImportBilletterieRecap extends Command
 {
     protected $signature = 'billetterie:import-recap
         {file : Fichier Excel « [2026] Billetterie »}
         {--gap=30 : Écart maximal (jours) entre deux prestations d\'un même voyage}
+        {--apply : ÉCRIT en base (par défaut : essai à blanc, rien n\'est écrit)}
         {--from= : Ne garder que les prestations à partir de cette date (AAAA-MM-JJ)}
         {--report=storage/app/imports/recap-dryrun : Dossier des rapports CSV}';
     protected $description = 'ESSAI À BLANC de la reprise du récap réservations (n\'écrit rien en base)';
@@ -334,6 +336,14 @@ class ImportBilletterieRecap extends Command
         $this->table(['Statut', 'Lignes'], array_map(fn ($k, $v) => [$k, $v], array_keys($stats['status']), $stats['status']));
         $this->line('Rapports : '.$dir);
 
+        if ($this->option('apply')) {
+            $this->warn('=== ÉCRITURE RÉELLE EN BASE (--apply) ===');
+            $result = $this->apply($trips);
+            $this->table(['Écrit', 'Valeur'], array_map(fn ($k, $v) => [$k, $v], array_keys($result), $result));
+        } else {
+            $this->comment('Essai à blanc : rien n\'a été écrit. Relancer avec --apply pour écrire.');
+        }
+
         return self::SUCCESS;
     }
 
@@ -379,10 +389,194 @@ class ImportBilletterieRecap extends Command
                 'confirmed_at' => $this->date($sheet->getCell("J$r")->getValue()),
                 'invoice_at' => $pink ? null : $this->date($sheet->getCell("K$r")->getValue()),
                 'delivered_at' => $this->date($sheet->getCell("P$r")->getValue()),
+                'label_full' => $labelText,
+                'dep' => $sheet->getCell("D$r")->getValue(),
+                'arr' => $sheet->getCell("E$r")->getValue(),
+                'pa_unit' => is_numeric($v = $sheet->getCell("G$r")->getCalculatedValue()) ? (float) $v : null,
+                'guide_info' => trim((string) $sheet->getCell("M$r")->getValue()),
+                'send_place' => trim((string) $sheet->getCell("N$r")->getValue()),
+                'hotel' => trim((string) $sheet->getCell("O$r")->getValue()),
+                'contact' => trim((string) $sheet->getCell("Q$r")->getValue()),
             ];
         }
 
         return $out;
+    }
+
+    /**
+     * Écriture réelle (option --apply) : agences manquantes, dossiers, prestations.
+     * Écrit par requêtes directes (aucun événement Eloquent : ni mission guide, ni Calendar, ni Google Drive,
+     * ni historique) dans UNE transaction. Idempotent : un dossier déjà importé (import_key) est ignoré.
+     * Dossiers internes : chaque prestation passe par une prestation préparée convertie (règle du trigger SQL).
+     *
+     * @return array<string, int>
+     */
+    private function apply(array $trips): array
+    {
+        $now = now();
+        $stats = ['dossiers' => 0, 'dossiers_internes' => 0, 'prestations' => 0, 'agences_creees' => 0, 'deja_importes' => 0, 'lignes_sans_date' => 0];
+        $statusIds = ItemStatus::pluck('id', 'name')->all();
+        $defaultStatus = $statusIds['En attente de validation'] ?? null;
+        $products = Product::orderBy('id')->get(['id', 'name', 'supplier_id'])->keyBy('name');
+        $agencyIds = Agency::pluck('id', 'name')->mapWithKeys(fn ($id, $n) => [$this->squash($n) => $id])->all();
+        $today = Carbon::today()->toDateString();
+
+        DB::transaction(function () use ($trips, $now, &$stats, $statusIds, $defaultStatus, $products, &$agencyIds, $today) {
+            foreach ($trips as $trip) {
+                $first = $trip[0];
+                $dated = array_values(array_filter($trip, fn ($l) => $l['date']));
+                $stats['lignes_sans_date'] += count($trip) - count($dated);
+                if (! $dated) {
+                    continue;
+                }
+                $dates = array_column($dated, 'date');
+                sort($dates);
+                $key = 'recap:'.substr(sha1($first['client_key'].'|'.$dates[0]), 0, 20);
+                if (DB::table('folders')->where('import_key', $key)->exists()) {
+                    $stats['deja_importes']++;
+
+                    continue;
+                }
+
+                $internal = ! $first['agency'];
+                $agencyId = null;
+                if (! $internal) {
+                    $sq = $this->squash($first['agency']);
+                    if (! isset($agencyIds[$sq])) {
+                        $agencyIds[$sq] = DB::table('agencies')->insertGetId([
+                            'client_group_id' => 1,
+                            'name' => $first['agency'],
+                            'email' => 'a-completer+'.Str::slug($first['agency']).'@takada-travel.invalid',
+                            'is_approved' => 0,
+                            'import_key' => 'recap',
+                            'created_at' => $now, 'updated_at' => $now,
+                        ]);
+                        $stats['agences_creees']++;
+                    }
+                    $agencyId = $agencyIds[$sq];
+                }
+
+                $allCancelled = collect($dated)->every(fn ($l) => $l['status'] === 'Annulé');
+                $end = max($dates);
+                $status = $allCancelled ? 'cancelled' : ($end < $today ? 'completed' : 'confirmed');
+                $opsStatus = $allCancelled ? 'annule' : ($end < $today ? 'termine' : 'reservations_en_cours');
+                $hotel = collect($dated)->pluck('hotel')->map(fn ($h) => trim(explode("\n", (string) $h)[0]))->first(fn ($h) => $h !== '' && ! in_array(Str::lower($h), ['×', 'x'], true));
+                $send = Str::lower(Str::ascii((string) collect($dated)->pluck('send_place')->first(fn ($s) => $s !== '' && ! in_array(Str::lower($s), ['×', 'x'], true))));
+                $dispatch = $send === '' || str_contains($send, 'hotel') ? 'hotel' : (str_contains($send, 'guide') ? 'guide' : 'autre');
+                $contact = collect($dated)->pluck('contact')->first(fn ($c) => $c !== '');
+                $names = str_replace("\n", ' / ', explode('(', $first['client_label'])[0]);
+
+                do {
+                    $reference = 'TKD-'.str_replace('-', '', substr($dates[0], 0, 7)).'-'.strtoupper(Str::random(4));
+                } while (DB::table('folders')->where('reference', $reference)->exists());
+
+                $folderId = DB::table('folders')->insertGetId([
+                    'reference' => $reference,
+                    'origin' => $internal ? 'internal' : 'b2b',
+                    'kind' => $internal ? 'services_only' : null,
+                    'agency_id' => $agencyId,
+                    'segment' => $internal ? null : 'billetterie',
+                    'folder_name' => Str::limit(trim($names), 250, ''),
+                    'lead_traveler_name' => Str::limit($first['first_name'], 250, ''),
+                    'hotel_booking_name' => $hotel ? Str::limit($hotel, 250, '') : null,
+                    'first_hotel_name' => $hotel ? Str::limit($hotel, 250, '') : null,
+                    'pax_adults' => max(1, (int) max(array_map(fn ($l) => (int) $l['pax'], $dated))),
+                    'pax_children' => 0,
+                    'start_date' => $dates[0],
+                    'end_date' => $end,
+                    'status' => $status,
+                    'ops_status' => $internal ? $opsStatus : null,
+                    'ticket_dispatch_method' => $dispatch,
+                    'internal_notes' => $contact ? 'Contact client (import récap) : '.Str::limit($contact, 400, '') : null,
+                    'import_key' => $key,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $stats['dossiers']++;
+                $stats['dossiers_internes'] += $internal ? 1 : 0;
+
+                $billable = 0;
+                foreach ($dated as $l) {
+                    $product = $l['product'] ? $products->get($l['product']) : null;
+                    $qty = max(1, (int) ($l['pax'] ?? 1));
+                    $sale = (int) round($l['sale_total'] ?? 0);
+                    $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $l['label_full']))));
+                    $notes = implode(' / ', $lines);
+                    if ($l['guide_info'] !== '' && ! in_array(Str::lower($l['guide_info']), ['×', 'x'], true)) {
+                        $notes .= ' | Infos guide/chauffeur : '.$l['guide_info'];
+                    }
+                    [$routeFrom, $meetTime] = $this->routePart($l['dep']);
+                    [$routeTo, $endTime] = $this->routePart($l['arr']);
+                    $endDate = is_numeric($l['arr']) && $l['arr'] > 40000 ? $this->date($l['arr']) : null;
+                    $row = [
+                        'product_id' => $product?->id,
+                        'supplier_id' => $product?->supplier_id,
+                        'service_date' => $l['date'],
+                        'quantity' => $qty,
+                        'pax_adults' => $qty, 'pax_children' => 0, 'pax_teenagers' => 0,
+                        'unit_price' => (int) round($sale / $qty),
+                        'total_price' => $sale,
+                        'purchase_unit_price' => (int) round($l['pa_unit'] ?? 0),
+                        'purchase_total_price' => (int) round($l['pa_total'] ?? 0),
+                        'title' => $product ? null : Str::limit($l['label_first'], 250, ''),
+                        'is_internal' => 0,
+                        'ticketing_notes' => Str::limit($notes, 2000, ''),
+                        'meeting_time' => $meetTime, 'end_time' => $endTime,
+                        'route_from' => $routeFrom, 'route_to' => $routeTo, 'end_date' => $endDate,
+                    ];
+                    $ref = $key.':'.$l['row'];
+                    $itemRow = $row + [
+                        'folder_id' => $folderId,
+                        'item_status_id' => $statusIds[$l['status']] ?? $defaultStatus,
+                        'requested_at' => $l['requested_at'], 'supplier_confirmed_at' => $l['confirmed_at'],
+                        'invoice_received_at' => $l['invoice_at'], 'delivered_at' => $l['delivered_at'],
+                        'import_ref' => $ref,
+                        'created_at' => $now, 'updated_at' => $now,
+                    ];
+
+                    if ($internal) {
+                        $plannedId = DB::table('folder_planned_items')->insertGetId($row + [
+                            'folder_id' => $folderId, 'state' => 'draft', 'source' => 'import_recap', 'source_ref' => $ref,
+                            'sale_price_overridden' => 1, 'purchase_price_overridden' => 1, 'lock_version' => 0,
+                            'created_at' => $now, 'updated_at' => $now,
+                        ]);
+                        $itemRow['planned_item_id'] = $plannedId;
+                    }
+                    $itemId = DB::table('folder_items')->insertGetId($itemRow);
+                    if ($internal) {
+                        DB::table('folder_planned_items')->where('id', $plannedId)->update(['state' => 'converted', 'folder_item_id' => $itemId, 'converted_at' => $now]);
+                        $stats['prestations_preparees'] = ($stats['prestations_preparees'] ?? 0) + 1;
+                    }
+                    $stats['prestations']++;
+                    if ($l['status'] !== 'Annulé') {
+                        $billable += $sale;
+                    }
+                }
+                DB::table('folders')->where('id', $folderId)->update(['total_price' => $billable]);
+            }
+        });
+
+        return $stats;
+    }
+
+    /** @return array{0: ?string, 1: ?string} texte de lieu et heure « HH:MM » extraits d'une cellule départ/arrivée */
+    private function routePart(mixed $v): array
+    {
+        if ($v === null || $v === '') {
+            return [null, null];
+        }
+        if (is_numeric($v)) {
+            return $v > 0 && $v < 1 ? [null, XlDate::excelToDateTimeObject($v)->format('H:i')] : [null, null];
+        }
+        $text = trim((string) $v);
+        if (in_array(Str::lower($text), ['×', 'x'], true)) {
+            return [null, null];
+        }
+        $time = null;
+        if (preg_match('/\b(\d{1,2})\s*[h:]\s*(\d{2})?\b/u', $text, $m)) {
+            $time = sprintf('%02d:%02d', min(23, (int) $m[1]), min(59, (int) ($m[2] ?? 0)));
+        }
+
+        return [Str::limit(str_replace("\n", ' / ', $text), 150, ''), $time];
     }
 
     /** @return array{0: ?string, 1: string} agence canonique (null = interne) et noms des voyageurs */
