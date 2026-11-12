@@ -81,6 +81,10 @@ class AddBilletterieProducts extends Command
             ['name' => 'teamLab Biovortex Kyoto', 'category_id' => self::ACTIVITY],
             ['name' => 'Château de Himeji + Kokoen', 'category_id' => self::ACTIVITY],
             ['name' => 'Circuit de Suzuka', 'category_id' => self::ACTIVITY],
+            ['name' => 'Atelier de forge – Studio NIN (Yase, Kyoto)', 'category_id' => self::ACTIVITY, 'extra' => [
+                'description' => 'Nouvelle activité 2027. Descriptif : https://www.tourakudo.com/studio-nin-yase (activité numéro 1)',
+                'images' => ['products/studio-nin.png'],
+            ]],
             ['name' => 'Gion Corner', 'category_id' => self::ACTIVITY, 'extra' => ['description' => 'https://www.kyoto-gioncorner.com/global/en.html']],
             ['name' => 'Train Kurobe Torokko', 'category_id' => self::TRANSPORT],
         ];
