@@ -107,6 +107,8 @@ class IwaOrders extends Page implements HasTable
     {
         $potentialItems = FolderItem::query()
             ->with(['product', 'itemStatus', 'folder.folderPassengers'])
+            // Prestations reprises de l'Excel (import récap) : déjà traitées, jamais dans les commandes IWA.
+            ->whereNull('import_ref')
             ->whereHas('folder', function (Builder $q) {
                 $q->whereNotIn('status', ['draft', 'cancelled']);
             })

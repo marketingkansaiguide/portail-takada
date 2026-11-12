@@ -489,6 +489,8 @@ class ImportBilletterieRecap extends Command
                     'ticket_dispatch_method' => $dispatch,
                     'internal_notes' => $contact ? 'Contact client (import récap) : '.Str::limit($contact, 400, '') : null,
                     'import_key' => $key,
+                    // Reprise d'un historique déjà traité : jamais dans les listes d'étiquettes à exporter.
+                    'label_exported_at' => $now,
                     'created_at' => $now, 'updated_at' => $now,
                 ]);
                 $stats['dossiers']++;
@@ -530,6 +532,7 @@ class ImportBilletterieRecap extends Command
                         'requested_at' => $l['requested_at'], 'supplier_confirmed_at' => $l['confirmed_at'],
                         'invoice_received_at' => $l['invoice_at'], 'delivered_at' => $l['delivered_at'],
                         'import_ref' => $ref,
+                        'label_exported_at' => $now,
                         'created_at' => $now, 'updated_at' => $now,
                     ];
 

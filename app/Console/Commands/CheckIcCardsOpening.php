@@ -24,7 +24,7 @@ class CheckIcCardsOpening extends Command
         $icItems = FolderItem::with(['folder.agency', 'product', 'itemStatus'])
             ->where('product_id', 3)
             ->whereHas('folder', function ($q) {
-                $q->whereNotIn('status', ['draft', 'completed', 'cancelled']);
+                $q->whereNotIn('status', ['draft', 'completed', 'cancelled'])->whereNull('import_key');
             })
             ->whereHas('itemStatus', function ($q) {
                 $q->where('name', 'En attente de validation');

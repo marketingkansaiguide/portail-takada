@@ -40,6 +40,8 @@ class ActionBoardTaskGenerator
 
         $folders = Folder::with(['allFolderItems.product', 'allFolderItems.itemStatus', 'agency'])
             ->whereNotIn('status', ['cancelled'])
+            // Dossiers repris de l'Excel (import récap) : suivis dans « Récap réservations », pas de tâches automatiques.
+            ->whereNull('import_key')
             ->get();
 
         $newIcAlertItems = [];
