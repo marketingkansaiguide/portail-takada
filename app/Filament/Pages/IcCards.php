@@ -146,6 +146,9 @@ class IcCards extends Page implements HasTable
     public static function getNavigationBadge(): ?string
     {
         $count = static::getIcItemsQuery()
+            // Une carte passée en « Confirmé » (ou annulée) n'est plus à traiter : elle n'est plus comptée.
+            ->notCancelled()
+            ->whereDoesntHave('itemStatus', fn (Builder $s) => $s->where('name', 'like', 'Confirm%'))
             ->where(function (Builder $q) {
                 $q->whereDate('service_date', '>=', now()->startOfDay())
                   ->orWhere(function (Builder $q2) {

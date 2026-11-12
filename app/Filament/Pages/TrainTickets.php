@@ -73,6 +73,7 @@ class TrainTickets extends Page implements HasTable
     public static function getNavigationBadge(): ?string
     {
         $count = static::getTrainItemsQuery()
+            ->whereNull('label_exported_at') // déjà exporté = plus compté
             ->where(function (Builder $q) {
                 $q->whereDate('service_date', '>=', now()->startOfDay())
                   ->orWhere(function (Builder $q2) {

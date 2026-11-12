@@ -44,7 +44,10 @@ class UpcomingCheckins extends Page implements HasTable
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) Folder::whereIn('status', ['confirmed', 'completed'])->count();
+        // Seulement les check-ins dont l'étiquette n'a pas encore été exportée.
+        $count = Folder::whereIn('status', ['confirmed', 'completed'])->whereNull('label_exported_at')->count();
+
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
