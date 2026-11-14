@@ -142,6 +142,9 @@ class ViewProduct extends Page
                         'specific_requests' => '',
                         'option_id' => null,
                         'pax_count' => 1,
+                        'children_count' => 0,
+                        'young_children_count' => 0,
+                        'infants_count' => 0,
                     ]
                 ];
             }
@@ -178,6 +181,9 @@ class ViewProduct extends Page
             'specific_requests' => '',
             'option_id' => null,
             'pax_count' => 1,
+            'children_count' => 0,
+            'young_children_count' => 0,
+            'infants_count' => 0,
         ];
     }
 
@@ -645,8 +651,11 @@ class ViewProduct extends Page
             }
 
             $grandTotal = $totalBase + $totalOptions;
+            // Prix indicatif des billets d'après la grille tarifaire (null = trajet sur devis).
+            $fares = app(\App\Support\TransportFareResolver::class)->forRoutes($routes);
 
             return [
+                'fares' => $fares,
                 'is_on_demand' => true,
                 'has_date' => true,
                 'unit_base' => $unitFeeDisplay,
@@ -879,6 +888,9 @@ class ViewProduct extends Page
                 'customValues.transport_routes.*.pax_count' => 'required|integer|min:1',
                 'customValues.transport_routes.*.option_id' => 'required',
                 'customValues.transport_routes.*.specific_requests' => 'nullable|string|max:5000',
+                'customValues.transport_routes.*.children_count' => 'nullable|integer|min:0|lte:customValues.transport_routes.*.pax_count',
+                'customValues.transport_routes.*.young_children_count' => 'nullable|integer|min:0',
+                'customValues.transport_routes.*.infants_count' => 'nullable|integer|min:0',
             ];
 
             $messages = [
@@ -927,7 +939,7 @@ class ViewProduct extends Page
                 'service_date' => $serviceDate,
                 'quantity' => $quantity,
                 'selected_options' => [],
-                'custom_values' => ['transport_routes' => $routes],
+                'custom_values' => ['transport_routes' => app(\App\Support\TransportFareResolver::class)->withEstimates($routes)],
                 'item_status_id' => $status->id,
                 'unit_price' => 0,                            
                 'total_price' => 0,

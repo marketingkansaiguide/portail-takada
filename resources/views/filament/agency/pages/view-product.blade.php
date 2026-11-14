@@ -362,7 +362,18 @@
                                 .tk-tr-fees-row strong { color: #0f172a; font-weight: 700; white-space: nowrap; }
                                 .tk-tr-fees-row .muted { color: #64748b; font-weight: 600; font-style: italic; white-space: nowrap; }
                                 .tk-tr-fees-title { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.1rem; }
-                                @media (max-width: 420px) { .tk-tr-grid { grid-template-columns: 1fr; } }
+                                .tk-tr-kids { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+                                .tk-tr-kids-hint { margin: 0.3rem 0 0; font-size: 0.72rem; color: #64748b; line-height: 1.4; }
+                                .tk-tr-fare { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; padding: 0.5rem 0.65rem; border-radius: 0.25rem; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; }
+                                .tk-tr-fare strong { color: #0f172a; font-weight: 700; text-align: right; }
+                                .tk-tr-fare .muted { font-weight: 600; font-style: italic; }
+                                .tk-tr-fare.is-priced { background: #f0fdf4; border-color: #bbf7d0; }
+                                .tk-tr-fare-note { margin-top: -0.45rem; font-size: 0.72rem; color: #64748b; line-height: 1.4; }
+                                .dark .tk-tr-fare { background: var(--gray-800); border-color: var(--gray-700); color: var(--gray-400); }
+                                .dark .tk-tr-fare strong { color: var(--gray-100); }
+                                .dark .tk-tr-fare.is-priced { background: color-mix(in srgb, #16a34a 15%, var(--gray-900)); border-color: #166534; }
+                                .dark .tk-tr-kids-hint, .dark .tk-tr-fare-note { color: var(--gray-400); }
+                                @media (max-width: 420px) { .tk-tr-grid { grid-template-columns: 1fr; } .tk-tr-kids { grid-template-columns: 1fr; } }
                                 /* Mode sombre */
                                 .dark .tk-tr-hint, .dark .tk-tr-fees-row, .dark .tk-tr-fees-row .muted { color: var(--gray-400); }
                                 .dark .tk-tr-card { background: var(--gray-900); border-color: var(--gray-700); }
@@ -494,6 +505,53 @@
                                                         </div>
                                                     </div>
 
+                                                    {{-- Âges des passagers : replié tant qu'il n'y a pas d'enfant --}}
+                                                    @php
+                                                        $hasKids = ((int) ($route['children_count'] ?? 0) + (int) ($route['young_children_count'] ?? 0) + (int) ($route['infants_count'] ?? 0)) > 0;
+                                                    @endphp
+                                                    <div x-data="{ open: @js($hasKids) }" style="display: flex; flex-direction: column;">
+                                                        <button type="button" class="tk-tr-note-toggle" x-show="!open" @click="open = true">+ {{ __('Des enfants voyagent sur ce trajet') }}</button>
+                                                        <div x-show="open" x-cloak>
+                                                            <div class="tk-tr-kids">
+                                                                @foreach([
+                                                                    ['field' => 'children_count', 'label' => __('Dont 6-11 ans'), 'hint' => __('Demi-tarif. Un enfant de 1 à 5 ans avec sa propre place compte ici.')],
+                                                                    ['field' => 'young_children_count', 'label' => __('Dont 1-5 ans sans place'), 'hint' => __('Gratuit, 2 maximum par voyageur payant ; au-delà, demi-tarif.')],
+                                                                    ['field' => 'infants_count', 'label' => __('Dont moins d’1 an'), 'hint' => __('Gratuit.')],
+                                                                ] as $kid)
+                                                                    <div>
+                                                                        <label class="tk-tr-label" title="{{ $kid['hint'] }}"><span>{{ $kid['label'] }}</span></label>
+                                                                        <input type="number" min="0" max="{{ $pax }}" class="tk-tr-input" wire:model.live.debounce.300ms="customValues.transport_routes.{{ $index }}.{{ $kid['field'] }}" title="{{ $kid['hint'] }}" />
+                                                                        @error("customValues.transport_routes.{$index}.{$kid['field']}")
+                                                                            <span class="tk-tr-err">{{ $message }}</span>
+                                                                        @enderror
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
+                                                            <p class="tk-tr-kids-hint">{{ __('Inclus dans le nombre de passagers ; les autres voyageurs sont comptés adultes (12 ans et plus).') }}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Prix indicatif du billet (grille tarifaire) --}}
+                                                    @php $routeFare = $this->getEstimatedPrice()['fares']['routes'][$index] ?? null; @endphp
+                                                    <div class="tk-tr-fare {{ $routeFare ? 'is-priced' : '' }}">
+                                                        <span>{{ __('Prix des billets') }}</span>
+                                                        @if($routeFare)
+                                                            <strong>{{ \App\Support\TransportFareResolver::describe($routeFare) }}</strong>
+                                                        @else
+                                                            <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
+                                                        @endif
+                                                    </div>
+                                                    @if($routeFare)
+                                                        <div class="tk-tr-fare-note">
+                                                            {{ __('Prix indicatif, confirmé à l’émission') }} · {{ __('saison') }} {{ mb_strtolower(\App\Support\TransportFareResolver::seasonLabel($routeFare['season'])) }}
+                                                            @if($routeFare['is_max_reference'])
+                                                                · {{ __('train non précisé : tarif du train le plus cher (:train)', ['train' => $routeFare['train_name']]) }}
+                                                            @elseif($routeFare['train_name'])
+                                                                · {{ $routeFare['train_name'] }}
+                                                            @endif
+                                                        </div>
+                                                    @endif
+
                                                     {{-- Remarque : repliée tant qu'elle est vide --}}
                                                     <div x-data="{ open: @js(filled($route['specific_requests'] ?? null)) }" style="display: flex; flex-direction: column;">
                                                         <button type="button" class="tk-tr-note-toggle" x-show="!open" @click="open = true; $nextTick(() => $refs.note.focus())">+ {{ __('Ajouter une demande spécifique') }}</button>
@@ -535,10 +593,26 @@
                                             <strong>+ {{ number_format($estimate['total_options'], 0, '.', ' ') }} ¥</strong>
                                         </div>
                                     @endif
+                                    @php $fares = $estimate['fares'] ?? ['priced' => 0, 'count' => 0, 'total' => 0]; @endphp
                                     <div class="tk-tr-fees-row">
-                                        <span>{{ __('Billets train / bus') }}</span>
-                                        <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
+                                        <span>
+                                            {{ __('Billets train / bus') }}
+                                            @if($fares['priced'] > 0)
+                                                <span style="font-size: 0.72rem;">({{ __('prix indicatif') }})</span>
+                                            @endif
+                                        </span>
+                                        @if($fares['priced'] > 0)
+                                            <strong>{{ number_format($fares['total'], 0, '.', ' ') }} ¥</strong>
+                                        @else
+                                            <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
+                                        @endif
                                     </div>
+                                    @if($fares['priced'] > 0 && $fares['priced'] < $fares['count'])
+                                        <div class="tk-tr-fees-row">
+                                            <span>{{ trans_choice(':count trajet sans tarif connu|:count trajets sans tarif connu', $fares['count'] - $fares['priced']) }}</span>
+                                            <span class="muted">{{ __('+ sur devis') }}</span>
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         @else

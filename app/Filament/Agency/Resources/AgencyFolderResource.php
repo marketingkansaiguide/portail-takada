@@ -591,6 +591,23 @@ Repeater::make('transport_routes')
                 ->required(),
         ])->columns(3),
 
+        // Âges des passagers (inclus dans le nombre de passagers) : sert au prix indicatif des billets.
+        Group::make()->schema([
+            TextInput::make('children_count')
+                ->label(__('Dont 6-11 ans'))
+                ->helperText(__('Demi-tarif (ou 1-5 ans avec sa propre place).'))
+                ->numeric()->minValue(0)->default(0)->live(debounce: 500),
+            TextInput::make('young_children_count')
+                ->label(__('Dont 1-5 ans sans place'))
+                ->helperText(__('Gratuit, 2 max. par voyageur payant.'))
+                ->numeric()->minValue(0)->default(0)->live(debounce: 500),
+            TextInput::make('infants_count')
+                ->label(__('Dont moins d’1 an'))
+                ->helperText(__('Gratuit.'))
+                ->numeric()->minValue(0)->default(0)->live(debounce: 500),
+            \Filament\Forms\Components\Hidden::make('fare_estimate'),
+        ])->columns(3),
+
         // -------------------------------------------------------------
         // LIGNE 3 : HORAIRES & DÉTAILS SOUHAITÉS - 3 Colonnes
         // -------------------------------------------------------------
@@ -637,6 +654,21 @@ Repeater::make('transport_routes')
 
                                                 $totalFee = $feePerPax * $totalPax;
 
+                                                // Prix indicatif des billets d'après la grille tarifaire.
+                                                $fares = app(\App\Support\TransportFareResolver::class)->forRoutes(array_values(array_filter($routes, 'is_array')));
+                                                $fareLines = '';
+                                                foreach (array_values($fares['routes']) as $i => $fare) {
+                                                    $label = $fare
+                                                        ? '<b>' . e(\App\Support\TransportFareResolver::describe($fare)) . '</b>'
+                                                        : '<b>' . e(__('Sur devis (prix coûtant)')) . '</b>';
+                                                    $fareLines .= "<div style='display:flex; justify-content:space-between; gap:1rem; font-size:0.875rem; color:#9a3412; margin-top:4px;'><span>• " . e(__('Billets trajet :n', ['n' => $i + 1])) . "</span><span style='text-align:right;'>{$label}</span></div>";
+                                                }
+                                                if ($fares['priced'] > 0) {
+                                                    $fareNote = __('Prix des billets indicatif, confirmé à l’émission.')
+                                                        . ($fares['has_max_reference'] ? ' ' . __('Train non précisé : tarif du train le plus cher du trajet.') : '');
+                                                    $fareLines .= "<div style='font-size:0.75rem; color:#9a3412; opacity:0.85; margin-top:4px;'>" . e($fareNote) . "</div>";
+                                                }
+
                                                 return new \Illuminate\Support\HtmlString("
                                                     <div style='padding: 1rem; border-radius: 0.375rem; background-color: #fff7ed; border: 1px solid #ffedd5; margin-top: 1rem;'>
                                                         <div style='font-weight:600; color:#c2410c; font-size:0.9rem; margin-bottom:0.35rem;'>" . e(__('Estimation de vos frais d’émission :')) . "</div>
@@ -644,10 +676,7 @@ Repeater::make('transport_routes')
                                                             <span>• Frais de service de l'agence (" . number_format($feePerPax, 0, '.', ' ') . " ¥ × {$totalPax} trajet(s) total)</span>
                                                             <span><b>" . number_format($totalFee, 0, '.', ' ') . " ¥</b></span>
                                                         </div>
-                                                        <div style='display:flex; justify-content:space-between; font-size:0.875rem; color:#9a3412; margin-top: 4px; border-top: 1px solid #fed7aa; padding-top: 4px;'>
-                                                            <span>• Prix des billets (Train / Bus)</span>
-                                                            <span><b>Sur devis (Prix coutant)</b></span>
-                                                        </div>
+                                                        <div style='border-top: 1px solid #fed7aa; margin-top: 4px; padding-top: 2px;'>{$fareLines}</div>
                                                     </div>
                                                 ");
                                             })
@@ -1185,7 +1214,7 @@ Repeater::make('transport_routes')
                                 $paxTeenagers = null;
 
                                 if ($product && $product->product_type === 'transport') {
-                                    $customValues['transport_routes'] = $mergedData['transport_routes'] ?? [];
+                                    $customValues['transport_routes'] = app(\App\Support\TransportFareResolver::class)->withEstimates($mergedData['transport_routes'] ?? []);
                                     $firstRoute = $mergedData['transport_routes'][0] ?? null;
                                     $serviceDate = !empty($firstRoute['departure_date']) ? $firstRoute['departure_date'] : ($record->start_date ?? now()->format('Y-m-d'));
                                     $quantity = !empty($firstRoute['pax_count']) ? (int)$firstRoute['pax_count'] : 1;
@@ -1466,6 +1495,11 @@ Repeater::make('transport_routes')
                                                     if (!empty($r['option_id'])) {
                                                         $optModel = \App\Models\ProductOption::find($r['option_id']);
                                                         if ($optModel) $optName = " | 💺 " . e($optModel->name);
+                                                    }
+
+                                                    // Prix indicatif des billets enregistré à la commande.
+                                                    if (! empty($r['fare_estimate']['total'])) {
+                                                        $optName .= ' | 💴 ' . e(\App\Support\TransportFareResolver::describe($r['fare_estimate'])) . ' (' . e(__('indicatif')) . ')';
                                                     }
 
                                                     $num = $idx + 1;

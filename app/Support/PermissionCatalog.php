@@ -31,7 +31,7 @@ final class PermissionCatalog
                 'folder.finance.view' => 'Voir les finances internes (coûts, marges)',
                 'folder.sensitive.view' => 'Voir les données sensibles des voyageurs (santé, alimentation)',
             ],
-            'Catalogue produits' => $crud('product', 'produits') + $crud('category', 'catégories'),
+            'Catalogue produits' => $crud('product', 'produits') + $crud('category', 'catégories') + $crud('transport_fare', 'tarifs billets train'),
             'Agences' => $crud('agency', 'agences'),
             'Utilisateurs & système' => $crud('user', 'utilisateurs') + $crud('setting', 'paramètres globaux') + $crud('client_group', 'groupes clients & prix'),
             'Référentiels' => $crud('supplier', 'fournisseurs') + $crud('hotel', 'hébergements') + $crud('item_status', 'statuts de prestation'),

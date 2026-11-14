@@ -1098,6 +1098,18 @@ TextInput::make('purchase_price')
     ->extraFieldWrapperAttributes($mode === 'commercial' ? ['style' => 'display:none'] : [])
     ->hintColor('gray')
     ->hintIcon('heroicon-m-information-circle', tooltip: __('Total du trajet, refacturé à l\'agence au prix coûtant.'))
+    // Repère : prix indicatif de la grille tarifaire pour ce trajet (adultes / enfants / gratuités).
+    ->helperText(function (Get $get) {
+        $fare = app(\App\Support\TransportFareResolver::class)->forRoute([
+            'departure_station' => $get('departure_station'), 'arrival_station' => $get('arrival_station'),
+            'departure_date' => $get('departure_date'), 'option_id' => $get('option_id'),
+            'pax_count' => $get('pax_count'), 'children_count' => $get('children_count'),
+            'young_children_count' => $get('young_children_count'), 'infants_count' => $get('infants_count'),
+            'train_number' => $get('train_number'), 'departure_time' => $get('departure_time'),
+        ]);
+
+        return $fare ? __('Grille : :prix', ['prix' => \App\Support\TransportFareResolver::describe($fare)]) : null;
+    })
     ->suffix('¥')
     ->numeric()
     ->default(0)
@@ -1108,6 +1120,16 @@ TextInput::make('purchase_price')
         self::updateItemPrices($parentSet, $parentGet);
     }),
         ])->columns(['default' => 2, 'md' => 4]),
+
+        // Âges des passagers (inclus dans « Passagers ») : prix indicatif de la grille tarifaire.
+        Group::make()->schema([
+TextInput::make('children_count')->label(__('Dont 6-11 ans'))->numeric()->minValue(0)->default(0)->live(debounce: 500)
+    ->hintIcon('heroicon-m-information-circle', tooltip: __('Demi-tarif (ou 1-5 ans avec sa propre place).')),
+TextInput::make('young_children_count')->label(__('Dont 1-5 ans sans place'))->numeric()->minValue(0)->default(0)->live(debounce: 500)
+    ->hintIcon('heroicon-m-information-circle', tooltip: __('Gratuit, 2 max. par voyageur payant ; au-delà, demi-tarif.')),
+TextInput::make('infants_count')->label(__('Dont moins d’1 an'))->numeric()->minValue(0)->default(0)->live(debounce: 500),
+Hidden::make('fare_estimate'),
+        ])->columns(['default' => 3, 'md' => 4]),
 
         Textarea::make('specific_requests')
 ->label(__('Demande spécifique'))
