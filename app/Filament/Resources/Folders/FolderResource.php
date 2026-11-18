@@ -1108,7 +1108,7 @@ TextInput::make('purchase_price')
             'train_number' => $get('train_number'), 'departure_time' => $get('departure_time'),
         ]);
 
-        return $fare ? __('Grille : :prix', ['prix' => \App\Support\TransportFareResolver::describe($fare)]) : null;
+        return $fare ? __('Grille : :prix (indicatif)', ['prix' => \App\Support\TransportFareResolver::describe($fare)]) : null;
     })
     ->suffix('¥')
     ->numeric()

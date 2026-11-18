@@ -33,10 +33,19 @@ it('affiche le prix indicatif du trajet connu et « sur devis » pour un trajet 
     Livewire::test(ViewProduct::class, ['record' => 4])
         ->set('customValues.transport_routes', [ticketRoute(), ticketRoute(['arrival_station' => 'Nara Station'])])
         ->assertSee('35 420 ¥ (2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥)')
-        ->assertSee('Prix indicatif, confirmé à l’émission')
+        ->assertSee('Prix indicatif, à confirmer auprès des compagnies')
+        ->assertSee('Tarif indicatif, sous réserve de confirmation auprès de la ou des compagnies de train/bus')
         ->assertSee('saison normale')
         ->assertSee('Sur devis, au prix coûtant')
         ->assertSee('1 trajet sans tarif connu');
+});
+
+it('n’affiche pas la mention de tarif indicatif quand aucun trajet n’a de prix', function () {
+    Livewire::test(ViewProduct::class, ['record' => 4])
+        ->set('customValues.transport_routes', [ticketRoute(['arrival_station' => 'Nara Station'])])
+        ->assertSee('Sur devis, au prix coûtant')
+        ->assertDontSee('Tarif indicatif, sous réserve de confirmation')
+        ->assertDontSee('à confirmer auprès des compagnies');
 });
 
 it('enregistre le prix indicatif dans le trajet commandé', function () {

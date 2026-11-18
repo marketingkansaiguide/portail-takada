@@ -664,7 +664,7 @@ Repeater::make('transport_routes')
                                                     $fareLines .= "<div style='display:flex; justify-content:space-between; gap:1rem; font-size:0.875rem; color:#9a3412; margin-top:4px;'><span>• " . e(__('Billets trajet :n', ['n' => $i + 1])) . "</span><span style='text-align:right;'>{$label}</span></div>";
                                                 }
                                                 if ($fares['priced'] > 0) {
-                                                    $fareNote = __('Prix des billets indicatif, confirmé à l’émission.')
+                                                    $fareNote = __('Tarif indicatif, sous réserve de confirmation auprès de la ou des compagnies de train/bus au moment de l’émission. Il peut évoluer en cas de changement tarifaire.')
                                                         . ($fares['has_max_reference'] ? ' ' . __('Train non précisé : tarif du train le plus cher du trajet.') : '');
                                                     $fareLines .= "<div style='font-size:0.75rem; color:#9a3412; opacity:0.85; margin-top:4px;'>" . e($fareNote) . "</div>";
                                                 }

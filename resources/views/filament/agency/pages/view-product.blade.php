@@ -369,6 +369,9 @@
                                 .tk-tr-fare .muted { font-weight: 600; font-style: italic; }
                                 .tk-tr-fare.is-priced { background: #f0fdf4; border-color: #bbf7d0; }
                                 .tk-tr-fare-note { margin-top: -0.45rem; font-size: 0.72rem; color: #64748b; line-height: 1.4; }
+                                .tk-tr-fare-disclaimer { display: flex; align-items: flex-start; gap: 0.3rem; font-size: 0.7rem; line-height: 1.4; color: #94a3b8; }
+                                .tk-tr-fare-disclaimer svg { width: 0.8rem; height: 0.8rem; flex: none; margin-top: 0.1rem; }
+                                .dark .tk-tr-fare-disclaimer { color: var(--gray-500); }
                                 .dark .tk-tr-fare { background: var(--gray-800); border-color: var(--gray-700); color: var(--gray-400); }
                                 .dark .tk-tr-fare strong { color: var(--gray-100); }
                                 .dark .tk-tr-fare.is-priced { background: color-mix(in srgb, #16a34a 15%, var(--gray-900)); border-color: #166534; }
@@ -543,7 +546,7 @@
                                                     </div>
                                                     @if($routeFare)
                                                         <div class="tk-tr-fare-note">
-                                                            {{ __('Prix indicatif, confirmé à l’émission') }} · {{ __('saison') }} {{ mb_strtolower(\App\Support\TransportFareResolver::seasonLabel($routeFare['season'])) }}
+                                                            {{ __('Prix indicatif, à confirmer auprès des compagnies') }} · {{ __('saison') }} {{ mb_strtolower(\App\Support\TransportFareResolver::seasonLabel($routeFare['season'])) }}
                                                             @if($routeFare['is_max_reference'])
                                                                 · {{ __('train non précisé : tarif du train le plus cher (:train)', ['train' => $routeFare['train_name']]) }}
                                                             @elseif($routeFare['train_name'])
@@ -612,6 +615,12 @@
                                             <span>{{ trans_choice(':count trajet sans tarif connu|:count trajets sans tarif connu', $fares['count'] - $fares['priced']) }}</span>
                                             <span class="muted">{{ __('+ sur devis') }}</span>
                                         </div>
+                                    @endif
+                                    @if($fares['priced'] > 0)
+                                        <p class="tk-tr-fare-disclaimer">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                                            <span>{{ __('Tarif indicatif, sous réserve de confirmation auprès de la ou des compagnies de train/bus au moment de l’émission. Il peut évoluer en cas de changement tarifaire.') }}</span>
+                                        </p>
                                     @endif
                                 </div>
                             </div>
