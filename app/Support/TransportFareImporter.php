@@ -76,7 +76,9 @@ class TransportFareImporter
                 'notes' => $this->text($sheet, self::COL['notes'], $r) ?: null,
             ];
             foreach ($found as $fare) {
-                $fares[] = $common + $fare;
+                $fares[] = $common + $fare + [
+                    'season_calendar' => TransportFareCalendar::forTrain($common['train_name'], $fare['pricing_mode']),
+                ];
             }
             $rowsWithPrice++;
         }
@@ -158,7 +160,7 @@ class TransportFareImporter
                 continue;
             }
             $out[] = [
-                'company' => $company ?: null,
+                'company' => in_array(strtoupper($company), TransportFareCalendar::CALENDARS, true) ? strtoupper($company) : null,
                 'season' => ['basse' => 'low', 'haute' => 'high', 'tres_haute' => 'peak'][$season] ?? $season,
                 'starts_on' => min($from, $to),
                 'ends_on' => max($from, $to),

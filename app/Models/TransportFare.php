@@ -14,9 +14,16 @@ class TransportFare extends Model
     public const MODE_SEASONAL = 'seasonal';
     public const MODE_FLAT = 'flat';
 
+    /** Calendriers de saisons : A, B, K (A sans saison basse, JR Kyushu) ; null = pas de saison. */
+    public const CALENDARS = [
+        'A' => 'A — Tokaido, Sanyo, Kyushu…',
+        'B' => 'B — JR East…',
+        'K' => 'K — JR Kyushu classique et Nishi-Kyushu (A sans saison basse)',
+    ];
+
     protected $fillable = [
         'departure_station', 'arrival_station', 'both_directions', 'train_name', 'product_option_id',
-        'pricing_mode', 'price_low', 'price_normal', 'price_high', 'price_peak', 'price_flat', 'child_price',
+        'pricing_mode', 'season_calendar', 'price_low', 'price_normal', 'price_high', 'price_peak', 'price_flat', 'child_price',
         'valid_from', 'valid_to', 'is_active', 'source', 'notes',
     ];
 
@@ -39,6 +46,12 @@ class TransportFare extends Model
             $fare->departure_key = self::stationKey($fare->departure_station);
             $fare->arrival_key = self::stationKey($fare->arrival_station);
             $fare->train_name = filled($fare->train_name) ? trim($fare->train_name) : null;
+
+            // Calendrier non fixé explicitement : déduit du train (à la création, ou quand le train / le mode change).
+            if (! $fare->isDirty('season_calendar') && blank($fare->season_calendar)
+                && (! $fare->exists || $fare->isDirty('train_name') || $fare->isDirty('pricing_mode'))) {
+                $fare->season_calendar = \App\Support\TransportFareCalendar::forTrain($fare->train_name, $fare->pricing_mode ?: self::MODE_SEASONAL);
+            }
         });
     }
 

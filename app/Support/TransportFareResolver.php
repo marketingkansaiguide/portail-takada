@@ -50,7 +50,7 @@ class TransportFareResolver
             return null;
         }
 
-        $season = TransportFareSeason::seasonFor($day);
+        $seasons = [];
         $trainText = mb_strtolower(trim(($route['train_number'] ?? '') . ' ' . ($route['departure_time'] ?? '')));
 
         // 1. Train nommé par l'agence et présent dans la grille.
@@ -63,7 +63,12 @@ class TransportFareResolver
         $pool = $named->isNotEmpty() ? $named : ($generic->isNotEmpty() ? $generic : $fares);
         // Train non précisé : le train le plus cher du trajet sert de référence (décision Takada).
         $priced = $pool
-            ->map(fn (TransportFare $f) => ['fare' => $f, 'price' => $f->priceForSeason($season)])
+            ->map(function (TransportFare $f) use ($day, &$seasons) {
+                // Chaque tarif suit son calendrier de saisons (A, B, K ou aucun).
+                $season = $seasons[$f->season_calendar ?? ''] ??= TransportFareSeason::seasonFor($day, $f->season_calendar);
+
+                return ['fare' => $f, 'season' => $season, 'price' => $f->priceForSeason($season)];
+            })
             ->filter(fn ($x) => $x['price'] !== null && $x['price'] > 0)
             ->sortByDesc('price')
             ->values();
@@ -85,7 +90,7 @@ class TransportFareResolver
             'children' => $pax['children_paying'],
             'free' => $pax['free'],
             'total' => $adultPrice * $pax['adults'] + $childPrice * $pax['children_paying'],
-            'season' => $season,
+            'season' => $best['season'],
             'is_max_reference' => $isMaxReference,
             'train_name' => $best['fare']->train_name,
             'fare_id' => $best['fare']->id,

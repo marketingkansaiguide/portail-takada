@@ -49,7 +49,7 @@ class TransportFareSeasonResource extends Resource
         return $schema->components([
             Section::make()->schema([
                 Select::make('season')->label(__('Saison'))->options(self::seasons())->required(),
-                TextInput::make('company')->label(__('Compagnie'))->placeholder(__('Toutes JR'))->maxLength(50),
+                Select::make('company')->label(__('Calendrier'))->options(fn () => array_map(fn ($l) => __($l), TransportFareSeason::CALENDARS))->required(),
                 DatePicker::make('starts_on')->label(__('Du'))->required(),
                 DatePicker::make('ends_on')->label(__('Au'))->required()->afterOrEqual('starts_on'),
                 TextInput::make('notes')->label(__('Remarques'))->maxLength(255)->columnSpanFull(),
@@ -66,7 +66,8 @@ class TransportFareSeasonResource extends Resource
                     ->color(fn ($state) => match ($state) { 'peak' => 'danger', 'high' => 'warning', default => 'success' }),
                 Tables\Columns\TextColumn::make('starts_on')->label(__('Du'))->date('d/m/Y')->sortable(),
                 Tables\Columns\TextColumn::make('ends_on')->label(__('Au'))->date('d/m/Y')->sortable(),
-                Tables\Columns\TextColumn::make('company')->label(__('Compagnie'))->placeholder(__('Toutes JR')),
+                Tables\Columns\TextColumn::make('company')->label(__('Calendrier'))->badge()
+                    ->formatStateUsing(fn ($state) => __(TransportFareSeason::CALENDARS[$state] ?? $state))->placeholder(__('Tous')),
                 Tables\Columns\TextColumn::make('notes')->label(__('Remarques'))->limit(50),
             ])
             ->actions([EditAction::make(), DeleteAction::make()])

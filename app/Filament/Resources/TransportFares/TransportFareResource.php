@@ -106,6 +106,12 @@ class TransportFareResource extends Resource
                     ->default(TransportFare::MODE_SEASONAL)
                     ->live()
                     ->required(),
+                Select::make('season_calendar')
+                    ->label(__('Calendrier des saisons'))
+                    ->options(fn () => array_map(fn ($l) => __($l), TransportFare::CALENDARS))
+                    ->placeholder(__('Aucun'))
+                    ->helperText(__('Aucun = pas de saison : le prix de la saison normale s’applique toute l’année. Vide à la création : déduit du nom du train.'))
+                    ->visible(fn (Get $get) => $get('pricing_mode') !== TransportFare::MODE_FLAT),
                 Group::make()->schema([
                     $yen('price_low', __('Saison basse')),
                     $yen('price_normal', __('Saison normale')),
@@ -139,6 +145,7 @@ class TransportFareResource extends Resource
                     ->state(fn (TransportFare $r) => $r->pricing_mode === TransportFare::MODE_FLAT ? $r->price_flat : $r->price_normal)
                     ->formatStateUsing($yen)
                     ->description(fn (TransportFare $r) => $r->pricing_mode === TransportFare::MODE_FLAT ? __('prix unique') : null),
+                Tables\Columns\TextColumn::make('season_calendar')->label(__('Calendrier'))->badge()->placeholder(__('Aucun'))->toggleable(),
                 Tables\Columns\TextColumn::make('price_low')->label(__('Basse'))->formatStateUsing($yen)->toggleable(),
                 Tables\Columns\TextColumn::make('price_high')->label(__('Haute'))->formatStateUsing($yen)->toggleable(),
                 Tables\Columns\TextColumn::make('price_peak')->label(__('Très haute'))->formatStateUsing($yen)->toggleable(),
@@ -148,6 +155,13 @@ class TransportFareResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('product_option_id')->label(__('Classe'))->options(fn () => self::classOptions()),
+                Tables\Filters\SelectFilter::make('season_calendar')->label(__('Calendrier des saisons'))
+                    ->options(fn () => array_map(fn ($l) => __($l), TransportFare::CALENDARS) + ['none' => __('Aucun')])
+                    ->query(fn ($query, array $data) => match ($data['value'] ?? null) {
+                        null, '' => $query,
+                        'none' => $query->whereNull('season_calendar'),
+                        default => $query->where('season_calendar', $data['value']),
+                    }),
                 Tables\Filters\TernaryFilter::make('is_active')->label(__('Actif')),
             ])
             ->actions([
