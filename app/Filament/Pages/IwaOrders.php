@@ -2,12 +2,13 @@
 
 namespace App\Filament\Pages;
 
-use App\Exports\IwaTicketsExport;
 use App\Filament\Resources\Folders\FolderResource;
 use App\Models\FolderItem;
 use App\Models\ProductOption;
 use App\Models\ProductSupplier;
 use App\Support\AdminAccess;
+use App\Support\IwaPdfExport;
+use App\Support\IwaRowFormatter;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -30,7 +31,6 @@ use Filament\Tables\Grouping\Group as TableGroup;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Maatwebsite\Excel\Facades\Excel;
 
 class IwaOrders extends Page implements HasTable
 {
@@ -466,17 +466,17 @@ class IwaOrders extends Page implements HasTable
                         Notification::make()->title(__('Envoi IWA annulé'))->success()->send();
                     }),
 
-                BulkAction::make('export_iwa_excel')
-                    ->label(__('Prévisualiser & Générer Excel IWA'))
-                    ->icon('heroicon-o-table-cells')
+                BulkAction::make('export_iwa_pdf')
+                    ->label(__('Prévisualiser & Générer les PDF IWA'))
+                    ->icon('heroicon-o-document-text')
                     ->color('success')
                     ->modalHeading(__('Prévisualisation des données IWA'))
-                    ->modalDescription(__('Vérifiez et modifiez les données ci-dessous si nécessaire avant de générer le fichier Excel final. Les trajets sont présentés par dossier, puis par date.'))
-                    ->modalSubmitActionLabel(__('Générer le fichier Excel'))
+                    ->modalDescription(__('Vérifiez et modifiez les données ci-dessous si nécessaire avant de générer les PDF. Un PDF est créé par dossier (ZIP si plusieurs). Les trajets sont présentés par dossier, puis par date.'))
+                    ->modalSubmitActionLabel(__('Générer les PDF'))
                     ->modalWidth('7xl')
                     ->form(function (Collection $records) {
                         return [
-                            Repeater::make('excel_rows')
+                            Repeater::make('pdf_rows')
                                 ->hiddenLabel()
                                 ->schema([
                                     TextInput::make('pax_name')->label(__('Client'))->required()->columnSpan(2),
@@ -489,7 +489,7 @@ class IwaOrders extends Page implements HasTable
                                     TextInput::make('arr_time')->label(__('H. Arrivée'))->columnSpan(2),
                                     TextInput::make('class')->label(__('Classe'))->columnSpan(2),
                                     Placeholder::make('pax_label')->label(__('Voyageurs'))->columnSpan(4)
-                                        ->content(fn (Get $get) => (string) IwaTicketsExport::passengersCell([
+                                        ->content(fn (Get $get) => (string) IwaRowFormatter::passengersCell([
                                             'pax_count' => $get('pax_count'), 'children_count' => $get('children_count'),
                                             'young_children_count' => $get('young_children_count'), 'infants_count' => $get('infants_count'),
                                         ])),
@@ -516,7 +516,7 @@ class IwaOrders extends Page implements HasTable
                         ];
                     })
                     ->action(function (array $data, Collection $records) {
-                        $finalRoutesData = collect($data['excel_rows'] ?? []);
+                        $finalRoutesData = collect($data['pdf_rows'] ?? []);
 
                         // Le billet de base choisi dans l'aperçu est enregistré dans le trajet du dossier.
                         static::persistFareTickets($finalRoutesData);
@@ -526,14 +526,12 @@ class IwaOrders extends Page implements HasTable
                             static::markSent($exportedItemIds);
                         }
 
-                        $fileName = 'Commande_IWA_' . now()->format('Y_m_d_His') . '.xlsx';
-
                         Notification::make()
-                            ->title(__('Fichier Excel généré avec succès !'))
+                            ->title(__('PDF IWA générés avec succès !'))
                             ->success()
                             ->send();
 
-                        return Excel::download(new IwaTicketsExport($finalRoutesData), $fileName);
+                        return IwaPdfExport::download($finalRoutesData);
                     }),
             ]);
     }

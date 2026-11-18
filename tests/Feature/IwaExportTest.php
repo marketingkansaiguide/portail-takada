@@ -1,17 +1,13 @@
 <?php
 
-use App\Exports\IwaTicketsExport;
 use App\Filament\Pages\IwaOrders;
 use App\Models\Folder;
 use App\Models\FolderItem;
+use App\Support\IwaPdfExport;
+use App\Support\IwaRowFormatter;
 use App\Support\TransportFareResolver;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Maatwebsite\Excel\Excel as ExcelWriter;
-use Maatwebsite\Excel\Facades\Excel;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Shared\Date;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 function iwaSchema(): void
 {
@@ -107,116 +103,32 @@ function iwaRow(array $over = []): array
     ], $over);
 }
 
-function iwaLoad(array $rows): Spreadsheet
-{
-    $path = tempnam(sys_get_temp_dir(), 'iwa') . '.xlsx';
-    file_put_contents($path, Excel::raw(new IwaTicketsExport($rows), ExcelWriter::XLSX));
-    $book = IOFactory::load($path);
-    @unlink($path);
-
-    return $book;
-}
-
 beforeEach(fn () => iwaSchema());
-
-test('le classeur a un onglet par mois, nommé et ordonné chronologiquement', function () {
-    $book = iwaLoad([
-        iwaRow(['folder_start' => '2026-11-03', 'date' => '2026-11-05', 'pax_name' => 'Martin']),
-        iwaRow(['folder_start' => '2026-10-20', 'date' => '2026-10-21']),
-    ]);
-
-    expect($book->getSheetNames())->toBe(['Dde IWA Oct', 'Dde IWA Nov']);
-});
-
-test("l'année n'apparaît que si le même mois existe sur deux années", function () {
-    $book = iwaLoad([
-        iwaRow(['folder_start' => '2026-10-20']),
-        iwaRow(['folder_start' => '2027-10-02', 'date' => '2027-10-03']),
-        iwaRow(['folder_start' => '2026-12-02', 'date' => '2026-12-03']),
-    ]);
-
-    expect($book->getSheetNames())->toBe(['Dde IWA Oct 2026', 'Dde IWA Déc', 'Dde IWA Oct 2027']);
-});
-
-test("un dossier du 28/10 au 05/11 sort entièrement dans l'onglet Oct", function () {
-    $book = iwaLoad([
-        iwaRow(['folder_id' => 1, 'folder_start' => '2026-10-28', 'date' => '2026-10-29']),
-        iwaRow(['folder_id' => 1, 'folder_start' => '2026-10-28', 'date' => '2026-11-04', 'dep_time' => '8:05']),
-        iwaRow(['folder_id' => 2, 'folder_start' => '2026-11-03', 'date' => '2026-11-04', 'pax_name' => 'Martin']),
-    ]);
-
-    expect($book->getSheetNames())->toBe(['Dde IWA Oct', 'Dde IWA Nov']);
-    $oct = $book->getSheetByName('Dde IWA Oct');
-    expect($oct->getCell('B5')->getValue())->toBe('Dupont様')
-        ->and($oct->getCell('B6')->getValue())->toBe('Dupont様')
-        ->and($oct->getCell('B7')->getValue())->toBeNull()
-        ->and($oct->getCell('E6')->getValue())->toBe('08:05')
-        ->and($book->getSheetByName('Dde IWA Nov')->getCell('B5')->getValue())->toBe('Martin様');
-});
-
-test("mise en page de l'onglet : en-têtes, volets figés, filtre, largeurs, date Excel", function () {
-    $sheet = iwaLoad([iwaRow(['date' => '2026-11-02'])])->getSheet(0);
-
-    expect($sheet->getCell('B4')->getValue())->toBe('お客様名')
-        ->and($sheet->getCell('D4')->getValue())->toBe('列車名/区間/設備/乗車券')
-        ->and($sheet->getCell('G4')->getValue())->toBe('人数')
-        ->and($sheet->getCell('B2')->getValue())->toContain('TAKADA TRAVEL')
-        ->and($sheet->getCell('B1')->getValue())->toBeNull()
-        ->and($sheet->getCell('H4')->getValue())->toBeNull()
-        ->and($sheet->getFreezePane())->toBe('A5')
-        ->and($sheet->getAutoFilter()->getRange())->toBe('B4:G5')
-        ->and($sheet->getColumnDimension('D')->getWidth())->toBe(42.0)
-        ->and($sheet->getStyle('B4')->getFill()->getStartColor()->getRGB())->toBe('C9DAF8')
-        ->and($sheet->getStyle('D5')->getAlignment()->getWrapText())->toBeTrue();
-
-    $c = $sheet->getCell('C5');
-    expect($c->getStyle()->getNumberFormat()->getFormatCode())->toBe('yyyy"年"m"月"d"日"')
-        ->and(Date::excelToDateTimeObject($c->getValue())->format('Y-m-d'))->toBe('2026-11-02')
-        ->and($sheet->getCell('E5')->getValue())->toBe('09:30')
-        ->and($sheet->getCell('F5')->getValue())->toBe('11:49');
-});
 
 test('cellule D : modes same, custom et none', function () {
     $ja = ['Tokyo Station' => '東京駅', 'Kyoto Station' => '京都駅', 'Nagoya Station' => '名古屋駅'];
 
-    expect(IwaTicketsExport::detailCell(iwaRow(), $ja))
-        ->toBe("Nozomi 13\n東京 - 京都\n指定席\n乗車券 東京～京都");
+    expect(IwaRowFormatter::detailCell(iwaRow(), $ja))
+        ->toBe("Nozomi 13\n東京 - 京都\n指定席\n乗車券東京～京都");
 
-    expect(IwaTicketsExport::detailCell(iwaRow([
+    expect(IwaRowFormatter::detailCell(iwaRow([
         'fare_ticket_mode' => 'custom', 'fare_ticket_from' => 'Tokyo Station', 'fare_ticket_to' => 'Nagoya Station',
         'specific_requests' => 'Côté Mont Fuji',
-    ]), $ja))->toBe("Nozomi 13\n東京 - 京都\n指定席－Côté Mont Fuji\n乗車券 東京～名古屋");
+    ]), $ja))->toBe("Nozomi 13\n東京 - 京都\n指定席－Côté Mont Fuji\n乗車券東京～名古屋");
 
-    expect(IwaTicketsExport::detailCell(iwaRow(['fare_ticket_mode' => 'none']), $ja))
+    expect(IwaRowFormatter::detailCell(iwaRow(['fare_ticket_mode' => 'none']), $ja))
         ->toBe("Nozomi 13\n東京 - 京都\n指定席");
 
     // Clé absente = « même trajet » ; gare sans name_ja (arrêt de bus) = nom anglais court.
     $row = iwaRow(['arrival' => 'Takayama Bus Terminal (Nohi)']);
     unset($row['fare_ticket_mode']);
-    expect(IwaTicketsExport::detailCell($row, $ja))->toEndWith('乗車券 東京～Takayama Bus Terminal');
+    expect(IwaRowFormatter::detailCell($row, $ja))->toEndWith('乗車券東京～Takayama Bus Terminal');
 });
 
 test('noms de gares raccourcis en anglais court', function () {
-    expect(IwaTicketsExport::shortName('Hakata Station (Gare Shinkansen)'))->toBe('Hakata')
-        ->and(IwaTicketsExport::shortName('Shin-Osaka Sta.'))->toBe('Shin-Osaka')
-        ->and(IwaTicketsExport::shortName('  Kyoto   Station '))->toBe('Kyoto');
-});
-
-test('la cellule D lue dans le classeur utilise name_ja de la gare, sans le suffixe 駅', function () {
-    \Illuminate\Support\Facades\DB::table('train_stations')->insert([
-        ['name_en' => 'Tokyo Station', 'name_ja' => '東京駅'], ['name_en' => 'Kyoto Station', 'name_ja' => '京都駅'],
-    ]);
-    $sheet = iwaLoad([iwaRow()])->getSheet(0);
-
-    expect($sheet->getCell('D5')->getValue())->toBe("Nozomi 13\n東京 - 京都\n指定席\n乗車券 東京～京都");
-});
-
-test('voyageurs : nombre seul sans enfant payant, « 大 n / 小 m » avec un enfant', function () {
-    expect(IwaTicketsExport::passengersCell(iwaRow()))->toBe(2)
-        ->and(IwaTicketsExport::passengersCell(iwaRow(['pax_count' => 3, 'children_count' => 1])))->toBe('大 2 / 小 1');
-
-    $sheet = iwaLoad([iwaRow(['pax_count' => 3, 'children_count' => 1])])->getSheet(0);
-    expect($sheet->getCell('G5')->getValue())->toBe('大 2 / 小 1');
+    expect(IwaRowFormatter::shortName('Hakata Station (Gare Shinkansen)'))->toBe('Hakata')
+        ->and(IwaRowFormatter::shortName('Shin-Osaka Sta.'))->toBe('Shin-Osaka')
+        ->and(IwaRowFormatter::shortName('  Kyoto   Station '))->toBe('Kyoto');
 });
 
 test('marquage IWA, annulation, et une impression d\'étiquette ne masque plus la prestation', function () {
@@ -325,7 +237,96 @@ test("les clés fare_ticket_* survivent au recalcul des trajets côté agence et
     }
 });
 
-test('ligne 2 de D en japonais : gare (name_ja sans 駅), arrêt de bus (name_ja) ou nom anglais court', function () {
+
+function iwaHtml(array $rows, ?Folder $folder = null): string
+{
+    return IwaPdfExport::renderHtml(collect($rows), $folder);
+}
+
+test('voyageurs : nombre seul sans enfant payant, « 大 n / 小 m » avec un enfant', function () {
+    expect(IwaRowFormatter::passengersCell(iwaRow()))->toBe(2)
+        ->and(IwaRowFormatter::passengersCell(iwaRow(['pax_count' => 3, 'children_count' => 1])))->toBe('大　2 / 小　1');
+});
+
+test('le HTML du PDF contient gares japonaises, 乗車券, date japonaise et en-têtes', function () {
+    \Illuminate\Support\Facades\DB::table('train_stations')->insert([
+        ['name_en' => 'Tokyo Station', 'name_ja' => '東京駅'], ['name_en' => 'Kyoto Station', 'name_ja' => '京都駅'],
+    ]);
+    $folder = iwaFolder('Voyage Test', '2026-10-28', '2026-11-05');
+    $html = iwaHtml([iwaRow(['folder_id' => $folder->id, 'pax_count' => 3, 'children_count' => 1])], $folder);
+
+    expect($html)->toContain('TAKADA TRAVEL合同会社')
+        ->toContain('Voyage Test')->toContain('Dupont様')
+        ->toContain('2026年10月28日')->toContain('2026年11月5日')->toContain('2026年11月2日')
+        ->toContain('日程')->toContain('列車名/区間/設備/乗車券')->toContain('出発時刻')
+        ->toContain('Nozomi 13')->toContain('東京 - 京都')->toContain('指定席')->toContain('乗車券東京～京都')
+        ->toContain('09:30')->toContain('11:49')->toContain('大　2 / 小　1');
+});
+
+test('les trajets du PDF sont triés par date puis par heure', function () {
+    $html = iwaHtml([
+        iwaRow(['date' => '2026-11-04', 'train_name' => 'TrainC']),
+        iwaRow(['date' => '2026-11-02', 'dep_time' => '14:00', 'train_name' => 'TrainB']),
+        iwaRow(['date' => '2026-11-02', 'dep_time' => '8:05', 'train_name' => 'TrainA']),
+    ]);
+
+    expect(strpos($html, 'TrainA'))->toBeLessThan(strpos($html, 'TrainB'))
+        ->and(strpos($html, 'TrainB'))->toBeLessThan(strpos($html, 'TrainC'))
+        ->and($html)->toContain('08:05');
+});
+
+test('nom de fichier : référence ou id, voyageur translittéré en ASCII', function () {
+    expect(IwaPdfExport::fileName('TKD-202611-AB12', 'Dupont'))->toBe('IWA_TKD-202611-AB12_Dupont.pdf')
+        ->and(IwaPdfExport::fileName('7', 'José Müller-Łukasz'))->toBe('IWA_7_Jose-Muller-Lukasz.pdf')
+        ->and(IwaPdfExport::fileName('7', '山田'))->toStartWith('IWA_7_')->toEndWith('.pdf')
+        ->and(IwaPdfExport::fileName('7', '   '))->toBe('IWA_7_client.pdf');
+});
+
+test('deux dossiers donnent un ZIP de deux PDF aux bons noms', function () {
+    $a = iwaFolder('A', '2026-11-01', '2026-11-08', 'Dupont');
+    $b = iwaFolder('B', '2026-11-03', '2026-11-09', 'Martin');
+
+    $response = IwaPdfExport::download([
+        iwaRow(['folder_id' => $a->id, 'pax_name' => 'Dupont']),
+        iwaRow(['folder_id' => $b->id, 'folder_start' => '2026-11-03', 'pax_name' => 'Martin']),
+        iwaRow(['folder_id' => $a->id, 'pax_name' => 'Dupont', 'date' => '2026-11-05']),
+    ]);
+
+    $path = $response->getFile()->getPathname();
+    expect($response->getFile()->getFilename())->not->toBeEmpty();
+    $zip = new ZipArchive();
+    expect($zip->open($path))->toBeTrue();
+    $names = [];
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $names[] = $zip->getNameIndex($i);
+        expect(substr($zip->getFromIndex($i), 0, 5))->toBe('%PDF-');
+    }
+    $zip->close();
+
+    expect($names)->toBe(["IWA_{$a->id}_Dupont.pdf", "IWA_{$b->id}_Martin.pdf"])
+        ->and($response->headers->get('content-disposition'))->toContain('Commande_IWA_')->toContain('.zip');
+    @unlink($path);
+});
+
+test('un seul dossier donne directement un PDF, sans ZIP', function () {
+    $a = iwaFolder('A', '2026-11-01', '2026-11-08', 'Dupont');
+
+    $response = IwaPdfExport::download([iwaRow(['folder_id' => $a->id])]);
+    $path = $response->getFile()->getPathname();
+
+    expect($response->headers->get('content-disposition'))->toContain("IWA_{$a->id}_Dupont.pdf")
+        ->and(substr(file_get_contents($path), 0, 5))->toBe('%PDF-');
+    @unlink($path);
+});
+
+test('le PDF généré embarque la police japonaise (gras compris)', function () {
+    $a = iwaFolder('A', '2026-11-01', '2026-11-08');
+    $pdf = IwaPdfExport::pdfBinary(collect([iwaRow(['folder_id' => $a->id])]), $a);
+
+    expect($pdf)->toContain('BIZUDPGothic');
+});
+
+test('ligne 2 en japonais : gare (name_ja sans 駅), arrêt de bus (name_ja) ou nom anglais court', function () {
     Schema::create('bus_stations', function (Blueprint $t) {
         $t->id();
         $t->string('name_en');
@@ -335,9 +336,8 @@ test('ligne 2 de D en japonais : gare (name_ja sans 駅), arrêt de bus (name_ja
     \Illuminate\Support\Facades\DB::table('train_stations')->insert([['name_en' => 'Takayama Station', 'name_ja' => '高山駅'], ['name_en' => 'Nagoya Station', 'name_ja' => '名古屋駅']]);
     \Illuminate\Support\Facades\DB::table('bus_stations')->insert([['name_en' => 'Shirakawa-go', 'name_ja' => '白川郷'], ['name_en' => 'Unknown Stop', 'name_ja' => null]]);
 
-    $d = fn (string $from, string $to) => iwaLoad([iwaRow(['departure' => $from, 'arrival' => $to, 'train_name' => 'Hida 6'])])->getSheet(0)->getCell('D5')->getValue();
-
-    expect($d('Takayama Station', 'Nagoya Station'))->toBe("Hida 6\n高山 - 名古屋\n指定席\n乗車券 高山～名古屋")
-        ->and(explode("\n", $d('Takayama Station', 'Shirakawa-go'))[1])->toBe('高山 - 白川郷')
-        ->and(explode("\n", $d('Unknown Stop', 'Hakata Station (Gare Shinkansen)'))[1])->toBe('Unknown Stop - Hakata');
+    expect(iwaHtml([iwaRow(['departure' => 'Takayama Station', 'arrival' => 'Nagoya Station', 'train_name' => 'Hida 6'])]))
+        ->toContain('高山 - 名古屋')->toContain('乗車券高山～名古屋')
+        ->and(iwaHtml([iwaRow(['departure' => 'Takayama Station', 'arrival' => 'Shirakawa-go'])]))->toContain('高山 - 白川郷')
+        ->and(iwaHtml([iwaRow(['departure' => 'Unknown Stop', 'arrival' => 'Hakata Station (Gare Shinkansen)'])]))->toContain('Unknown Stop - Hakata');
 });
