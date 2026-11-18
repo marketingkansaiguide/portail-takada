@@ -55,3 +55,13 @@ it("signale dans la vue jour par jour les infos manquantes et les éléments en 
     expect($html)->toContain(__('À traiter'))
         ->and($html)->toContain(__('Manque : :field', ['field' => $requiredName]));
 });
+
+it("liste les dossiers avec le nom en premier, puis l'agence et les dates", function () {
+    $table = Livewire::test(\App\Filament\Resources\Folders\Pages\ListFolders::class)->instance()->getTable();
+    $visible = array_keys(array_filter($table->getColumns(), fn ($c) => ! $c->isToggledHiddenByDefault()));
+
+    expect(array_slice($visible, 0, 4))->toBe(['folder_name', 'agency.name', 'start_date', 'end_date'])
+        ->and($visible)->not->toContain('reference')
+        ->and($visible)->not->toContain('owner.name')
+        ->and($visible)->not->toContain('mainSeller.name');
+});

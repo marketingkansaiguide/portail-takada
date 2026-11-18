@@ -2437,17 +2437,11 @@ Hidden::make('fare_estimate'),
     {
         return $table
             ->columns([
-                TextColumn::make('reference')
-                    ->label(__('Référence'))
+                TextColumn::make('folder_name')
+                    ->label(__('Nom du dossier'))
+                    ->weight('bold')
                     ->searchable()
-                    ->sortable()
-                    ->weight('bold'),
-
-                TextColumn::make('origin')
-                    ->label(__('Origine'))
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? __('Interne') : __('Agence'))
-                    ->color(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? 'warning' : 'gray'),
+                    ->sortable(),
 
                 TextColumn::make('agency.name')
                     ->label(__('Agence'))
@@ -2457,19 +2451,38 @@ Hidden::make('fare_estimate'),
                         : $record->agency?->name)
                     ->sortable(),
 
+                TextColumn::make('start_date')
+                    ->label(__('Début'))
+                    ->date('d/m/Y')
+                    ->sortable(),
+
+                TextColumn::make('end_date')
+                    ->label(__('Fin'))
+                    ->date('d/m/Y')
+                    ->sortable(),
+
+                TextColumn::make('origin')
+                    ->label(__('Origine'))
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? __('Interne') : __('Agence'))
+                    ->color(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? 'warning' : 'gray'),
+
+                // Retirés de l'affichage par défaut (réactivables par le sélecteur de colonnes) ; la référence reste cherchable.
+                TextColumn::make('reference')
+                    ->label(__('Référence'))
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('owner.name')
                     ->label(__('Responsable'))
-                    ->toggleable(),
-
-                TextColumn::make('folder_name')
-                    ->label(__('Nom du dossier'))
-                    ->searchable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('mainSeller.name')
                     ->label(__('Vendeur Principal'))
                     ->sortable()
-                    ->searchable(),
-
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('segment')
                     ->label(__('Segment'))
                     ->badge()
