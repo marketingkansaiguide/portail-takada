@@ -147,7 +147,7 @@
                                     @if($product->is_on_demand)
                                         <span style="font-size: 0.85rem; font-weight: 800; color: #c2410c; margin-top:0.5rem;">{{ __('Sur Devis') }}</span>
                                     @elseif($minPrice !== null)
-                                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">{{ __('À partir de') }}</span>
+                                        <span style="font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">{{ $product->hasMaxPriceNotice() ? __('Jusqu’à') : __('À partir de') }}@if($product->hasVariablePriceNotice()) · {{ __('selon la date') }}@endif</span>
                                         <span style="font-size: 1.25rem; font-weight: 800; color: var(--tk-accent);">{{ number_format($minPrice, 0, '.', ' ') }} ¥<span style="font-size: 0.8rem; font-weight: 700;">/{{ $minUnit }}</span></span>
                                     @else
                                         <span style="font-size: 0.85rem; font-weight: 800; color: var(--tk-accent); margin-top:0.5rem;">{{ __('Prix saisonnier') }}</span>

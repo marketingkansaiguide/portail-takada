@@ -61,6 +61,20 @@ class Product extends Model
         return $this->usesMultiplier() ? max(1, (int) ($customValues['_multiplier'] ?? 1)) : 1;
     }
 
+    /** Première ligne de la description = encadré de tarif (« Prix variable selon la date »). */
+    public function hasVariablePriceNotice(): bool
+    {
+        return str_starts_with(ltrim((string) $this->description), '> **Prix variable selon la date**');
+    }
+
+    /** Fourchette dont le prix affiché est le maximum : le catalogue annonce « Jusqu'à », pas « À partir de ». */
+    public function hasMaxPriceNotice(): bool
+    {
+        $first = strtok(ltrim((string) $this->description), "\n") ?: '';
+
+        return $this->hasVariablePriceNotice() && str_contains($first, 'Le montant affiché est le maximum');
+    }
+
     public function isTransport(): bool
     {
         return $this->product_type === 'transport';
