@@ -18,7 +18,7 @@ class FolderItem extends Model
         'selected_options', 'invoice_received_at', 'google_calendar_event_id',
         'guide_mission_id', 'guide_sync_status', 'guide_sync_error', 'guide_synced_at',
         'title', 'is_internal', // 💡 AJOUT OBLIGATOIRE POUR LES PRESTATIONS INTERNES
-        'label_exported_at',
+        'label_exported_at', 'iwa_exported_at',
         // Lot 3b : commande depuis la préparation et suivi Calendar
         'planned_item_id', 'ordered_by_user_id', 'order_batch_id',
         'calendar_sync_status', 'calendar_sync_error', 'calendar_synced_at',
@@ -36,6 +36,7 @@ class FolderItem extends Model
         'requested_at' => 'date', 'supplier_confirmed_at' => 'date', 'purchased_at' => 'date', 'delivered_at' => 'date',
         'is_internal' => 'boolean',
         'label_exported_at' => 'datetime',
+        'iwa_exported_at' => 'datetime',
         'guide_mission_id' => 'integer',
         'guide_synced_at' => 'datetime',
     ];

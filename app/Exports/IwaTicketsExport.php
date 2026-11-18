@@ -2,103 +2,198 @@
 
 namespace App\Exports;
 
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithCustomStartCell;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
+use App\Models\TrainStation;
+use App\Support\TransportFareResolver;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class IwaTicketsExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithCustomStartCell, ShouldAutoSize
+/**
+ * Commande IWA : un onglet par mois, selon le mois de DÉBUT DU DOSSIER (et non celui du trajet),
+ * pour qu'un dossier à cheval sur deux mois reste entier dans un seul onglet.
+ */
+class IwaTicketsExport implements WithMultipleSheets
 {
-    protected $routes;
+    public const MONTHS = [1 => 'Janv', 2 => 'Févr', 3 => 'Mars', 4 => 'Avr', 5 => 'Mai', 6 => 'Juin',
+        7 => 'Juil', 8 => 'Août', 9 => 'Sept', 10 => 'Oct', 11 => 'Nov', 12 => 'Déc'];
+
+    /** @var Collection<int, array<string, mixed>> */
+    protected Collection $routes;
+
+    /** @var array<string, string> name_en => name_ja */
+    protected array $jaNames = [];
 
     public function __construct($routes)
     {
-        $this->routes = $routes;
+        $this->routes = collect($routes)->map(fn ($r) => (array) $r)->values();
+        $this->jaNames = $this->loadJaNames();
     }
 
-    public function collection()
+    /** @return array<int, IwaMonthSheet> */
+    public function sheets(): array
     {
-        return $this->routes;
+        $rows = $this->routes->sortBy(fn ($r) => [
+            self::monthKey($r) === '' ? '9999-99' : self::monthKey($r),
+            (string) ($r['folder_start'] ?? ''),
+            (int) ($r['folder_id'] ?? 0),
+            (string) ($r['date'] ?? ''),
+            self::normalizeTime($r['dep_time'] ?? ''),
+        ])->values();
+
+        $groups = $rows->groupBy(fn ($r) => self::monthKey($r));
+
+        // Année dans le nom seulement si le même mois existe sur deux années.
+        $yearsByMonth = [];
+        foreach ($groups->keys() as $key) {
+            if ($key !== '') {
+                [$y, $m] = explode('-', (string) $key);
+                $yearsByMonth[(int) $m][$y] = true;
+            }
+        }
+
+        $sheets = [];
+        foreach ($groups as $key => $groupRows) {
+            if ((string) $key === '') {
+                $title = 'Dde IWA (sans date)';
+            } else {
+                [$y, $m] = explode('-', (string) $key);
+                $title = 'Dde IWA ' . self::MONTHS[(int) $m]
+                    . (count($yearsByMonth[(int) $m] ?? []) > 1 ? ' ' . $y : '');
+            }
+            $sheets[] = new IwaMonthSheet($title, $groupRows->map(fn ($r) => $this->toRow($r))->all());
+        }
+
+        return $sheets ?: [new IwaMonthSheet('Dde IWA', [])];
     }
 
-    public function startCell(): string
+    /** Mois de rattachement « YYYY-MM » : début du dossier, à défaut date du trajet. */
+    public static function monthKey(array $row): string
     {
-        return 'B4';
+        foreach (['folder_start', 'date'] as $k) {
+            if (! empty($row[$k])) {
+                try {
+                    return Carbon::parse($row[$k])->format('Y-m');
+                } catch (\Throwable $e) {
+                }
+            }
+        }
+
+        return '';
     }
 
-    public function headings(): array
+    /** @return array<int, mixed> */
+    protected function toRow(array $r): array
     {
+        $date = '';
+        if (! empty($r['date'])) {
+            try {
+                $date = (float) \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(Carbon::parse($r['date'])->startOfDay());
+            } catch (\Throwable $e) {
+            }
+        }
+
         return [
-            'お客様名',
-            '日程',
-            "列車名\n区間\n設備",
-            '出発',
-            '到着',
-            '出発時刻',
-            '到着時刻',
-            '席類',
-            "乗車券\n込み",
-            '乗車券開始',
-            '乗車券終了',
-            '大人人数',
-            '子供人数'
+            trim((string) ($r['pax_name'] ?? '')) . '様',
+            $date,
+            self::detailCell($r, $this->jaNames),
+            self::normalizeTime($r['dep_time'] ?? ''),
+            self::normalizeTime($r['arr_time'] ?? ''),
+            self::passengersCell($r),
         ];
     }
 
-    public function map($route): array
+    /** Cellule D : train / « A - B » / classe [－ demande] / 乗車券 X～Y. */
+    public static function detailCell(array $r, array $jaNames = []): string
     {
-        // 💡 FORÇAGE EN CHAÎNE DE TEXTE (String)
-        // Cela oblige Excel à inscrire le caractère "0" et empêche la cellule d'être vierge.
-        $adults = isset($route['pax_adults']) ? (string) $route['pax_adults'] : '1';
-        $children = isset($route['pax_children']) ? (string) $route['pax_children'] : '0';
+        $dep = (string) ($r['departure'] ?? '');
+        $arr = (string) ($r['arrival'] ?? '');
 
-        return [
-            $route['pax_name'] . ' 様', // Col B
-            $route['date'],            // Col C
-            $route['train_name'],      // Col D
-            $route['departure'],       // Col E
-            $route['arrival'],         // Col F
-            $route['dep_time'],        // Col G
-            $route['arr_time'],        // Col H
-            $route['class'],           // Col I
-            '〇',                       // Col J
-            $route['departure'],       // Col K
-            $route['arrival'],         // Col L
-            $adults,                   // Col M
-            $children,                 // Col N
+        $class = trim((string) ($r['class'] ?? ''));
+        $request = trim(preg_replace('/\s+/u', ' ', (string) ($r['specific_requests'] ?? '')));
+        if ($request !== '') {
+            $class .= '－' . $request;
+        }
+
+        $lines = [
+            trim((string) ($r['train_name'] ?? '')),
+            self::shortName($dep) . ' - ' . self::shortName($arr),
+            $class,
         ];
+
+        $mode = $r['fare_ticket_mode'] ?? 'same';
+        if ($mode !== 'none') {
+            $from = $dep;
+            $to = $arr;
+            if ($mode === 'custom' && filled($r['fare_ticket_from'] ?? null) && filled($r['fare_ticket_to'] ?? null)) {
+                $from = (string) $r['fare_ticket_from'];
+                $to = (string) $r['fare_ticket_to'];
+            }
+            $lines[] = '乗車券 ' . self::jaName($from, $jaNames) . '～' . self::jaName($to, $jaNames);
+        }
+
+        return implode("\n", $lines);
     }
 
-    public function styles(Worksheet $sheet)
+    /** « Hakata Station (Gare Shinkansen) » => « Hakata ». */
+    public static function shortName(string $name): string
     {
-        $sheet->setCellValue('B2', "TAKADA TRAVEL合同会社\n06-6195-9799\n担当者：ノロ/シンディ/田中");
-        $sheet->getStyle('B2')->getAlignment()->setWrapText(true);
-        $sheet->getRowDimension(2)->setRowHeight(45);
+        $name = preg_replace('/\s*[\(（][^\)）]*[\)）]/u', '', $name);
+        $name = preg_replace('/\bStation\b/iu', '', $name);
+        $name = preg_replace('/\bSta\.(?=\s|$)/iu', '', $name);
 
-        $sheet->getStyle('B4:N4')->getFont()->setBold(true);
-        $sheet->getStyle('B4:N4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('B4:N4')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet->getStyle('B4:N4')->getAlignment()->setWrapText(true);
-        $sheet->getRowDimension(4)->setRowHeight(30);
+        return trim(preg_replace('/\s+/u', ' ', $name));
+    }
 
-        $highestRow = max($sheet->getHighestRow(), 5);
+    public static function jaName(string $nameEn, array $jaNames): string
+    {
+        $ja = trim((string) ($jaNames[$nameEn] ?? ''));
+        if ($ja === '') {
+            return self::shortName($nameEn);
+        }
 
-        $sheet->getStyle("B5:N{$highestRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle("B5:N{$highestRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        
-        return [
-            "B4:N{$highestRow}" => [
-                'borders' => [
-                    'allBorders' => [
-                        'borderStyle' => Border::BORDER_THIN,
-                    ],
-                ],
-            ],
-        ];
+        return preg_replace('/駅$/u', '', $ja);
+    }
+
+    /** 2 adultes => 2 ; avec enfant payant => « 大 2 / 小 1 ». */
+    public static function passengersCell(array $r): int|string
+    {
+        $p = TransportFareResolver::passengers([
+            'pax_count' => $r['pax_count'] ?? 1,
+            'children_count' => $r['children_count'] ?? 0,
+            'young_children_count' => $r['young_children_count'] ?? 0,
+            'infants_count' => $r['infants_count'] ?? 0,
+        ]);
+
+        return $p['children_paying'] > 0 ? "大 {$p['adults']} / 小 {$p['children_paying']}" : $p['adults'];
+    }
+
+    public static function normalizeTime($time): string
+    {
+        $time = trim((string) $time);
+
+        return preg_match('/^\d:\d{2}$/', $time) ? '0' . $time : $time;
+    }
+
+    /** @return array<string, string> */
+    protected function loadJaNames(): array
+    {
+        $names = [];
+        foreach ($this->routes as $r) {
+            foreach (['departure', 'arrival', 'fare_ticket_from', 'fare_ticket_to'] as $k) {
+                if (filled($r[$k] ?? null)) {
+                    $names[$r[$k]] = true;
+                }
+            }
+        }
+        if (! $names) {
+            return [];
+        }
+
+        try {
+            return TrainStation::whereIn('name_en', array_keys($names))
+                ->whereNotNull('name_ja')->pluck('name_ja', 'name_en')->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 }

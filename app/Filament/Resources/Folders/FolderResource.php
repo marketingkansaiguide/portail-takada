@@ -490,6 +490,63 @@ class FolderResource extends Resource
         return $groups->count() === 1;
     }
 
+    /** Options du champ « Billet de base (乗車券) » d'un trajet (commande IWA). */
+    public const FARE_TICKET_MODES = [
+        'same' => 'Inclus, même trajet',
+        'custom' => 'Inclus, autre plage',
+        'none' => 'Sans billet de base',
+    ];
+
+    /**
+     * Champs « billet de base » d'un trajet, partagés par la fiche dossier et l'aperçu IWA.
+     * Valeur absente = « same ». De/À obligatoires seulement en mode « custom ».
+     *
+     * @return array<int, \Filament\Forms\Components\Component>
+     */
+    public static function fareTicketFields(): array
+    {
+        return [
+            Select::make('fare_ticket_mode')
+                ->label(__('Billet de base (乗車券)'))
+                ->options(array_map(fn ($l) => __($l), self::FARE_TICKET_MODES))
+                ->default('same')
+                ->selectablePlaceholder(false)
+                ->live(),
+            Select::make('fare_ticket_from')
+                ->label(__('Billet de base : de'))
+                ->searchable()
+                ->visible(fn (Get $get) => $get('fare_ticket_mode') === 'custom')
+                ->required(fn (Get $get) => $get('fare_ticket_mode') === 'custom')
+                ->placeholder(__('Rechercher une gare...'))
+                ->getSearchResultsUsing(fn (string $search): array => self::searchTrainStations($search))
+                ->getOptionLabelUsing(fn ($value) => $value),
+            Select::make('fare_ticket_to')
+                ->label(__('Billet de base : à'))
+                ->searchable()
+                ->visible(fn (Get $get) => $get('fare_ticket_mode') === 'custom')
+                ->required(fn (Get $get) => $get('fare_ticket_mode') === 'custom')
+                ->placeholder(__('Rechercher une gare...'))
+                ->getSearchResultsUsing(fn (string $search): array => self::searchTrainStations($search))
+                ->getOptionLabelUsing(fn ($value) => $value),
+        ];
+    }
+
+    /** @return array<string, string> name_en => libellé */
+    public static function searchTrainStations(string $search): array
+    {
+        return \App\Models\TrainStation::where(function ($q) use ($search) {
+                $q->where('name_en', 'like', "%{$search}%")
+                    ->orWhere('name_ja', 'like', "%{$search}%")
+                    ->orWhere('prefecture', 'like', "%{$search}%")
+                    ->orWhere('city', 'like', "%{$search}%");
+            })
+            ->orderBy('importance_score', 'desc')
+            ->limit(15)
+            ->get()
+            ->mapWithKeys(fn ($s) => [$s->name_en => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : '')])
+            ->toArray();
+    }
+
     public static function folderItemSchema(string $mode = 'ordered'): array
     {
         return [
@@ -1138,6 +1195,18 @@ Hidden::make('fare_estimate'),
 ->autosize()
 ->maxLength(5000)
 ->columnSpanFull(),
+
+        // Billet de base (乗車券) pour la commande IWA : champ de billetterie, jamais visible côté agence.
+        // En mode commercial, les clés restent dans l'état (Hidden) pour ne pas être perdues à l'enregistrement.
+        ...($mode === 'ordered'
+            ? [
+                Group::make()->schema(self::fareTicketFields())->columns(['default' => 1, 'md' => 3])->columnSpanFull(),
+            ]
+            : [
+                Hidden::make('fare_ticket_mode'),
+                Hidden::make('fare_ticket_from'),
+                Hidden::make('fare_ticket_to'),
+            ]),
     ])
                                         ])
                                 ];

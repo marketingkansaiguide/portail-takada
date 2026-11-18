@@ -28,7 +28,7 @@ final class PlannedItemMapper
         'id', 'item_status_id', 'invoice_received_at', 'google_calendar_event_id',
         'guide_mission_id', 'guide_sync_status', 'guide_sync_error', 'guide_synced_at',
         'calendar_sync_status', 'calendar_sync_error', 'calendar_synced_at',
-        'label_exported_at', 'created_at', 'updated_at',
+        'label_exported_at', 'iwa_exported_at', 'created_at', 'updated_at',
     ];
 
     /** @return array<string, mixed> */
