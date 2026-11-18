@@ -2445,10 +2445,8 @@ Hidden::make('fare_estimate'),
 
                 TextColumn::make('agency.name')
                     ->label(__('Agence'))
-                    // Dossier interne : agence associée à titre informatif.
-                    ->getStateUsing(fn (Folder $record) => $record->isInternal()
-                        ? ($record->clientAgency?->name ? $record->clientAgency->name . ' ' . __('(info)') : null)
-                        : $record->agency?->name)
+                    // Dossier interne : pas d'agence cliente, c'est Takada Travel (remplace la colonne Origine).
+                    ->getStateUsing(fn (Folder $record) => $record->isInternal() ? 'Takada Travel' : $record->agency?->name)
                     ->sortable(),
 
                 TextColumn::make('start_date')
@@ -2460,12 +2458,6 @@ Hidden::make('fare_estimate'),
                     ->label(__('Fin'))
                     ->date('d/m/Y')
                     ->sortable(),
-
-                TextColumn::make('origin')
-                    ->label(__('Origine'))
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? __('Interne') : __('Agence'))
-                    ->color(fn (?string $state) => $state === Folder::ORIGIN_INTERNAL ? 'warning' : 'gray'),
 
                 // Retirés de l'affichage par défaut (réactivables par le sélecteur de colonnes) ; la référence reste cherchable.
                 TextColumn::make('reference')
