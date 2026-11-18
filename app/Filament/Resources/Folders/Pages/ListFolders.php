@@ -12,6 +12,15 @@ class ListFolders extends ListRecords
 {
     protected static string $resource = FolderResource::class;
 
+    /**
+     * Clé versionnée : les colonnes mémorisées en session avant la refonte de la liste
+     * (Responsable, Segment, Avancement visibles) sont ignorées, la nouvelle disposition s'applique.
+     */
+    public function getTableColumnsSessionKey(): string
+    {
+        return parent::getTableColumnsSessionKey() . '_v2';
+    }
+
     protected function getHeaderActions(): array
     {
         return [
