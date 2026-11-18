@@ -266,6 +266,61 @@ class EditFolder extends EditRecord
         return $schema->components($components);
     }
 
+    private bool $isSavingForm = false;
+
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        $this->isSavingForm = true;
+        try {
+            parent::save($shouldRedirect, $shouldSendSavedNotification);
+        } finally {
+            $this->isSavingForm = false;
+        }
+    }
+
+    /**
+     * Un champ obligatoire vide dans une prestation repliée (ou dans le panneau « jour par jour »)
+     * bloquait l'enregistrement sans rien montrer : l'erreur restait cachée dans la ligne.
+     * On l'annonce, avec la prestation concernée, et on ouvre les lignes à corriger.
+     */
+    protected function onValidationError(\Illuminate\Validation\ValidationException $exception): void
+    {
+        if (! $this->isSavingForm) {
+            return;
+        }
+
+        $lines = [];
+        $itemKeys = [];
+        foreach ($exception->errors() as $path => $messages) {
+            $message = (string) ($messages[0] ?? '');
+            if (preg_match('/^data\.(folderItems|internalItems)\.([^.]+)\./', (string) $path, $m)) {
+                $state = (array) data_get($this->data, $m[1] . '.' . $m[2], []);
+                $name = ! empty($state['product_id']) ? \App\Models\Product::find($state['product_id'])?->name : ($state['title'] ?? null);
+                $date = ! empty($state['service_date']) ? ' (' . \Carbon\Carbon::parse($state['service_date'])->format('d/m/Y') . ')' : '';
+                $lines[] = '• ' . trim(($name ?: __('Prestation')) . $date) . ' : ' . $message;
+                $itemKeys[] = [$m[1], $m[2]];
+            } else {
+                $lines[] = '• ' . $message;
+            }
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title(__('Enregistrement impossible : des champs sont à compléter'))
+            ->body(implode("\n", array_slice(array_unique($lines), 0, 8)))
+            ->danger()
+            ->persistent()
+            ->send();
+
+        if ($itemKeys !== []) {
+            $this->js('(() => { const wanted = ' . json_encode($itemKeys) . ';'
+                . ' document.documentElement.style.overflow = "";'
+                . ' document.querySelectorAll(".tk-dbd-modal").forEach((el) => el.classList.remove("tk-dbd-modal", "tk-dbd-open"));'
+                . ' let first = null;'
+                . ' wanted.forEach(([repeater, key]) => { const li = [...document.querySelectorAll("li.fi-fo-repeater-item")].find((l) => l.getAttribute("x-sortable-item") === key && (l.getAttribute("wire:key") || "").includes("." + repeater + ".")); if (li) { li.dispatchEvent(new CustomEvent("expand")); first = first || li; } });'
+                . ' if (first) setTimeout(() => first.scrollIntoView({ behavior: "smooth", block: "start" }), 150); })()');
+        }
+    }
+
     /** Version du dossier chargée dans ce formulaire (protection contre l'écrasement silencieux). */
     public ?int $loadedLockVersion = null;
 
