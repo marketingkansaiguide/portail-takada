@@ -65,18 +65,20 @@ class TransportFare extends Model
     }
 
     /**
-     * Forme normalisée d'un nom de gare : « Shin-Osaka Station (Gare Shinkansen) » → « shinosaka ».
+     * Forme normalisée d'un nom de gare : « Shin-Osaka Station (Gare Shinkansen) » → « shinosaka » ; arrêt de bus : « Kyoto (bus) » → « kyotobus ».
      * Sert à retrouver un trajet même si le nom saisi diffère légèrement (casse, accents, « Station »).
      */
     public static function stationKey(?string $name): string
     {
+        // Arrêt de bus (« Kyoto (bus) ») : clé distincte de la gare de train du même nom (« Kyoto Station »).
+        $isBus = (bool) preg_match('/\(\s*bus\s*\)/i', (string) $name);
         $s = preg_replace('/\(.*?\)/u', '', (string) $name);
         $s = \Illuminate\Support\Str::ascii($s);
         $s = mb_strtolower($s);
         $s = preg_replace('/\b(station|sta|eki)\b\.?/', '', $s);
         $s = preg_replace('/[^a-z0-9\p{Han}\p{Hiragana}\p{Katakana}]/u', '', $s);
 
-        return mb_substr((string) $s, 0, 150);
+        return mb_substr((string) $s, 0, 145) . ($isBus ? 'bus' : '');
     }
 
     /** Prix adulte pour une saison (low|normal|high|peak), ou null si la case est vide. */

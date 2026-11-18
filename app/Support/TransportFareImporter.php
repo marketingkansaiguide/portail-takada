@@ -21,7 +21,38 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  */
 class TransportFareImporter
 {
+    /** Famille « train » : modèle « Tarifs » (valeur historique de `source`). */
     public const SOURCE = 'import-excel';
+
+    /** Famille « bus » : modèle « Bus ». Un import ne remplace que les lignes de sa propre famille. */
+    public const SOURCE_BUS = 'import-excel-bus';
+
+    public const KIND_TRAIN = 'train';
+    public const KIND_BUS = 'bus';
+
+    // Colonnes de l'onglet « Bus » (1 = A), en-tête ligne 1, données à partir de la ligne 2.
+    private const BUS_COL = [
+        'publish' => 1, 'stop_a' => 2, 'stop_b' => 3, 'both' => 4, 'company' => 5,
+        'adult' => 6, 'child' => 7, 'valid_from' => 8, 'valid_to' => 9, 'notes' => 10,
+    ];
+
+    /** Option « place réservée » du produit billet, seule classe vendue en bus. */
+    private const BUS_OPTION_ID = 24;
+
+    public static function sourceFor(string $kind): string
+    {
+        return $kind === self::KIND_BUS ? self::SOURCE_BUS : self::SOURCE;
+    }
+
+    /** Famille d'un fichier : « bus » s'il a un onglet « Bus » (et pas d'onglet « Tarifs »), sinon « train ». */
+    public static function detectKind(string $path): string
+    {
+        $reader = IOFactory::createReaderForFile($path);
+        $names = method_exists($reader, 'listWorksheetNames') ? $reader->listWorksheetNames($path) : [];
+        $names = array_map('mb_strtolower', $names);
+
+        return in_array('bus', $names, true) && ! in_array('tarifs', $names, true) ? self::KIND_BUS : self::KIND_TRAIN;
+    }
 
     // Colonnes de l'onglet « Tarifs » (1 = A), en-têtes sur 2 lignes, données à partir de la ligne 3.
     private const COL = [
@@ -30,9 +61,14 @@ class TransportFareImporter
         'gran_class' => 20, 'flat' => 21, 'child' => 22, 'valid_from' => 23, 'valid_to' => 24, 'notes' => 29,
     ];
 
-    /** @return array{fares:int, rows:int, seasons:int, skipped: array<int, string>} */
-    public function import(string $path, bool $dryRun = false): array
+    /** @return array{fares:int, rows:int, seasons:int, skipped: array<int, string>, kind:string} */
+    public function import(string $path, bool $dryRun = false, ?string $kind = null): array
     {
+        $kind = in_array($kind, [self::KIND_TRAIN, self::KIND_BUS], true) ? $kind : self::detectKind($path);
+        if ($kind === self::KIND_BUS) {
+            return $this->importBus($path, $dryRun);
+        }
+
         $book = IOFactory::load($path);
         $sheet = $book->getSheetByName('Tarifs');
         if (! $sheet) {
@@ -100,7 +136,120 @@ class TransportFareImporter
             });
         }
 
-        return ['fares' => count($fares), 'rows' => $rowsWithPrice, 'seasons' => count($seasons), 'skipped' => $skipped];
+        return ['fares' => count($fares), 'rows' => $rowsWithPrice, 'seasons' => count($seasons), 'skipped' => $skipped, 'kind' => self::KIND_TRAIN];
+    }
+
+    /**
+     * Import du modèle « modele-grille-tarifs-bus.xlsx » (onglet « Bus »).
+     * Chaque ligne = un tarif plat sur la place réservée (option 24), sans calendrier de saison.
+     * Ne remplace que les lignes de la famille bus ; ne touche ni aux trains ni au calendrier des saisons.
+     * La compagnie est reprise dans `notes` (jamais dans `train_name`, qui déclenche la détection de train du resolver).
+     */
+    private function importBus(string $path, bool $dryRun): array
+    {
+        $book = IOFactory::load($path);
+        $sheet = $book->getSheetByName('Bus');
+        if (! $sheet) {
+            throw new \RuntimeException(__('Onglet « Bus » introuvable : utilisez le modèle de grille tarifaire des bus.'));
+        }
+
+        $known = $this->knownStationNames();
+        if (! ProductOption::whereKey(self::BUS_OPTION_ID)->exists()) {
+            throw new \RuntimeException(__('Option « place réservée » (n° :id) introuvable sur le produit billet.', ['id' => self::BUS_OPTION_ID]));
+        }
+
+        $fares = [];
+        $skipped = [];
+        $c = self::BUS_COL;
+
+        for ($r = 2, $max = $sheet->getHighestDataRow(); $r <= $max; $r++) {
+            $a = $this->text($sheet, $c['stop_a'], $r);
+            $b = $this->text($sheet, $c['stop_b'], $r);
+            $adult = $this->int($sheet, $c['adult'], $r);
+            if ($a === '' && $b === '' && $adult === null) {
+                continue;
+            }
+            if (mb_strtolower($this->text($sheet, $c['publish'], $r)) === 'non') {
+                $skipped[$r] = __('ligne marquée « Non » (non publiée)');
+                continue;
+            }
+            if ($a === '' || $b === '' || str_starts_with($a, '⚠') || str_starts_with($b, '⚠')) {
+                $skipped[$r] = __('arrêt vide ou non reconnu (⚠)');
+                continue;
+            }
+            $unknown = [];
+            foreach ([$a, $b] as $name) {
+                if (! isset($known[mb_strtolower($name)])) {
+                    $unknown[] = $this->suggestion($name, $known);
+                }
+            }
+            if ($unknown) {
+                $skipped[$r] = __('arrêt inconnu du portail : :names', ['names' => implode(' ; ', $unknown)]);
+                continue;
+            }
+            if (! $adult) {
+                $skipped[$r] = __('prix adulte manquant');
+                continue;
+            }
+
+            $company = $this->text($sheet, $c['company'], $r);
+            $remarks = $this->text($sheet, $c['notes'], $r);
+            $fares[] = [
+                'departure_station' => $known[mb_strtolower($a)],
+                'arrival_station' => $known[mb_strtolower($b)],
+                'both_directions' => mb_strtolower($this->text($sheet, $c['both'], $r)) !== 'non',
+                'train_name' => null,
+                'product_option_id' => self::BUS_OPTION_ID,
+                'pricing_mode' => TransportFare::MODE_FLAT,
+                'season_calendar' => null,
+                'price_flat' => $adult,
+                'child_price' => $this->int($sheet, $c['child'], $r),
+                'valid_from' => $this->date($sheet, $c['valid_from'], $r),
+                'valid_to' => $this->date($sheet, $c['valid_to'], $r),
+                'is_active' => true,
+                'source' => self::SOURCE_BUS,
+                'notes' => trim(($company !== '' ? __('Compagnie : :name.', ['name' => $company]) . ' ' : '') . $remarks) ?: null,
+            ];
+        }
+
+        if (! $dryRun) {
+            DB::transaction(function () use ($fares) {
+                TransportFare::where('source', self::SOURCE_BUS)->delete();
+                foreach ($fares as $fare) {
+                    TransportFare::create($fare);
+                }
+            });
+        }
+
+        return ['fares' => count($fares), 'rows' => count($fares), 'seasons' => 0, 'skipped' => $skipped, 'kind' => self::KIND_BUS];
+    }
+
+    /** @return array<string, string> nom en minuscules => name_en exact (gares de train et arrêts de bus du portail) */
+    private function knownStationNames(): array
+    {
+        $names = [];
+        foreach ([\App\Models\BusStation::class, \App\Models\TrainStation::class] as $model) {
+            foreach ($model::query()->pluck('name_en') as $name) {
+                $names[mb_strtolower(trim($name))] = trim($name);
+            }
+        }
+
+        return $names;
+    }
+
+    /** Nom saisi entre guillemets, avec le nom exact du portail s'il y en a un proche (ex. « Takayama » → « Takayama (bus) »). */
+    private function suggestion(string $name, array $known): string
+    {
+        $needle = TransportFare::stationKey($name);
+        $close = [];
+        foreach ($known as $exact) {
+            $key = TransportFare::stationKey($exact);
+            if ($key === $needle || $key === $needle . 'bus') {
+                $close[] = '« ' . $exact . ' »';
+            }
+        }
+
+        return '« ' . $name . ' »' . ($close ? ' (nom exact : ' . implode(' ou ', array_slice($close, 0, 3)) . ')' : '');
     }
 
     /** @return array<int, array<string, mixed>> une entrée par classe remplie */

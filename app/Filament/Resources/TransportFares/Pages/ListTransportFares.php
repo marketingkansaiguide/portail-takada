@@ -6,6 +6,7 @@ use App\Filament\Resources\TransportFares\TransportFareResource;
 use App\Support\TransportFareImporter;
 use Filament\Actions;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -23,7 +24,7 @@ class ListTransportFares extends ListRecords
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('gray')
                 ->visible(fn () => auth()->user()?->hasPermission('transport_fare.create'))
-                ->modalDescription(__('Remplace les tarifs du précédent import Excel (les tarifs saisis à la main sont conservés) et le calendrier des saisons s’il est rempli.'))
+                ->modalDescription(__('Remplace les tarifs du précédent import Excel de la même famille (train ou bus) ; les tarifs saisis à la main et l’autre famille sont conservés. Pour les trains, le calendrier des saisons est remplacé s’il est rempli.'))
                 ->schema([
                     FileUpload::make('file')
                         ->label(__('Modèle rempli (.xlsx)'))
@@ -31,13 +32,18 @@ class ListTransportFares extends ListRecords
                         ->directory('imports/transport-fares')
                         ->acceptedFileTypes(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
                         ->required(),
+                    Select::make('kind')
+                        ->label(__('Type de grille'))
+                        ->options(['' => __('Détecter d’après le fichier'), 'train' => __('Trains'), 'bus' => __('Bus')])
+                        ->default('')
+                        ->selectablePlaceholder(false),
                     Toggle::make('dry_run')
                         ->label(__('Vérifier seulement (ne rien enregistrer)')),
                 ])
                 ->action(function (array $data, TransportFareImporter $importer) {
                     $path = Storage::disk('local')->path($data['file']);
                     try {
-                        $result = $importer->import($path, (bool) ($data['dry_run'] ?? false));
+                        $result = $importer->import($path, (bool) ($data['dry_run'] ?? false), ($data['kind'] ?? '') ?: null);
                     } catch (\Throwable $e) {
                         Notification::make()->title(__('Import impossible'))->body($e->getMessage())->danger()->send();
 
