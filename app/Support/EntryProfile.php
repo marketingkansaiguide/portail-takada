@@ -36,7 +36,7 @@ final class EntryProfile
             str_contains($category, 'transfert') => self::TRANSFER,
             str_contains($name, 'pass') || str_contains($name, 'location') || str_contains($name, 'wifi') || str_contains($name, 'carte') => self::RENTAL,
             $product->product_type === 'transport' || str_contains($category, 'transport') || str_contains($name, 'train') || str_contains($name, 'bus') => self::TRAIN_BUS,
-            str_contains($category, 'guidage') || str_contains($category, 'activit') => self::VISIT,
+            str_contains($category, 'guidage') || str_contains($category, 'activit') || str_contains($category, 'ticket') => self::VISIT,
             default => self::OTHER,
         };
     }
