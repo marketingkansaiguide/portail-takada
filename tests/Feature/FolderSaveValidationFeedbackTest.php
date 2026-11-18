@@ -62,6 +62,8 @@ it("liste les dossiers avec le nom en premier, puis l'agence et les dates", func
 
     expect(array_slice($visible, 0, 4))->toBe(['folder_name', 'agency.name', 'start_date', 'end_date'])
         ->and($visible)->not->toContain('origin')
+        ->and($visible)->not->toContain('segment')
+        ->and($visible)->not->toContain('ops_status')
         ->and($visible)->not->toContain('reference')
         ->and($visible)->not->toContain('owner.name')
         ->and($visible)->not->toContain('mainSeller.name');

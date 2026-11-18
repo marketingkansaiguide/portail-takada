@@ -2479,13 +2479,14 @@ Hidden::make('fare_estimate'),
                     ->label(__('Segment'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => Folder::SEGMENTS[$state] ?? __('Non classé'))
-                    ->color(fn (?string $state) => $state ? 'info' : 'gray'),
+                    ->color(fn (?string $state) => $state ? 'info' : 'gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('ops_status')
                     ->label(__('Avancement (interne)'))
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => Folder::OPS_STATUSES[$state] ?? '')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('status')
                     ->label(__('Statut'))
