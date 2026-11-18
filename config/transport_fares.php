@@ -20,6 +20,7 @@ return [
         ['calendar' => 'B', 'keywords' => [
             'hayabusa', 'hayate', 'yamabiko', 'nasuno', 'tsubasa', 'komachi', 'toki', 'tanigawa',
             'kagayaki', 'hakutaka', 'tsurugi', 'asama', 'thunderbird', 'shirasagi',
+            'narita express', 'tsugaru', // JR East
         ]],
 
         // Pas de saison : lignes privées, prix fixe toute l'année.
@@ -29,6 +30,7 @@ return [
             'kinu', 'odakyu', 'romancecar', 'nankai', 'rapit', 'meitetsu', 'skyliner', 'keisei',
             // Ajouts « évidents » (lignes privées) :
             'seibu', 'laview', 'red arrow', 'fujikyu', 'hankyu', 'hanshin', 'keihan', 'tokyu',
+            'ise-shima liner', 'ise shima liner', 'vista car', // Kintetsu
         ]],
 
         // Express de JR Hokkaido (ligne classique) : aucune saison (confirmé).
@@ -39,7 +41,7 @@ return [
         // JR Kyushu en ligne classique + Nishi-Kyushu Shinkansen : calendrier A sans saison basse.
         ['calendar' => 'K', 'keywords' => [
             'kamome', 'relay kamome', 'sonic', 'nichirin', 'kirishima', 'midori', 'huis ten bosch', 'yufu',
-            'aso', 'ibusuki', 'kyushu oudan', 'yufuin no mori', 'kawasemi', 'yamasemi', '36+3', 'aru ressha',
+            'aso', 'ibusuki', 'kyushu oudan', 'yufuin no mori', 'kawasemi', 'yamasemi', '36+3', 'aru ressha', 'asoboy',
         ]],
 
         ['calendar' => 'A', 'keywords' => [
@@ -47,7 +49,7 @@ return [
             'hida', 'nanki', 'hashidate', 'kounotori', 'hakuto', 'yakumo', 'shiokaze', 'nanpu',
             'ishizuchi', 'uwakai', 'ashizuri',
             // Trains multi-compagnies :
-            'shinano', 'sunrise',
+            'shinano', 'sunrise', 'nampu', 'konotori',
         ]],
     ],
 ];

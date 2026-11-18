@@ -29,6 +29,14 @@ test('le classifieur attribue le calendrier selon le nom du train', function () 
         ->and(TransportFareCalendar::forTrain('Sunrise Izumo', $s))->toBe('A')
         ->and(TransportFareCalendar::forTrain('Train inconnu', $s))->toBe('A')
         ->and(TransportFareCalendar::forTrain(null, $s))->toBe('A')
+        ->and(TransportFareCalendar::forTrain('Asoboy', $s))->toBe('K')
+        ->and(TransportFareCalendar::forTrain('Ise-Shima Liner', $s))->toBeNull()
+        ->and(TransportFareCalendar::forTrain('Vista Car', $s))->toBeNull()
+        ->and(TransportFareCalendar::forTrain('Narita Express', $s))->toBe('B')
+        ->and(TransportFareCalendar::forTrain('Super Tsugaru', $s))->toBe('B')
+        ->and(TransportFareCalendar::forTrain('Nampu', $s))->toBe('A')
+        ->and(TransportFareCalendar::forTrain('Konotori', $s))->toBe('A')
+        ->and(TransportFareCalendar::forTrain('Hayabusa + Hokuto', $s))->toBe('B')
         ->and(TransportFareCalendar::forTrain('Nozomi', TransportFare::MODE_FLAT))->toBeNull();
 });
 
