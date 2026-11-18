@@ -16,7 +16,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Une seule instance par requête : tarifs et saisons chargés une fois, réutilisés.
+        $this->app->scoped(\App\Support\TransportFareResolver::class);
     }
 
     /**

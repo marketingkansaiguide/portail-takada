@@ -107,3 +107,33 @@ test('enfants au demi-tarif, jeunes enfants gratuits dans la limite de 2 par pay
     TransportFare::query()->update(['child_price' => 7000]);
     expect((new TransportFareResolver())->forRoute(fareRoute(['option_id' => $r->id, 'pax_count' => 1, 'children_count' => 1]))['total'])->toBe(7000);
 });
+
+it('chiffre plusieurs trajets en peu de requêtes SQL (tarifs par paire de gares et saisons chargés une seule fois)', function () {
+    ['reserved' => $opt] = fareOptions();
+    foreach ([['Tokyo Station', 'Kyoto Station'], ['Kyoto Station', 'Osaka Station'], ['Osaka Station', 'Nara Station']] as [$from, $to]) {
+        foreach ([null, 'Nozomi'] as $train) {
+            TransportFare::create(['departure_station' => $from, 'arrival_station' => $to, 'train_name' => $train, 'product_option_id' => $opt->id,
+                'season_calendar' => 'A', 'price_low' => 1000, 'price_normal' => 1100, 'price_high' => 1200, 'price_peak' => 1300]);
+        }
+    }
+    \App\Models\TransportFareSeason::create(['company' => 'A', 'season' => 'high', 'starts_on' => '2027-06-01', 'ends_on' => '2027-06-30']);
+
+    $route = fn (string $from, string $to) => ['departure_station' => $from, 'arrival_station' => $to, 'departure_date' => '2027-06-10',
+        'option_id' => $opt->id, 'pax_count' => 2];
+    $routes = [$route('Tokyo Station', 'Kyoto Station'), $route('Kyoto Station', 'Osaka Station'), $route('Osaka Station', 'Nara Station')];
+
+    $resolver = new TransportFareResolver;
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $result = $resolver->forRoutes($routes);
+    $resolver->adjustRoutes($routes);
+    foreach ($routes as $r) {
+        $resolver->availableOptions($r);
+    }
+    $count = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($result['priced'])->toBe(3)
+        ->and($result['routes'][0]['season'])->toBe('high')
+        ->and($count)->toBeLessThanOrEqual(4); // 3 paires de gares + 1 calendrier de saisons
+});

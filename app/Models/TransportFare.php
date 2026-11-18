@@ -42,6 +42,10 @@ class TransportFare extends Model
 
     protected static function booted(): void
     {
+        $flush = fn () => app(\App\Support\TransportFareResolver::class)->flush();
+        static::saved($flush);
+        static::deleted($flush);
+
         static::saving(function (TransportFare $fare) {
             $fare->departure_key = self::stationKey($fare->departure_station);
             $fare->arrival_key = self::stationKey($fare->arrival_station);

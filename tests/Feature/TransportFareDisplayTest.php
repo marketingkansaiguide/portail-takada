@@ -29,15 +29,42 @@ function ticketRoute(array $o = []): array
         'children_count' => 1, 'young_children_count' => 0, 'infants_count' => 0];
 }
 
-it('affiche le prix indicatif du trajet connu et « sur devis » pour un trajet absent de la grille', function () {
-    Livewire::test(ViewProduct::class, ['record' => 4])
-        ->set('customValues.transport_routes', [ticketRoute(), ticketRoute(['arrival_station' => 'Nara Station'])])
-        ->assertSee('35 420 ¥ (2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥)')
-        ->assertSee('Prix indicatif, à confirmer auprès des compagnies')
-        ->assertSee('Tarif indicatif, sous réserve de confirmation auprès de la ou des compagnies de train/bus')
-        ->assertSee('saison normale')
+it('un seul trajet : le total n’apparaît qu’une fois, avec le détail adultes / enfants dans le récapitulatif', function () {
+    $c = Livewire::test(ViewProduct::class, ['record' => 4])
+        ->set('customValues.transport_routes', [ticketRoute()]);
+
+    $html = $c->html();
+    expect(substr_count($html, '35 420 ¥'))->toBe(1)
+        ->and(substr_count($html, 'Tarif indicatif, sous réserve de confirmation'))->toBe(1)
+        ->and(substr_count($html, '2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥'))->toBe(1);
+    $c->assertSee('Saison normale')
+        ->assertDontSee('Prix des billets')
+        ->assertDontSee('à confirmer auprès des compagnies');
+});
+
+it('deux trajets : prix par trajet et total, mention de tarif indicatif une seule fois', function () {
+    $c = Livewire::test(ViewProduct::class, ['record' => 4])
+        ->set('customValues.transport_routes', [ticketRoute(), ticketRoute(['arrival_station' => 'Nara Station'])]);
+
+    $c->assertSee('35 420 ¥ (2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥)')
+        ->assertSee('Saison normale')
         ->assertSee('Sur devis, au prix coûtant')
         ->assertSee('1 trajet sans tarif connu');
+    // Prix du trajet 1 sous le trajet + total des billets dans le récapitulatif (ici identiques : un seul trajet chiffré).
+    expect(substr_count($c->html(), '35 420 ¥'))->toBe(2)
+        ->and(substr_count($c->html(), 'Tarif indicatif, sous réserve de confirmation'))->toBe(1);
+});
+
+it('deux trajets chiffrés : chaque prix de trajet puis le total', function () {
+    TransportFare::create(['departure_station' => 'Kyoto Station', 'arrival_station' => 'Osaka Station', 'train_name' => 'Nozomi',
+        'product_option_id' => 24, 'price_low' => 1000, 'price_normal' => 1000, 'price_high' => 1000, 'price_peak' => 1000]);
+
+    $c = Livewire::test(ViewProduct::class, ['record' => 4])
+        ->set('customValues.transport_routes', [ticketRoute(), ticketRoute(['departure_station' => 'Kyoto Station', 'arrival_station' => 'Osaka Station', 'pax_count' => 1, 'children_count' => 0])]);
+
+    $c->assertSee('35 420 ¥ (2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥)')
+        ->assertSee('1 000 ¥ (1 ad. × 1 000 ¥)')
+        ->assertSee('36 420 ¥');
 });
 
 it('n’affiche pas la mention de tarif indicatif quand aucun trajet n’a de prix', function () {
@@ -61,4 +88,19 @@ it('enregistre le prix indicatif dans le trajet commandé', function () {
         ->and($routes[0]['fare_estimate']['children'])->toBe(1)
         ->and($routes[0]['children_count'])->toBe(1)
         ->and($routes[1])->not->toHaveKey('fare_estimate');
+});
+
+it('n’embarque pas la liste complète des gares dans la page et cherche côté serveur', function () {
+    foreach (range(1, 300) as $i) {
+        \App\Models\TrainStation::create(['name_en' => "Testville{$i} Station", 'importance_score' => $i % 90]);
+    }
+    \App\Models\TrainStation::create(['name_en' => 'Zzyzx Station', 'name_ja' => '終点駅', 'importance_score' => 1]);
+
+    $c = Livewire::test(ViewProduct::class, ['record' => 4]);
+    expect(substr_count($c->html(), 'Testville250 Station'))->toBe(0)
+        ->and(strlen($c->html()))->toBeLessThan(400_000);
+
+    $found = $c->instance()->searchStations('zzyzx');
+    expect($found)->toHaveCount(1)->and($found[0]['name'])->toBe('Zzyzx Station')
+        ->and($c->instance()->searchStations('100%_'))->toBe([]);
 });

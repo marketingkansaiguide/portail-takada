@@ -20,8 +20,28 @@ use Illuminate\Support\Collection;
  */
 class TransportFareResolver
 {
-    /** @var array<string, Collection> */
+    /** @var array<string, Collection> Tarifs actifs par paire de gares, chargés une seule fois par requête. */
     private array $cache = [];
+
+    /** Calendrier des saisons, chargé une seule fois par requête. */
+    private ?Collection $seasonPeriods = null;
+
+    /** Vide les mémoires (appelé quand un tarif ou une période de saison est modifié). */
+    public function flush(): void
+    {
+        $this->cache = [];
+        $this->seasonPeriods = null;
+    }
+
+    private function seasonFor(string $day, ?string $calendar): string
+    {
+        if ($calendar === null) {
+            return 'normal';
+        }
+        $this->seasonPeriods ??= TransportFareSeason::query()->get(['company', 'season', 'starts_on', 'ends_on']);
+
+        return TransportFareSeason::resolveSeason($this->seasonPeriods, $day, $calendar);
+    }
 
     /**
      * @param  array<string, mixed>  $route  un élément de custom_values.transport_routes
@@ -61,7 +81,7 @@ class TransportFareResolver
         $priced = $pool
             ->map(function (TransportFare $f) use ($day, &$seasons) {
                 // Chaque tarif suit son calendrier de saisons (A, B, K ou aucun).
-                $season = $seasons[$f->season_calendar ?? ''] ??= TransportFareSeason::seasonFor($day, $f->season_calendar);
+                $season = $seasons[$f->season_calendar ?? ''] ??= $this->seasonFor($day, $f->season_calendar);
 
                 return ['fare' => $f, 'season' => $season, 'price' => $f->priceForSeason($season)];
             })
@@ -195,6 +215,14 @@ class TransportFareResolver
     /** Libellé court d'un prix indicatif, ex. « 35 420 ¥ (2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥, 1 gratuit) ». */
     public static function describe(array $fare): string
     {
+        $detail = self::detail($fare);
+
+        return number_format((int) $fare['total'], 0, '.', ' ') . ' ¥' . ($detail !== '' ? " ({$detail})" : '');
+    }
+
+    /** Détail seul, sans le total, ex. « 2 ad. × 14 170 ¥ + 1 enf. × 7 080 ¥, 1 gratuit ». */
+    public static function detail(array $fare): string
+    {
         $fmt = fn ($n) => number_format((int) $n, 0, '.', ' ') . ' ¥';
         $parts = [];
         if (($fare['adults'] ?? 0) > 0) {
@@ -208,7 +236,7 @@ class TransportFareResolver
             $detail .= ', ' . $fare['free'] . ' ' . ($fare['free'] > 1 ? __('gratuits') : __('gratuit'));
         }
 
-        return $fmt($fare['total']) . ($detail !== '' ? " ({$detail})" : '');
+        return $detail;
     }
 
     public static function seasonLabel(string $season): string

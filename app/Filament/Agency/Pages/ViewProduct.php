@@ -26,6 +26,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Renderless;
 use Illuminate\Support\HtmlString;
 use Livewire\WithFileUploads;
 
@@ -196,56 +197,82 @@ class ViewProduct extends Page
         }
     }
 
+    protected array $stationMapUrls = [];
+
     public function getStationMapUrl(?string $stationName): ?string
     {
         if (!$stationName) return null;
 
         $stationNameClean = trim($stationName);
-        
-        $train = TrainStation::where('name_en', $stationNameClean)
-            ->orWhere('name_ja', $stationNameClean)
-            ->first();
 
-        if ($train && !empty($train->google_maps_url)) {
-            return $train->google_maps_url;
-        }
+        // Mémorisé pour la durée de la requête : la vue l'appelle à chaque rendu pour chaque gare.
+        return $this->stationMapUrls[$stationNameClean] ??= (function () use ($stationNameClean) {
+            $train = TrainStation::where('name_en', $stationNameClean)
+                ->orWhere('name_ja', $stationNameClean)
+                ->first(['google_maps_url']);
 
-        $bus = BusStation::where('name_en', $stationNameClean)
-            ->orWhere('name_ja', $stationNameClean)
-            ->first();
+            if ($train && !empty($train->google_maps_url)) {
+                return $train->google_maps_url;
+            }
 
-        if ($bus && !empty($bus->google_maps_url)) {
-            return $bus->google_maps_url;
-        }
+            $bus = BusStation::where('name_en', $stationNameClean)
+                ->orWhere('name_ja', $stationNameClean)
+                ->first(['google_maps_url']);
 
-        return null;
+            return $bus && !empty($bus->google_maps_url) ? $bus->google_maps_url : '';
+        })() ?: null;
     }
 
+    /** Suggestions affichées avant toute saisie : les gares les plus importantes (liste courte, envoyée une fois avec la page). */
     #[Computed]
-    public function stationsList()
+    public function stationSuggestions(): array
     {
-        $trains = TrainStation::orderBy('importance_score', 'desc')
-            ->orderBy('name_en', 'asc')
-            ->get(['name_en', 'name_ja', 'city', 'prefecture', 'importance_score', 'google_maps_url'])
-            ->map(fn($s) => [
+        return $this->stationOptions(null, 10);
+    }
+
+    /**
+     * Recherche de gares côté serveur pendant la saisie (la liste complète fait plus de 9 000 gares :
+     * ne jamais l'embarquer dans la page). N'effectue aucun nouveau rendu du composant.
+     *
+     * @return array<int, array{name:string, label:string}>
+     */
+    #[Renderless]
+    public function searchStations(string $term): array
+    {
+        return $this->stationOptions(trim($term), 15);
+    }
+
+    /** @return array<int, array{name:string, label:string}> */
+    protected function stationOptions(?string $term, int $limit): array
+    {
+        $like = $term === null || $term === '' ? null : '%' . addcslashes($term, '\%_') . '%';
+
+        $trains = TrainStation::query()
+            ->when($like, fn ($q) => $q->where(fn ($q) => $q->where('name_en', 'like', $like)->orWhere('name_ja', 'like', $like)
+                ->orWhere('city', 'like', $like)->orWhere('prefecture', 'like', $like)))
+            ->orderByDesc('importance_score')->orderBy('name_en')
+            ->limit($limit)
+            ->get(['name_en', 'name_ja', 'city', 'prefecture', 'importance_score'])
+            ->map(fn ($s) => [
                 'name' => $s->name_en,
-                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->city ? " - {$s->city}" : ($s->prefecture ? " - {$s->prefecture}" : "")),
-                'type' => 'train',
+                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : '') . ($s->city ? " - {$s->city}" : ($s->prefecture ? " - {$s->prefecture}" : '')),
                 'score' => $s->importance_score ?? 10,
-                'maps_url' => $s->google_maps_url
             ]);
 
-        $buses = BusStation::orderBy('name_en', 'asc')
-            ->get(['name_en', 'name_ja', 'address', 'google_maps_url'])
-            ->map(fn($s) => [
+        $buses = BusStation::query()
+            ->when($like, fn ($q) => $q->where(fn ($q) => $q->where('name_en', 'like', $like)->orWhere('name_ja', 'like', $like)
+                ->orWhere('address', 'like', $like)))
+            ->orderBy('name_en')
+            ->limit($limit)
+            ->get(['name_en', 'name_ja', 'address'])
+            ->map(fn ($s) => [
                 'name' => $s->name_en,
-                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : "") . ($s->address ? " - {$s->address}" : ""),
-                'type' => 'bus',
-                'score' => 50, // Score d'importance à 50
-                'maps_url' => $s->google_maps_url
+                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : '') . ($s->address ? " - {$s->address}" : ''),
+                'score' => 50,
             ]);
 
-        return $trains->concat($buses)->sortByDesc('score')->values();
+        return $trains->concat($buses)->sortByDesc('score')->take($limit)
+            ->map(fn ($s) => ['name' => $s['name'], 'label' => $s['label']])->values()->all();
     }
 
     public function selectGroupVariant(string $groupName, $selectedOptionId): void
@@ -263,6 +290,8 @@ class ViewProduct extends Page
 
         $this->refreshCalendar();
     }
+
+    protected ?string $syncedRoutesSignature = null;
 
     /** @var array<int|string, string> Notes « classe basculée » par trajet (index du trajet). */
     public array $classNotices = [];
@@ -282,6 +311,11 @@ class ViewProduct extends Page
         if (! is_array($routes) || ! $this->product) {
             return;
         }
+        // Déjà recalé pour ces valeurs exactes : évite de refaire le calcul à chaque appel (rendu, prix, hook).
+        $signature = md5(json_encode($routes));
+        if ($signature === $this->syncedRoutesSignature) {
+            return;
+        }
         $names = $this->product->productOptions->pluck('name', 'id')->all();
         $adjusted = app(\App\Support\TransportFareResolver::class)->adjustRoutes($routes, $names);
         foreach ($adjusted as $i => $route) {
@@ -295,6 +329,7 @@ class ViewProduct extends Page
         if ($adjusted !== $routes) {
             $this->customValues['transport_routes'] = $adjusted;
         }
+        $this->syncedRoutesSignature = md5(json_encode($this->customValues['transport_routes']));
     }
 
     /** Classes sans tarif sur ce trajet (grisées dans le choix de classe) ; vide si le trajet n'est pas dans la grille. */

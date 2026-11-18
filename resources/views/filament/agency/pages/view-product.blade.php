@@ -368,6 +368,7 @@
                                 .tk-tr-fare strong { color: #0f172a; font-weight: 700; text-align: right; }
                                 .tk-tr-fare .muted { font-weight: 600; font-style: italic; }
                                 .tk-tr-fare.is-priced { background: #f0fdf4; border-color: #bbf7d0; }
+                                .tk-tr-fare.is-calculating, .tk-tr-fees.is-calculating { opacity: 0.6; transition: opacity 0.1s; }
                                 .tk-tr-fare-note { margin-top: -0.45rem; font-size: 0.72rem; color: #64748b; line-height: 1.4; }
                                 .tk-tr-fare-disclaimer { display: flex; align-items: flex-start; gap: 0.3rem; font-size: 0.7rem; line-height: 1.4; color: #94a3b8; }
                                 .tk-tr-fare-disclaimer svg { width: 0.8rem; height: 0.8rem; flex: none; margin-top: 0.1rem; }
@@ -398,7 +399,10 @@
                                 <p class="tk-tr-hint">{{ __('Un trajet par billet : gares, date, classe et nombre de passagers.') }}</p>
 
                                 @if(!empty($customValues['transport_routes']))
-                                    @php $routeCount = count($customValues['transport_routes']); @endphp
+                                    @php
+                                        $routeCount = count($customValues['transport_routes']);
+                                        $estimate_routes = $this->getEstimatedPrice()['fares'] ?? ['routes' => []];
+                                    @endphp
                                     <div class="tk-tr-list">
                                         @foreach($customValues['transport_routes'] as $index => $route)
                                             @php
@@ -430,22 +434,35 @@
                                                         ] as $leg)
                                                             @php $legMaps = $this->getStationMapUrl($route[$leg['field']] ?? null); @endphp
                                                             <div class="tk-tr-stop" x-data="{
-                                                                search: @entangle('customValues.transport_routes.' . $index . '.' . $leg['field']).live,
+                                                                search: @js($route[$leg['field']] ?? ''),
+                                                                path: 'customValues.transport_routes.{{ $index }}.{{ $leg['field'] }}',
                                                                 open: false,
-                                                                stations: @js($this->stationsList),
-                                                                get filtered() {
-                                                                    if (!this.search || this.search.length < 1) {
-                                                                        return this.stations.slice(0, 10);
-                                                                    }
-                                                                    let q = this.search.toLowerCase();
-                                                                    return this.stations.filter(s =>
-                                                                        s.name.toLowerCase().includes(q) ||
-                                                                        (s.label && s.label.toLowerCase().includes(q))
-                                                                    ).slice(0, 15);
+                                                                results: @js($this->stationSuggestions),
+                                                                timer: null,
+                                                                seq: 0,
+                                                                init() {
+                                                                    // Le serveur peut recaler la valeur (ex. changement de trajet) : on suit.
+                                                                    this.$wire.$watch(this.path, (v) => { if (v !== this.search) this.search = v ?? ''; });
+                                                                },
+                                                                // Pendant la frappe : recherche côté serveur (sans re-rendu), sur 250 ms de pause.
+                                                                typing() {
+                                                                    this.open = true;
+                                                                    clearTimeout(this.timer);
+                                                                    const q = (this.search || '').trim();
+                                                                    this.timer = setTimeout(async () => {
+                                                                        const n = ++this.seq;
+                                                                        const r = await this.$wire.searchStations(q);
+                                                                        if (n === this.seq) this.results = r;
+                                                                    }, 250);
+                                                                },
+                                                                // La valeur n'est envoyée au serveur (et le prix recalculé) qu'une fois la gare choisie ou le champ quitté.
+                                                                commit() {
+                                                                    if ((this.$wire.$get(this.path) ?? '') !== (this.search ?? '')) this.$wire.$set(this.path, this.search ?? '');
                                                                 },
                                                                 select(st) {
                                                                     this.search = st.name;
                                                                     this.open = false;
+                                                                    this.commit();
                                                                 }
                                                             }">
                                                                 <span class="tk-tr-dot {{ $leg['end'] ? 'is-end' : '' }}"></span>
@@ -457,13 +474,16 @@
                                                                 </label>
                                                                 <input type="text" class="tk-tr-input"
                                                                        x-model="search"
+                                                                       @input="typing()"
+                                                                       @change="commit()"
+                                                                       @keydown.enter="open = false; commit()"
                                                                        @focus="open = true"
                                                                        @click.away="open = false"
                                                                        @keydown.escape="open = false"
                                                                        autocomplete="off"
                                                                        placeholder="{{ __('Rechercher une gare…') }}" />
-                                                                <div x-show="open && filtered.length > 0" x-cloak class="tk-tr-menu">
-                                                                    <template x-for="st in filtered" :key="st.name">
+                                                                <div x-show="open && results.length > 0" x-cloak class="tk-tr-menu">
+                                                                    <template x-for="st in results" :key="st.name">
                                                                         <div class="tk-tr-opt" @click="select(st)"><span x-text="st.label"></span></div>
                                                                     </template>
                                                                 </div>
@@ -478,18 +498,18 @@
                                                     <div class="tk-tr-grid">
                                                         <div>
                                                             <label class="tk-tr-label"><span>{{ __('Date') }} <span class="req">*</span></span></label>
-                                                            <input type="date" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.departure_date" />
+                                                            <input type="date" class="tk-tr-input" wire:model.live.change="customValues.transport_routes.{{ $index }}.departure_date" />
                                                             @error("customValues.transport_routes.{$index}.departure_date")
                                                                 <span class="tk-tr-err">{{ $message }}</span>
                                                             @enderror
                                                         </div>
                                                         <div>
                                                             <label class="tk-tr-label"><span>{{ __('Heure / n° de train') }}</span></label>
-                                                            <input type="text" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.departure_time" placeholder="{{ __('Ex : 09:30, Hikari 502') }}" />
+                                                            <input type="text" class="tk-tr-input" wire:model.live.debounce.400ms="customValues.transport_routes.{{ $index }}.departure_time" placeholder="{{ __('Ex : 09:30, Hikari 502') }}" />
                                                         </div>
                                                         <div>
                                                             <label class="tk-tr-label"><span>{{ __('Classe') }} <span class="req">*</span></span></label>
-                                                            <select required="required" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.option_id">
+                                                            <select required="required" class="tk-tr-input" wire:model.live.change="customValues.transport_routes.{{ $index }}.option_id">
                                                                 <option value="">{{ __('Choisir…') }}</option>
                                                                 @php $disabledClasses = $this->disabledClassIds($route); @endphp
                                                                 @foreach($product->productOptions as $opt)
@@ -539,19 +559,28 @@
                                                         </div>
                                                     </div>
 
-                                                    {{-- Prix indicatif du billet (grille tarifaire) --}}
-                                                    @php $routeFare = $this->getEstimatedPrice()['fares']['routes'][$index] ?? null; @endphp
-                                                    <div class="tk-tr-fare {{ $routeFare ? 'is-priced' : '' }}">
-                                                        <span>{{ __('Prix des billets') }}</span>
-                                                        @if($routeFare)
-                                                            <strong>{{ \App\Support\TransportFareResolver::describe($routeFare) }}</strong>
-                                                        @else
+                                                    {{-- Prix indicatif du billet (grille tarifaire) : le chiffre n'apparaît sous le trajet que s'il y a plusieurs trajets ;
+                                                         avec un seul trajet, il est dans le récapitulatif près de l'ajout au dossier. --}}
+                                                    @php
+                                                        $routeFare = $estimate_routes['routes'][$index] ?? null;
+                                                        $showRouteAmount = $routeCount > 1;
+                                                    @endphp
+                                                    @if($showRouteAmount || ! $routeFare)
+                                                    <div class="tk-tr-fare {{ $routeFare ? 'is-priced' : '' }}" wire:loading.class="is-calculating" wire:target="customValues">
+                                                        @if($routeFare && $showRouteAmount)
+                                                            <span>{{ __('Prix des billets') }}</span>
+                                                            <strong wire:loading.remove wire:target="customValues">{{ \App\Support\TransportFareResolver::describe($routeFare) }}</strong>
+                                                            <span class="muted" wire:loading wire:target="customValues">{{ __('calcul…') }}</span>
+                                                        @elseif(! $routeFare)
+                                                            <span>{{ __('Prix des billets') }}</span>
                                                             <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
                                                         @endif
+
                                                     </div>
+                                                    @endif
                                                     @if($routeFare)
-                                                        <div class="tk-tr-fare-note">
-                                                            {{ __('Prix indicatif, à confirmer auprès des compagnies') }} · {{ __('saison') }} {{ mb_strtolower(\App\Support\TransportFareResolver::seasonLabel($routeFare['season'])) }}
+                                                        <div class="tk-tr-fare-note"@if(! $showRouteAmount) style="margin-top: 0;"@endif>
+                                                            {{ __('Saison') }} {{ mb_strtolower(\App\Support\TransportFareResolver::seasonLabel($routeFare['season'])) }}
                                                             @if($routeFare['is_max_reference'])
                                                                 · {{ __('train non précisé : tarif du train le plus cher (:train)', ['train' => $routeFare['train_name']]) }}
                                                             @elseif($routeFare['train_name'])
@@ -583,7 +612,7 @@
                                 @endif
 
                                 @php $estimate = $this->getEstimatedPrice(); @endphp
-                                <div class="tk-tr-fees">
+                                <div class="tk-tr-fees" wire:loading.class="is-calculating" wire:target="customValues">
                                     <div class="tk-tr-fees-title">{{ __('Estimation des frais') }}</div>
                                     <div class="tk-tr-fees-row">
                                         <span>
@@ -615,6 +644,12 @@
                                             <span class="muted">{{ __('Sur devis, au prix coûtant') }}</span>
                                         @endif
                                     </div>
+                                    @if($fares['priced'] > 0 && ($fares['count'] ?? 0) === 1 && ($single = collect($fares['routes'])->filter()->first()))
+                                        {{-- Un seul trajet : le détail adultes / enfants n'est affiché qu'ici, pas sous le trajet. --}}
+                                        @if(($detail = \App\Support\TransportFareResolver::detail($single)) !== '')
+                                            <div class="tk-tr-fare-note" style="margin-top: 0;">{{ $detail }}</div>
+                                        @endif
+                                    @endif
                                     @if($fares['priced'] > 0 && $fares['priced'] < $fares['count'])
                                         <div class="tk-tr-fees-row">
                                             <span>{{ trans_choice(':count trajet sans tarif connu|:count trajets sans tarif connu', $fares['count'] - $fares['priced']) }}</span>
@@ -1380,6 +1415,8 @@
                         {{-- Barre de réservation fixe (mobile / tablette) : total estimé et accès direct à l'étape finale --}}
                         @php $barEstimate = $this->getEstimatedPrice(); @endphp
                         <div class="product-mobile-bar">
+                            {{-- Produit transport : le total est déjà dans « Estimation des frais » (pas de second total ici). --}}
+                            @unless($product->isTransport())
                             <div style="display: flex; flex-direction: column; line-height: 1.15; min-width: 0;">
                                 <span style="font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">{{ __('Total estimé') }}</span>
                                 <span style="font-size: 1.15rem; font-weight: 800; color: var(--tk-accent); white-space: nowrap;">
@@ -1390,6 +1427,7 @@
                                     @endif
                                 </span>
                             </div>
+                            @endunless
                             <button type="button"
                                     onclick="document.querySelector('.product-final-step')?.scrollIntoView({ behavior: 'smooth', block: 'center' })"
                                     style="flex: none; background: var(--primary-600); color: #ffffff; border: none; padding: 0.65rem 1.1rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
