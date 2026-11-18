@@ -878,11 +878,12 @@ Repeater::make('transport_routes')
                                                 $displayGroupName = ($groupName === 'default_required') ? 'Déclinaison' : $groupName;
                                                 
                                                 $selectOptions = [];
+                                                $sg = fn ($v) => ($v < 0 ? '−' : '+') . ' ' . number_format(abs($v), 0, '.', ' ');
                                                 foreach ($groupOptions as $opt) {
                                                     $product = $productId ? \App\Models\Product::find($productId) : null;
                                                     $priceLabel = ($product?->usesAgeSelector() && $opt->billing_type === 'per_pax')
-                                                        ? " (+ " . number_format($opt->priceModifierForAge(false), 0, '.', ' ') . " ¥ adulte" . ($product->hasChildSelector() ? " / " . number_format($opt->priceModifierForAge(true), 0, '.', ' ') . " ¥ enfant" : '') . ($product->hasTeenSelector() ? " / " . number_format($opt->priceModifierForAgeGroup('teen'), 0, '.', ' ') . " ¥ adolescent" : '') . ")"
-                                                        : ($opt->price_modifier > 0 ? " (+ " . number_format($opt->price_modifier, 0, '.', ' ') . " ¥)" : "");
+                                                        ? " (" . $sg($opt->priceModifierForAge(false)) . " ¥ adulte" . ($product->hasChildSelector() ? " / " . $sg($opt->priceModifierForAge(true)) . " ¥ enfant" : '') . ($product->hasTeenSelector() ? " / " . $sg($opt->priceModifierForAgeGroup('teen')) . " ¥ adolescent" : '') . ")"
+                                                        : ($opt->price_modifier != 0 ? " (" . $sg($opt->price_modifier) . " ¥)" : "");
                                                     $selectOptions[$opt->id] = $opt->name . $priceLabel;
                                                 }
 

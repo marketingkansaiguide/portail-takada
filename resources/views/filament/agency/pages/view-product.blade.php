@@ -832,9 +832,9 @@
                                                     <span>{{ $displayGroupName }}</span>
                                                     <span style="color: #dc2626; font-size: 0.85rem;">*</span>
                                                 </label>
-                                                @if($selectedInGroup && ($selectedInGroup->price_modifier ?? 0) > 0)
+                                                @if($selectedInGroup && ($selectedInGroup->price_modifier ?? 0) != 0)
                                                     <span style="font-size: 0.8rem; color: var(--tk-accent); font-weight: 700;">
-                                                        + {{ number_format($selectedInGroup->price_modifier, 0, '.', ' ') }} ¥
+                                                        {{ $selectedInGroup->price_modifier < 0 ? '−' : '+' }} {{ number_format(abs($selectedInGroup->price_modifier), 0, '.', ' ') }} ¥
                                                     </span>
                                                 @endif
                                             </div>
@@ -853,9 +853,9 @@
                                                     <option value="{{ $option->id }}" {{ $isSelected ? 'selected' : '' }}>
                                                         {{ $option->name }}
                                                         @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }})
-                                                        @elseif($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity) > 0)
-                                                            (+ {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }})
+                                                            ({{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity)) }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'child', $childQuantity)) }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity)) }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }})
+                                                        @elseif($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity) != 0)
+                                                            ({{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity)) }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }})
                                                         @endif
                                                     </option>
                                                 @endforeach
@@ -884,7 +884,7 @@
                                                         {{ $option->name }}
                                                         <span style="display: block; font-size: 0.8rem; color: var(--tk-accent); font-weight: 700; margin-top: 0.1rem;">
                                                             @if($product->usesAgeSelector() && $option->billing_type === 'per_pax')
-                                                                + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'child', $childQuantity), 0, '.', ' ') }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ number_format($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity), 0, '.', ' ') }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
+                                                                {{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity)) }} ¥ {{ __('adulte') }}@if($product->hasChildSelector()) / {{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'child', $childQuantity)) }} ¥ {{ __('enfant') }}@endif@if($product->hasTeenSelector()) / {{ \App\Support\SignedYen::fmt($option->priceModifierForDate($serviceDate, 'teen', $teenQuantity)) }} ¥ {{ __('adolescent') }}@endif{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaires') : '' }}
                                                             @else
                                                                 + {{ number_format($option->priceModifierForDate($serviceDate, 'adult', $adultQuantity), 0, '.', ' ') }} ¥{{ $optionBillingQty < $adultQuantity ? ' / ' . __('pax supplémentaire') : '' }}
                                                             @endif
@@ -1261,14 +1261,14 @@
                                         </div>
                                         @if($product->hasChildSelector())<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                                {{ __('Tarif enfant') }} ({{ $ageSelectorChildren }} × {{ number_format($estimate['base_child_unit'], 0, '.', ' ') }} ¥)
+                                                {{ __('Tarif enfant') }} ({{ $ageSelectorChildren }} × {{ $estimate['base_child_unit'] > 0 ? number_format($estimate['base_child_unit'], 0, '.', ' ') . ' ¥' : __('gratuit') }})
                                             </span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['base_child_total'], 0, '.', ' ') }} ¥</span>
                                         </div>@endif
                                         @if($product->hasTeenSelector())
                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                                                 <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">
-                                                    {{ __('Tarif adolescent') }} ({{ $ageSelectorTeenagers }} × {{ number_format($estimate['base_teen_unit'], 0, '.', ' ') }} ¥)
+                                                    {{ __('Tarif adolescent') }} ({{ $ageSelectorTeenagers }} × {{ $estimate['base_teen_unit'] > 0 ? number_format($estimate['base_teen_unit'], 0, '.', ' ') . ' ¥' : __('gratuit') }})
                                                 </span>
                                                 <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ number_format($estimate['base_teen_total'], 0, '.', ' ') }} ¥</span>
                                             </div>
@@ -1286,7 +1286,7 @@
                                         @if(($estimate['is_guiding'] ?? false) && ($estimate['guiding_optional_total'] ?? 0) > 0)
                                             <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Options complémentaires') }}</span>
                                             <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['guiding_optional_total'], 0, '.', ' ') }} ¥</span>
-                                        @elseif(!($estimate['is_guiding'] ?? false) && ($estimate['total_options'] - ($estimate['fee_total'] ?? 0)) > 0)
+                                        @elseif(!($estimate['is_guiding'] ?? false) && ($estimate['total_options'] - ($estimate['fee_total'] ?? 0)) != 0)
                                             @if($product->usesAgeSelector())
                                                 <div style="display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; font-weight:600; color:#64748b;">
                                                     <span>{{ __('Options adultes') }}</span>
@@ -1294,13 +1294,13 @@
                                                     @if($product->hasTeenSelector())<span>{{ __('Options adolescents') }}</span>@endif
                                                 </div>
                                                 <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.2rem; font-size:0.9rem; font-weight:700; color:#334155;">
-                                                    <span>+ {{ number_format($estimate['options_adult_total'], 0, '.', ' ') }} ¥</span>
-                                                    @if($product->hasChildSelector())<span>+ {{ number_format($estimate['options_child_total'], 0, '.', ' ') }} ¥</span>@endif
-                                                    @if($product->hasTeenSelector())<span>+ {{ number_format($estimate['options_teen_total'], 0, '.', ' ') }} ¥</span>@endif
+                                                    <span>{{ ($estimate['options_adult_total']) < 0 ? '−' : '+' }} {{ number_format(abs($estimate['options_adult_total']), 0, '.', ' ') }} ¥</span>
+                                                    @if($product->hasChildSelector())<span>{{ ($estimate['options_child_total']) < 0 ? '−' : '+' }} {{ number_format(abs($estimate['options_child_total']), 0, '.', ' ') }} ¥</span>@endif
+                                                    @if($product->hasTeenSelector())<span>{{ ($estimate['options_teen_total']) < 0 ? '−' : '+' }} {{ number_format(abs($estimate['options_teen_total']), 0, '.', ' ') }} ¥</span>@endif
                                                 </div>
                                             @else
                                                 <span style="font-size: 0.85rem; font-weight: 600; color: #64748b;">{{ __('Déclinaisons / Options') }}</span>
-                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">+ {{ number_format($estimate['total_options'] - ($estimate['fee_total'] ?? 0), 0, '.', ' ') }} ¥</span>
+                                                <span style="font-size: 0.9rem; font-weight: 700; color: #334155;">{{ ($estimate['total_options'] - ($estimate['fee_total'] ?? 0)) < 0 ? '−' : '+' }} {{ number_format(abs($estimate['total_options'] - ($estimate['fee_total'] ?? 0)), 0, '.', ' ') }} ¥</span>
                                             @endif
                                         @endif
                                     </div>
@@ -1324,7 +1324,7 @@
                                         @if(!$estimate['has_date'])
                                             <div style="margin-top: 0.6rem; font-size: 0.75rem; color: #d97706; background: #fffbeb; padding: 0.5rem 0.6rem; border-radius: 0.375rem; display: flex; align-items: center; gap: 0.5rem; line-height: 1.4;">
                                                 <svg style="width:16px; height:16px; flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                {{ __('Veuillez sélectionner une date d’activité pour obtenir le tarif exact.') }}
+                                                {{ $product->category?->name === 'Tickets' ? __('Sélectionnez une date pour calculer le total.') : __('Veuillez sélectionner une date d’activité pour obtenir le tarif exact.') }}
                                             </div>
                                         @endif
                                     </div>
