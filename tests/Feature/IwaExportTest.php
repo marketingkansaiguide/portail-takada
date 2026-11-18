@@ -103,7 +103,10 @@ function iwaRow(array $over = []): array
     ], $over);
 }
 
-beforeEach(fn () => iwaSchema());
+beforeEach(function () {
+    iwaSchema();
+    IwaRowFormatter::flushJaCache();
+});
 
 test('cellule D : modes same, custom et none', function () {
     $ja = ['Tokyo Station' => '東京駅', 'Kyoto Station' => '京都駅', 'Nagoya Station' => '名古屋駅'];
@@ -340,4 +343,21 @@ test('ligne 2 en japonais : gare (name_ja sans 駅), arrêt de bus (name_ja) ou 
         ->toContain('高山 - 名古屋')->toContain('乗車券高山～名古屋')
         ->and(iwaHtml([iwaRow(['departure' => 'Takayama Station', 'arrival' => 'Shirakawa-go'])]))->toContain('高山 - 白川郷')
         ->and(iwaHtml([iwaRow(['departure' => 'Unknown Stop', 'arrival' => 'Hakata Station (Gare Shinkansen)'])]))->toContain('Unknown Stop - Hakata');
+});
+
+test('doublons de gares : la ligne avec ville et importance élevée l\'emporte, sinon id le plus petit', function () {
+    Schema::table('train_stations', function (Blueprint $t) {
+        $t->string('city')->nullable();
+        $t->integer('importance_score')->default(10);
+    });
+    \Illuminate\Support\Facades\DB::table('train_stations')->insert([
+        ['name_en' => 'KYOTO STATION', 'name_ja' => '公庄駅', 'city' => null, 'importance_score' => 10],
+        ['name_en' => 'Kyoto Station', 'name_ja' => '京都駅', 'city' => 'Kyoto', 'importance_score' => 100],
+        ['name_en' => 'Osaka Station', 'name_ja' => '大阪駅', 'city' => null, 'importance_score' => 10],
+        ['name_en' => 'Osaka Station', 'name_ja' => '大坂駅', 'city' => null, 'importance_score' => 10],
+    ]);
+    IwaRowFormatter::flushJaCache();
+
+    expect(iwaHtml([iwaRow(['departure' => 'Kyoto Station', 'arrival' => 'Osaka Station'])]))
+        ->toContain('京都 - 大阪')->not->toContain('公庄');
 });
