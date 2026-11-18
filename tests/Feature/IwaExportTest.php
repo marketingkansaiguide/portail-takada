@@ -180,15 +180,15 @@ test('cellule D : modes same, custom et none', function () {
     $ja = ['Tokyo Station' => '東京駅', 'Kyoto Station' => '京都駅', 'Nagoya Station' => '名古屋駅'];
 
     expect(IwaTicketsExport::detailCell(iwaRow(), $ja))
-        ->toBe("Nozomi 13\nTokyo - Kyoto\n指定席\n乗車券 東京～京都");
+        ->toBe("Nozomi 13\n東京 - 京都\n指定席\n乗車券 東京～京都");
 
     expect(IwaTicketsExport::detailCell(iwaRow([
         'fare_ticket_mode' => 'custom', 'fare_ticket_from' => 'Tokyo Station', 'fare_ticket_to' => 'Nagoya Station',
         'specific_requests' => 'Côté Mont Fuji',
-    ]), $ja))->toBe("Nozomi 13\nTokyo - Kyoto\n指定席－Côté Mont Fuji\n乗車券 東京～名古屋");
+    ]), $ja))->toBe("Nozomi 13\n東京 - 京都\n指定席－Côté Mont Fuji\n乗車券 東京～名古屋");
 
     expect(IwaTicketsExport::detailCell(iwaRow(['fare_ticket_mode' => 'none']), $ja))
-        ->toBe("Nozomi 13\nTokyo - Kyoto\n指定席");
+        ->toBe("Nozomi 13\n東京 - 京都\n指定席");
 
     // Clé absente = « même trajet » ; gare sans name_ja (arrêt de bus) = nom anglais court.
     $row = iwaRow(['arrival' => 'Takayama Bus Terminal (Nohi)']);
@@ -208,7 +208,7 @@ test('la cellule D lue dans le classeur utilise name_ja de la gare, sans le suff
     ]);
     $sheet = iwaLoad([iwaRow()])->getSheet(0);
 
-    expect($sheet->getCell('D5')->getValue())->toBe("Nozomi 13\nTokyo - Kyoto\n指定席\n乗車券 東京～京都");
+    expect($sheet->getCell('D5')->getValue())->toBe("Nozomi 13\n東京 - 京都\n指定席\n乗車券 東京～京都");
 });
 
 test('voyageurs : nombre seul sans enfant payant, « 大 n / 小 m » avec un enfant', function () {
@@ -323,4 +323,21 @@ test("les clés fare_ticket_* survivent au recalcul des trajets côté agence et
     foreach (['app/Filament/Agency/Pages/ViewProduct.php', 'app/Filament/Agency/Resources/AgencyFolderResource.php', 'resources/views/filament/agency/pages/view-product.blade.php'] as $file) {
         expect(file_get_contents(base_path($file)))->not->toContain('fare_ticket');
     }
+});
+
+test('ligne 2 de D en japonais : gare (name_ja sans 駅), arrêt de bus (name_ja) ou nom anglais court', function () {
+    Schema::create('bus_stations', function (Blueprint $t) {
+        $t->id();
+        $t->string('name_en');
+        $t->string('name_ja')->nullable();
+        $t->timestamps();
+    });
+    \Illuminate\Support\Facades\DB::table('train_stations')->insert([['name_en' => 'Takayama Station', 'name_ja' => '高山駅'], ['name_en' => 'Nagoya Station', 'name_ja' => '名古屋駅']]);
+    \Illuminate\Support\Facades\DB::table('bus_stations')->insert([['name_en' => 'Shirakawa-go', 'name_ja' => '白川郷'], ['name_en' => 'Unknown Stop', 'name_ja' => null]]);
+
+    $d = fn (string $from, string $to) => iwaLoad([iwaRow(['departure' => $from, 'arrival' => $to, 'train_name' => 'Hida 6'])])->getSheet(0)->getCell('D5')->getValue();
+
+    expect($d('Takayama Station', 'Nagoya Station'))->toBe("Hida 6\n高山 - 名古屋\n指定席\n乗車券 高山～名古屋")
+        ->and(explode("\n", $d('Takayama Station', 'Shirakawa-go'))[1])->toBe('高山 - 白川郷')
+        ->and(explode("\n", $d('Unknown Stop', 'Hakata Station (Gare Shinkansen)'))[1])->toBe('Unknown Stop - Hakata');
 });

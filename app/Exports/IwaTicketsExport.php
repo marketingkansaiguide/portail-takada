@@ -102,7 +102,7 @@ class IwaTicketsExport implements WithMultipleSheets
         ];
     }
 
-    /** Cellule D : train / « A - B » / classe [－ demande] / 乗車券 X～Y. */
+    /** Cellule D : train / « A - B » (japonais) / classe [－ demande] / 乗車券 X～Y (japonais). */
     public static function detailCell(array $r, array $jaNames = []): string
     {
         $dep = (string) ($r['departure'] ?? '');
@@ -116,7 +116,7 @@ class IwaTicketsExport implements WithMultipleSheets
 
         $lines = [
             trim((string) ($r['train_name'] ?? '')),
-            self::shortName($dep) . ' - ' . self::shortName($arr),
+            self::jaName($dep, $jaNames) . ' - ' . self::jaName($arr, $jaNames),
             $class,
         ];
 
@@ -144,6 +144,7 @@ class IwaTicketsExport implements WithMultipleSheets
         return trim(preg_replace('/\s+/u', ' ', $name));
     }
 
+    /** Nom japonais d'une gare ou d'un arrêt (name_ja, sans 駅) ; à défaut, nom anglais court. Lignes 2 et 4 de D. */
     public static function jaName(string $nameEn, array $jaNames): string
     {
         $ja = trim((string) ($jaNames[$nameEn] ?? ''));
@@ -189,11 +190,18 @@ class IwaTicketsExport implements WithMultipleSheets
             return [];
         }
 
+        $list = array_keys($names);
+        $map = [];
         try {
-            return TrainStation::whereIn('name_en', array_keys($names))
-                ->whereNotNull('name_ja')->pluck('name_ja', 'name_en')->all();
+            // Arrêts de bus d'abord : une gare de même nom l'emporte.
+            $map = \App\Models\BusStation::whereIn('name_en', $list)->whereNotNull('name_ja')->pluck('name_ja', 'name_en')->all();
         } catch (\Throwable $e) {
-            return [];
         }
+        try {
+            $map = TrainStation::whereIn('name_en', $list)->whereNotNull('name_ja')->pluck('name_ja', 'name_en')->all() + $map;
+        } catch (\Throwable $e) {
+        }
+
+        return $map;
     }
 }
