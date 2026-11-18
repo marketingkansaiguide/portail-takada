@@ -191,6 +191,7 @@ class ViewProduct extends Page
     {
         if (isset($this->customValues['transport_routes'][$index])) {
             unset($this->customValues['transport_routes'][$index]);
+            $this->classNotices = [];
             $this->customValues['transport_routes'] = array_values($this->customValues['transport_routes']);
         }
     }
@@ -263,6 +264,50 @@ class ViewProduct extends Page
         $this->refreshCalendar();
     }
 
+    /** @var array<int|string, string> Notes « classe basculée » par trajet (index du trajet). */
+    public array $classNotices = [];
+
+    /** Livewire : toute modification d'un trajet (gares, train, date, classe) recale la classe. */
+    public function updated($name): void
+    {
+        if (is_string($name) && str_starts_with($name, 'customValues.transport_routes')) {
+            $this->syncTransportClasses();
+        }
+    }
+
+    /** Si la classe d'un trajet n'a pas de tarif dans la grille, passe en place réservée (ou la première disponible). */
+    protected function syncTransportClasses(): void
+    {
+        $routes = $this->customValues['transport_routes'] ?? null;
+        if (! is_array($routes) || ! $this->product) {
+            return;
+        }
+        $names = $this->product->productOptions->pluck('name', 'id')->all();
+        $adjusted = app(\App\Support\TransportFareResolver::class)->adjustRoutes($routes, $names);
+        foreach ($adjusted as $i => $route) {
+            if (isset($route['option_switch_note'])) {
+                $this->classNotices[$i] = $route['option_switch_note'];
+            } else {
+                unset($this->classNotices[$i]);
+            }
+            unset($adjusted[$i]['option_switch_note']);
+        }
+        if ($adjusted !== $routes) {
+            $this->customValues['transport_routes'] = $adjusted;
+        }
+    }
+
+    /** Classes sans tarif sur ce trajet (grisées dans le choix de classe) ; vide si le trajet n'est pas dans la grille. */
+    public function disabledClassIds(array $route): array
+    {
+        $available = app(\App\Support\TransportFareResolver::class)->availableOptions($route);
+        if ($available === null || ! $this->product) {
+            return [];
+        }
+
+        return $this->product->productOptions->pluck('id')->map(fn ($id) => (int) $id)
+            ->reject(fn ($id) => in_array($id, $available, true))->values()->all();
+    }
     public function updatedSelectedOptions(): void
     {
         $this->refreshCalendar();
@@ -589,6 +634,7 @@ class ViewProduct extends Page
     public function getEstimatedPrice(): array
     {
         if (!$this->product) return [];
+        $this->syncTransportClasses();
 
         $memoKey = md5(json_encode([$this->selectedOptions, $this->customValues['transport_routes'] ?? null, $this->quantity, $this->customValues['_multiplier'] ?? null, $this->serviceDate, $this->ageSelectorAdults, $this->ageSelectorChildren, $this->ageSelectorTeenagers]));
 
@@ -857,6 +903,7 @@ class ViewProduct extends Page
 
     public function addToFolder(): void
     {
+        $this->syncTransportClasses();
         $agencyId = $this->activeAgencyId ?? Filament::auth()->user()?->agency_id;
 
         if (!$agencyId) {

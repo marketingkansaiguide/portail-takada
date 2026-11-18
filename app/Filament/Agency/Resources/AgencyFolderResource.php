@@ -451,6 +451,7 @@ Repeater::make('transport_routes')
                 ->searchable()
                 ->required()
                 ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => static::syncTransportClass($get, $set))
                                 ->placeholder(__('Rechercher gare ou station...'))
                 ->getSearchResultsUsing(function (string $search): array {
                     $trains = \App\Models\TrainStation::where(function($q) use ($search) {
@@ -507,6 +508,7 @@ Repeater::make('transport_routes')
                 ->searchable()
                 ->required()
                 ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => static::syncTransportClass($get, $set))
                                 ->placeholder(__('Rechercher gare ou station...'))
                 ->getSearchResultsUsing(function (string $search): array {
                     $trains = \App\Models\TrainStation::where(function($q) use ($search) {
@@ -567,7 +569,8 @@ Repeater::make('transport_routes')
                             ->label(__('Date du trajet'))
                 ->native(false)
                 ->required()
-                ->live(),
+                ->live()
+                ->afterStateUpdated(fn (Get $get, Set $set) => static::syncTransportClass($get, $set)),
 
             Select::make('option_id')
                             ->label(__('Classe'))
@@ -579,6 +582,12 @@ Repeater::make('transport_routes')
                     if (!$productId) return [];
                     return \App\Models\ProductOption::where('product_id', $productId)->pluck('name', 'id');
                 })
+                ->disableOptionWhen(function ($value, Get $get): bool {
+                    $available = app(\App\Support\TransportFareResolver::class)->availableOptions(static::transportRouteState($get));
+                    return $available !== null && ! in_array((int) $value, $available, true);
+                })
+                ->helperText(__('Les classes grisées n\'ont pas de tarif sur ce trajet.'))
+                ->live()
                 ->searchable()
                 ->required(),
 
@@ -614,7 +623,9 @@ Repeater::make('transport_routes')
         Group::make()->schema([
             TextInput::make('departure_time')
                             ->label(__('Heure de départ souhaitée'))
-                            ->placeholder(__('Ex: 09:30')),
+                            ->placeholder(__('Ex: 09:30'))
+                ->live(onBlur: true)
+                ->afterStateUpdated(fn (Get $get, Set $set) => static::syncTransportClass($get, $set)),
 
             TextInput::make('arrival_time')
                             ->label(__('Heure d\'arrivée souhaitée'))
@@ -622,7 +633,9 @@ Repeater::make('transport_routes')
 
             TextInput::make('train_number')
                             ->label(__('N° Train / Bus (Optionnel)'))
-                            ->placeholder(__('Ex: Hikari 502 / Voiture 3')),
+                            ->placeholder(__('Ex: Hikari 502 / Voiture 3'))
+                ->live(onBlur: true)
+                ->afterStateUpdated(fn (Get $get, Set $set) => static::syncTransportClass($get, $set)),
         ])->columns(3),
 
         Textarea::make('specific_requests')
@@ -1889,5 +1902,34 @@ Repeater::make('transport_routes')
             'create' => Pages\CreateAgencyFolder::route('/create'),
             'edit' => Pages\EditAgencyFolder::route('/{record}/edit'),
         ];
+    }
+
+    /** État du trajet (gares, date, train, classe) tel que saisi dans le Repeater. */
+    protected static function transportRouteState(Get $get): array
+    {
+        return [
+            'departure_station' => $get('departure_station'),
+            'arrival_station' => $get('arrival_station'),
+            'departure_date' => $get('departure_date'),
+            'departure_time' => $get('departure_time'),
+            'train_number' => $get('train_number'),
+            'option_id' => $get('option_id'),
+        ];
+    }
+
+    /** Bascule la classe du trajet en place réservée (ou première disponible) si elle n'a pas de tarif dans la grille. */
+    protected static function syncTransportClass(Get $get, Set $set): void
+    {
+        $new = app(\App\Support\TransportFareResolver::class)->fallbackOption(static::transportRouteState($get));
+        if ($new === null) {
+            return;
+        }
+        $set('option_id', $new);
+        \Filament\Notifications\Notification::make()
+            ->title($new === 24
+                ? __('Classe indisponible sur ce trajet, passée en place réservée.')
+                : __('Classe indisponible sur ce trajet, la classe a été changée.'))
+            ->warning()
+            ->send();
     }
 }

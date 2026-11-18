@@ -491,12 +491,17 @@
                                                             <label class="tk-tr-label"><span>{{ __('Classe') }} <span class="req">*</span></span></label>
                                                             <select required="required" class="tk-tr-input" wire:model.live="customValues.transport_routes.{{ $index }}.option_id">
                                                                 <option value="">{{ __('Choisir…') }}</option>
+                                                                @php $disabledClasses = $this->disabledClassIds($route); @endphp
                                                                 @foreach($product->productOptions as $opt)
-                                                                    <option value="{{ $opt->id }}">
-                                                                        {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}
+                                                                    @php $classOff = in_array((int) $opt->id, $disabledClasses, true); @endphp
+                                                                    <option value="{{ $opt->id }}" @disabled($classOff) @if($classOff) title="{{ __('pas de tarif sur ce trajet') }}" @endif>
+                                                                        {{ $opt->name }}{{ (($opt->price_modifier ?? 0) > 0) ? ' (+'.number_format($opt->price_modifier, 0, '.', ' ').' ¥)' : '' }}{{ $classOff ? ' — '.__('pas de tarif sur ce trajet') : '' }}
                                                                     </option>
                                                                 @endforeach
                                                             </select>
+                                                            @if(! empty($classNotices[$index] ?? null))
+                                                                <span class="tk-tr-fare-note" style="display:block; margin-top:0.25rem; color:#b45309;">{{ $classNotices[$index] }}</span>
+                                                            @endif
                                                         </div>
                                                         <div>
                                                             <label class="tk-tr-label"><span>{{ __('Passagers') }} <span class="req">*</span></span></label>
