@@ -258,7 +258,7 @@ test('le HTML du PDF contient gares japonaises, 乗車券, date japonaise et en-
     expect($html)->toContain('TAKADA TRAVEL合同会社')
         ->toContain('Voyage Test')->toContain('Dupont様')
         ->toContain('2026年10月28日')->toContain('2026年11月5日')->toContain('2026年11月2日')
-        ->toContain('日程')->toContain('列車名/区間/設備/乗車券')->toContain('出発時刻')
+        ->toContain('日程')->toContain('列車名/区間/<br>設備/乗車券')->toContain('出発時刻')
         ->toContain('Nozomi 13')->toContain('東京 - 京都')->toContain('指定席')->toContain('乗車券東京～京都')
         ->toContain('09:30')->toContain('11:49')->toContain('大　2 / 小　1');
 });

@@ -10,8 +10,8 @@
     @page { margin: 19mm 18mm 19mm 18mm; }
     body { font-family: 'biz', sans-serif; font-size: 10pt; color: #000; background: #fff; }
 
-    /* Bloc agence : largeur de la colonne « お客様名 » de l'Excel (129pt), pointillé 0,75pt */
-    .agency { width: 129pt; border: 0.75pt dotted #000; padding: 10pt 4pt; text-align: center; font-weight: bold; font-size: 10pt; line-height: 1.4; }
+    /* Bloc agence : largeur de la colonne « お客様名 » de l'Excel (129pt, élargi à 170pt pour tenir sur une ligne), pointillé 0,75pt */
+    .agency { width: 170pt; border: 0.75pt dotted #000; padding: 10pt 2pt; white-space: nowrap; text-align: center; font-weight: bold; font-size: 10pt; line-height: 1.4; }
     .client { margin: 10pt 0 12pt 0; font-size: 10pt; line-height: 1.5; }
     .client .name { font-weight: bold; }
 
@@ -50,7 +50,7 @@
     <thead>
         <tr>
             <th class="first">日程</th>
-            <th>列車名/区間/設備/乗車券</th>
+            <th>列車名/区間/<br>設備/乗車券</th>
             <th>出発時刻</th>
             <th>到着時刻</th>
             <th class="last">人数</th>
