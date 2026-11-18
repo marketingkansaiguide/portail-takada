@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class ImportTransportFares extends Command
 {
-    protected $signature = 'transport-fares:import {path : Modèle Excel rempli (modele-grille-tarifs-trains.xlsx)} {--dry-run : Analyse sans rien enregistrer} {--kind= : train ou bus (détecté d'après les onglets si omis)}';
+    protected $signature = 'transport-fares:import {path : Modèle Excel rempli (modele-grille-tarifs-trains.xlsx)} {--dry-run : Analyse sans rien enregistrer} {--kind= : train ou bus (détecté selon les onglets si omis)}';
 
     protected $description = 'Importe la grille tarifaire des billets de train (remplace le précédent import Excel de la même famille train ou bus, garde les saisies manuelles)';
 
