@@ -26,7 +26,6 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Renderless;
 use Illuminate\Support\HtmlString;
 use Livewire\WithFileUploads;
 
@@ -227,52 +226,7 @@ class ViewProduct extends Page
     #[Computed]
     public function stationSuggestions(): array
     {
-        return $this->stationOptions(null, 10);
-    }
-
-    /**
-     * Recherche de gares côté serveur pendant la saisie (la liste complète fait plus de 9 000 gares :
-     * ne jamais l'embarquer dans la page). N'effectue aucun nouveau rendu du composant.
-     *
-     * @return array<int, array{name:string, label:string}>
-     */
-    #[Renderless]
-    public function searchStations(string $term): array
-    {
-        return $this->stationOptions(trim($term), 15);
-    }
-
-    /** @return array<int, array{name:string, label:string}> */
-    protected function stationOptions(?string $term, int $limit): array
-    {
-        $like = $term === null || $term === '' ? null : '%' . addcslashes($term, '\%_') . '%';
-
-        $trains = TrainStation::query()
-            ->when($like, fn ($q) => $q->where(fn ($q) => $q->where('name_en', 'like', $like)->orWhere('name_ja', 'like', $like)
-                ->orWhere('city', 'like', $like)->orWhere('prefecture', 'like', $like)))
-            ->orderByDesc('importance_score')->orderBy('name_en')
-            ->limit($limit)
-            ->get(['name_en', 'name_ja', 'city', 'prefecture', 'importance_score'])
-            ->map(fn ($s) => [
-                'name' => $s->name_en,
-                'label' => "🚆 {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : '') . ($s->city ? " - {$s->city}" : ($s->prefecture ? " - {$s->prefecture}" : '')),
-                'score' => $s->importance_score ?? 10,
-            ]);
-
-        $buses = BusStation::query()
-            ->when($like, fn ($q) => $q->where(fn ($q) => $q->where('name_en', 'like', $like)->orWhere('name_ja', 'like', $like)
-                ->orWhere('address', 'like', $like)))
-            ->orderBy('name_en')
-            ->limit($limit)
-            ->get(['name_en', 'name_ja', 'address'])
-            ->map(fn ($s) => [
-                'name' => $s->name_en,
-                'label' => "🚌 [Bus] {$s->name_en}" . ($s->name_ja ? " ({$s->name_ja})" : '') . ($s->address ? " - {$s->address}" : ''),
-                'score' => 50,
-            ]);
-
-        return $trains->concat($buses)->sortByDesc('score')->take($limit)
-            ->map(fn ($s) => ['name' => $s['name'], 'label' => $s['label']])->values()->all();
+        return \App\Support\StationSearch::search(null, 10);
     }
 
     public function selectGroupVariant(string $groupName, $selectedOptionId): void

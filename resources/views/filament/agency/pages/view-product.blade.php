@@ -438,22 +438,42 @@
                                                                 path: 'customValues.transport_routes.{{ $index }}.{{ $leg['field'] }}',
                                                                 open: false,
                                                                 results: @js($this->stationSuggestions),
+                                                                defaults: @js($this->stationSuggestions),
+                                                                url: @js(route('transport.stations')),
+                                                                pending: false,
                                                                 timer: null,
-                                                                seq: 0,
+                                                                ctrl: null,
+                                                                cache: {},
                                                                 init() {
-                                                                    // Le serveur peut recaler la valeur (ex. changement de trajet) : on suit.
-                                                                    this.$wire.$watch(this.path, (v) => { if (v !== this.search) this.search = v ?? ''; });
+                                                                    // Le serveur peut recaler la valeur (ex. suppression d'un trajet) : on suit, sauf pendant la saisie.
+                                                                    this.$wire.$watch(this.path, (v) => {
+                                                                        if (v !== this.search && document.activeElement !== this.$refs.input) this.search = v ?? '';
+                                                                    });
                                                                 },
-                                                                // Pendant la frappe : recherche côté serveur (sans re-rendu), sur 250 ms de pause.
+                                                                // Dès la frappe : suggestions embarquées filtrées sur place, puis résultats du serveur après 200 ms de pause.
+                                                                // Requête HTTP directe (pas Livewire) : une mise à jour de prix en cours ne la retarde pas.
                                                                 typing() {
                                                                     this.open = true;
                                                                     clearTimeout(this.timer);
+                                                                    if (this.ctrl) this.ctrl.abort();
                                                                     const q = (this.search || '').trim();
+                                                                    if (q === '') { this.results = this.defaults; this.pending = false; return; }
+                                                                    const k = q.toLowerCase();
+                                                                    if (this.cache[k]) { this.results = this.cache[k]; this.pending = false; return; }
+                                                                    this.results = this.defaults.filter(s => s.label.toLowerCase().includes(k));
+                                                                    this.pending = true;
                                                                     this.timer = setTimeout(async () => {
-                                                                        const n = ++this.seq;
-                                                                        const r = await this.$wire.searchStations(q);
-                                                                        if (n === this.seq) this.results = r;
-                                                                    }, 250);
+                                                                        this.ctrl = new AbortController();
+                                                                        try {
+                                                                            const r = await fetch(this.url + '?q=' + encodeURIComponent(q), { signal: this.ctrl.signal, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+                                                                            if (!r.ok) throw new Error(r.status);
+                                                                            this.cache[k] = await r.json();
+                                                                            this.results = this.cache[k];
+                                                                            this.pending = false;
+                                                                        } catch (e) {
+                                                                            if (e.name !== 'AbortError') this.pending = false;
+                                                                        }
+                                                                    }, 200);
                                                                 },
                                                                 // La valeur n'est envoyée au serveur (et le prix recalculé) qu'une fois la gare choisie ou le champ quitté.
                                                                 commit() {
@@ -474,6 +494,8 @@
                                                                 </label>
                                                                 <input type="text" class="tk-tr-input"
                                                                        x-model="search"
+                                                                       x-ref="input"
+                                                                       wire:ignore
                                                                        @input="typing()"
                                                                        @change="commit()"
                                                                        @keydown.enter="open = false; commit()"
@@ -482,7 +504,8 @@
                                                                        @keydown.escape="open = false"
                                                                        autocomplete="off"
                                                                        placeholder="{{ __('Rechercher une gare…') }}" />
-                                                                <div x-show="open && results.length > 0" x-cloak class="tk-tr-menu">
+                                                                <div style="display: none;" :style="(open && (results.length > 0 || pending)) ? '' : 'display: none;'" wire:ignore class="tk-tr-menu">
+                                                                    <div class="tk-tr-opt" style="display: none;" :style="pending ? 'font-style: italic; color: #94a3b8; cursor: default;' : 'display: none;'">{{ __('Recherche…') }}</div>
                                                                     <template x-for="st in results" :key="st.name">
                                                                         <div class="tk-tr-opt" @click="select(st)"><span x-text="st.label"></span></div>
                                                                     </template>

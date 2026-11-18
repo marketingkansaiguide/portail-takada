@@ -90,17 +90,42 @@ it('enregistre le prix indicatif dans le trajet commandé', function () {
         ->and($routes[1])->not->toHaveKey('fare_estimate');
 });
 
-it('n’embarque pas la liste complète des gares dans la page et cherche côté serveur', function () {
+it('n’embarque pas la liste complète des gares dans la page', function () {
     foreach (range(1, 300) as $i) {
         \App\Models\TrainStation::create(['name_en' => "Testville{$i} Station", 'importance_score' => $i % 90]);
     }
-    \App\Models\TrainStation::create(['name_en' => 'Zzyzx Station', 'name_ja' => '終点駅', 'importance_score' => 1]);
 
     $c = Livewire::test(ViewProduct::class, ['record' => 4]);
     expect(substr_count($c->html(), 'Testville250 Station'))->toBe(0)
         ->and(strlen($c->html()))->toBeLessThan(400_000);
+});
 
-    $found = $c->instance()->searchStations('zzyzx');
-    expect($found)->toHaveCount(1)->and($found[0]['name'])->toBe('Zzyzx Station')
-        ->and($c->instance()->searchStations('100%_'))->toBe([]);
+it('recherche de gares : exact d’abord, puis préfixe, puis le reste, à rang égal la plus importante', function () {
+    $mk = fn ($en, $ja, $city, $score) => \App\Models\TrainStation::create(['name_en' => $en, 'name_ja' => $ja, 'city' => $city, 'importance_score' => $score]);
+    $mk('Shinagawa Station', '品川', 'Tokyo', 95);       // ville = Tokyo, très importante
+    $mk('Tokyo Disneyland Station', '舞浜', 'Urayasu', 40); // préfixe
+    $mk('Shin-Tokyo Station', '新東京', 'X', 90);           // contient
+    $mk('Tokyo Station', '東京', 'Chiyoda City', 80);       // exact (« tokyo station »)
+    $mk('Tokyo', '東京都', 'Y', 1);                         // exact (« tokyo »)
+
+    $names = array_column(\App\Support\StationSearch::search('Tokyo', 15), 'name');
+    expect($names[0])->toBe('Tokyo Station')
+        ->and($names[1])->toBe('Tokyo')
+        ->and($names[2])->toBe('Tokyo Disneyland Station')
+        ->and($names[3])->toBe('Shin-Tokyo Station')
+        ->and($names[4])->toBe('Shinagawa Station');
+
+    expect(array_column(\App\Support\StationSearch::search('tokyo station', 15), 'name')[0])->toBe('Tokyo Station')
+        ->and(\App\Support\StationSearch::search('100%_zzz'))->toBe([])
+        ->and(\App\Support\StationSearch::search(null, 3))->toHaveCount(3);
+});
+
+it('le point d’accès de recherche de gares exige une connexion et renvoie du JSON', function () {
+    \App\Models\TrainStation::create(['name_en' => 'Zzyzx Station', 'name_ja' => '終点駅', 'importance_score' => 1]);
+
+    $this->getJson(route('transport.stations', ['q' => 'zzyzx']))
+        ->assertOk()->assertJsonPath('0.name', 'Zzyzx Station');
+
+    auth('web')->logout();
+    expect($this->getJson(route('transport.stations', ['q' => 'zzyzx']))->getStatusCode())->not->toBe(200);
 });

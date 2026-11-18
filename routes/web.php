@@ -237,3 +237,10 @@ Route::get('/pdf/seven-tickets-labels', function (Request $request) {
 
     return view('pdf.seven-tickets-labels', compact('records'));
 })->name('pdf.seven-tickets-labels');
+
+// Autocomplétion des gares des billets train / bus : requête HTTP indépendante de Livewire
+// (une requête Livewire en cours ne la retarde pas).
+Route::get('/transport/gares', function (Illuminate\Http\Request $request) {
+    return response()->json(\App\Support\StationSearch::search((string) $request->query('q', ''), 15))
+        ->header('Cache-Control', 'private, max-age=60');
+})->middleware(['auth:web,agency', 'throttle:240,1'])->name('transport.stations');
