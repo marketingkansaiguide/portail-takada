@@ -252,6 +252,20 @@
         .tk-dbd tr.is-free-range td { padding-top: .3rem; padding-bottom: .3rem; font-size: .75rem; }
         .tk-dbd tr.is-free-range td.tk-j { white-space: nowrap; font-size: .7rem; }
         .tk-dbd:not(.tk-show-free) tr.tk-free-hide { display: none; }
+        .tk-todo { border: 1px solid #fca5a5; background: #fef2f2; border-radius: .5rem; padding: .6rem .8rem; margin-bottom: .9rem; font-size: .8rem; }
+        html.dark .tk-todo { background: rgba(127,29,29,.25); border-color: #7f1d1d; }
+        .tk-todo-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+        .tk-todo-n { font-size: .72rem; font-weight: 700; padding: .05rem .5rem; border-radius: 9999px; }
+        .tk-todo-n.is-miss { background: #fee2e2; color: #b91c1c; }
+        .tk-todo-n.is-wait { background: #fef3c7; color: #b45309; }
+        .tk-todo ul { list-style: none; margin: 0; padding: 0; max-height: 11rem; overflow-y: auto; }
+        .tk-todo li { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; padding: .25rem .3rem; border-radius: .3rem; cursor: pointer; }
+        .tk-todo li:hover { background: rgba(0,0,0,.05); }
+        .tk-todo-date { font-weight: 700; min-width: 2.6rem; }
+        .tk-todo-name { font-weight: 600; }
+        .tk-chip { display: inline-block; font-size: .68rem; font-weight: 600; padding: .05rem .45rem; border-radius: 9999px; margin: .1rem .25rem .1rem 0; }
+        .tk-chip.is-miss { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .tk-chip.is-wait { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
         .tk-dbd-freebox { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--gray-600); cursor: pointer; user-select: none; }
         .tk-dbd-freebox input { width: 1rem; height: 1rem; border-radius: .25rem; accent-color: var(--primary-600); }
         html.dark .tk-dbd-freebox { color: var(--gray-300); }
@@ -272,6 +286,26 @@
 
         </div>
     </div>
+
+    @if (! empty($todo))
+        <div class="tk-todo" x-show="mode === 'day'">
+            <div class="tk-todo-head">
+                <strong>⚠️ {{ __('À traiter') }}</strong>
+                @if ($missingCount)<span class="tk-todo-n is-miss">{{ $missingCount }} {{ __('à compléter') }}</span>@endif
+                @if ($pendingCount)<span class="tk-todo-n is-wait">{{ $pendingCount }} {{ __('en attente') }}</span>@endif
+            </div>
+            <ul>
+                @foreach ($todo as $row)
+                    <li x-on:click="open(@js($row['repeater']), @js($row['key']), @js($row['name']), @js(($row['date'] ? $row['date']->format('d/m/Y') : __('Sans date')) . ' · ' . $row['status_name']))">
+                        <span class="tk-todo-date">{{ $row['date'] ? $row['date']->format('d/m') : '—' }}</span>
+                        <span class="tk-todo-name">{{ $row['name'] }}</span>
+                        @foreach ($row['missing'] as $reason)<span class="tk-chip is-miss">⛔ {{ $reason }}</span>@endforeach
+                        @foreach ($row['pending'] as $reason)<span class="tk-chip is-wait">⏳ {{ $reason }}</span>@endforeach
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 
     <div x-show="mode === 'day'">
         @if (empty($groups))
@@ -358,6 +392,8 @@
                                             @if (! empty($row['note']))
                                                 <span class="tk-opt" title="{{ $row['note'] }}">📝 {{ \Illuminate\Support\Str::limit($row['note'], 80) }}</span>
                                             @endif
+                                            {{-- Facture attendue / fournisseur à choisir : déjà signalés dans la colonne Fournisseur --}}
+                                            @foreach ($row['missing'] as $reason)<span class="tk-chip is-miss">⛔ {{ $reason }}</span>@endforeach
                                         </td>
                                         <td class="tk-c">{{ $row['quantity'] }}</td>
                                         <td>

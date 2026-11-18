@@ -62,7 +62,8 @@ class FolderDayByDay
         })->filter()->map(fn ($id) => (int) $id)->unique()->values();
         $statusIds = collect($items)->merge($internalItems)->pluck('item_status_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
 
-        $products = $productIds->isEmpty() ? collect() : Product::query()->whereIn('id', $productIds)->pluck('name', 'id');
+        $productModels = $productIds->isEmpty() ? collect() : Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
+        $products = $productModels->map(fn ($product) => $product->name);
         $options = $optionIds->isEmpty() ? collect() : ProductOption::query()->whereIn('id', $optionIds)->pluck('name', 'id');
         $statuses = $statusIds->isEmpty() ? collect() : ItemStatus::query()->whereIn('id', $statusIds)->get()->keyBy('id');
         $productSuppliers = $productIds->isEmpty() ? collect() : ProductSupplier::query()->whereIn('product_id', $productIds)->get(['product_id', 'supplier_id'])->groupBy('product_id');
@@ -128,6 +129,7 @@ class FolderDayByDay
                 'where' => trim(trim((string) ($state['meeting_time'] ?? '')) . ' ' . trim((string) ($state['meeting_point'] ?? ''))),
                 'note' => preg_replace('/\s+/', ' ', trim((string) ($state['ticketing_notes'] ?? ''))),
                 'purchase' => (float) ($state['purchase_total_price'] ?? 0),
+                'missing' => static::missingInfo($state, $productId ? $productModels->get($productId) : null),
             ];
         }
 
@@ -151,6 +153,7 @@ class FolderDayByDay
                 'price' => 0.0,
                 'routes' => [],
                 'purchase' => (float) ($state['purchase_total_price'] ?? 0),
+                'missing' => static::missingInfo($state, null),
             ];
         }
 
@@ -174,6 +177,13 @@ class FolderDayByDay
             };
             $statusName = Str::lower(Str::ascii((string) $row['status']?->name));
             $row['cancelled'] = str_contains($statusName, 'annul') || str_contains($statusName, 'pas de disponibilit');
+            // Une prestation annulée n'a plus rien à compléter ni à attendre.
+            $row['missing'] = $row['cancelled'] ? [] : ($row['missing'] ?? []);
+            $row['pending'] = $row['cancelled'] ? [] : array_values(array_filter([
+                $row['awaiting_invoice'] ? __('Facture fournisseur attendue') : null,
+                $row['must_select_supplier'] ? __('Fournisseur à choisir') : null,
+            ]));
+            $row['has_alert'] = $row['missing'] !== [] || $row['pending'] !== [];
         }
         unset($row);
 
@@ -244,7 +254,55 @@ class FolderDayByDay
             'billable' => $billable,
             'purchaseTotal' => $purchaseTotal,
             'canDelete' => $canDelete,
+            'todo' => collect($rows)->filter(fn ($row) => $row['has_alert'])->sortBy(fn ($row) => $row['date']?->toDateString() ?? '9999')->values()->all(),
+            'missingCount' => collect($rows)->filter(fn ($row) => $row['missing'] !== [])->count(),
+            'pendingCount' => collect($rows)->filter(fn ($row) => $row['pending'] !== [])->count(),
         ])->render());
+    }
+
+    /**
+     * Informations à renseigner avant de pouvoir enregistrer ou commander la prestation :
+     * date, statut, champs obligatoires du produit, gares des trajets.
+     *
+     * @return array<int, string>
+     */
+    protected static function missingInfo(array $state, ?Product $product): array
+    {
+        $missing = [];
+        if (blank($state['service_date'] ?? null)) {
+            $missing[] = __('Date manquante');
+        }
+        if (blank($state['item_status_id'] ?? null)) {
+            $missing[] = __('Statut manquant');
+        }
+        if (! $product) {
+            return $missing;
+        }
+
+        $values = (array) ($state['custom_values'] ?? []);
+        if ($product->product_type === 'transport') {
+            foreach (array_values((array) ($values['transport_routes'] ?? [])) as $i => $route) {
+                if (is_array($route) && (blank($route['departure_station'] ?? null) || blank($route['arrival_station'] ?? null))) {
+                    $missing[] = __('Trajet :n : gares à renseigner', ['n' => $i + 1]);
+                }
+            }
+
+            return $missing;
+        }
+
+        foreach ((array) $product->custom_field_definitions as $idx => $def) {
+            if (empty($def['is_required']) || in_array($def['type'] ?? 'text', ['toggle', 'file'], true)) {
+                continue;
+            }
+            $key = ! empty($def['key']) ? trim($def['key']) : Str::slug($def['name'] ?? 'custom', '_');
+            $key = $key !== '' ? $key : 'custom_field_' . $idx;
+            $value = $values[$key] ?? null;
+            if (is_array($value) ? collect($value)->flatten()->filter(fn ($v) => filled($v))->isEmpty() : blank($value)) {
+                $missing[] = __('Manque : :field', ['field' => (string) ($def['name'] ?? $key)]);
+            }
+        }
+
+        return $missing;
     }
 
     /**
