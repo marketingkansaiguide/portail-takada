@@ -403,7 +403,7 @@ test('une longue ligne 乗車券 sans espace ne déborde pas de sa cellule dans 
     iwaBusSchema();
     $html = iwaHtml([iwaRow([
         'departure' => 'Shin-Osaka Station', 'arrival' => 'Matsumoto Bus Terminal', 'class' => '自由席', 'train_name' => '',
-        'dep_time' => '', 'arr_time' => '', 'fare_ticket_mode' => 'custom',
+        'dep_time' => '', 'arr_time' => '', 'date' => '2026-10-28', 'fare_ticket_mode' => 'custom',
         'fare_ticket_from' => 'Shin-Osaka Station', 'fare_ticket_to' => 'Matsumoto Bus Terminal',
         'specific_requests' => 'Places côte à côte côté fenêtre, voiture 5 si possible, merci de prévoir un siège près de la porte',
     ])]);
@@ -412,8 +412,12 @@ test('une longue ligne 乗車券 sans espace ne déborde pas de sa cellule dans 
     $dompdf->loadHtml($html);
     $dompdf->setPaper('a4', 'portrait');
     $texts = 0;
+    $widths = [];
     $overflows = [];
-    $dompdf->setCallbacks([['event' => 'end_frame', 'f' => function ($f) use (&$texts, &$overflows) {
+    $dompdf->setCallbacks([['event' => 'end_frame', 'f' => function ($f) use (&$texts, &$overflows, &$widths) {
+        if (($f->get_node()->nodeName ?? '') === 'th') {
+            $widths[] = round($f->get_border_box()['w'], 1);
+        }
         if (! $f instanceof \Dompdf\FrameDecorator\Text) {
             return;
         }
@@ -432,5 +436,7 @@ test('une longue ligne 乗車券 sans espace ne déborde pas de sa cellule dans 
     }]]);
     $dompdf->render();
 
-    expect($texts)->toBeGreaterThan(5)->and($overflows)->toBe([]);
+    expect($texts)->toBeGreaterThan(5)->and($overflows)->toBe([])
+        // Largeurs réelles des colonnes : date >= 75pt, détail >= 200pt (dompdf ignore <col>, d'où des largeurs sur les <th>).
+        ->and($widths)->toHaveCount(5)->and($widths[0])->toBeGreaterThanOrEqual(75)->and($widths[1])->toBeGreaterThanOrEqual(200);
 });

@@ -23,10 +23,9 @@
     table.routes th.first { border-left: 2.25pt solid #000; }
     table.routes th.last { border-right: 2.25pt solid #000; }
     /* Données : 10pt, tout centré, aucun gras, bordures fines 0,75pt, hauteur mini 52pt */
-    table.routes td { font-size: 10pt; font-weight: normal; height: 52pt; padding: 3pt 4pt; border: 0.75pt solid #000; }
+    table.routes td { font-size: 10pt; font-weight: normal; height: 52pt; padding: 3pt 1pt; border: 0.75pt solid #000; }
     table.routes tr { page-break-inside: avoid; }
-    /* Largeurs : 17 / 43 / 13 / 13 / 14 % (colonne détail élargie ; total 100 %) */
-    col.c-date { width: 17%; } col.c-detail { width: 43%; } col.c-dep { width: 13%; } col.c-arr { width: 13%; } col.c-pax { width: 14%; }
+    /* Largeurs sur les <th> de la 1re ligne, en % : en table-layout fixed dompdf ignore les largeurs en pt et les <col>. 94/204/60/60/69pt = 19,30/41,89/12,32/12,32/14,16 % de 487pt */
 
     .footer { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 8pt; color: #444; text-align: center; }
     .footer .page:after { content: counter(page) " / " counter(pages); }
@@ -44,23 +43,20 @@
 </div>
 
 <table class="routes">
-    <colgroup>
-        <col class="c-date"><col class="c-detail"><col class="c-dep"><col class="c-arr"><col class="c-pax">
-    </colgroup>
     <thead>
         <tr>
-            <th class="first">日程</th>
-            <th>列車名/区間/<br>設備/乗車券</th>
-            <th>出発時刻</th>
-            <th>到着時刻</th>
-            <th class="last">人数</th>
+            <th class="first" style="width: 19.30%;">日程</th>
+            <th style="width: 41.89%;">列車名/区間/<br>設備/乗車券</th>
+            <th style="width: 12.32%;">出発時刻</th>
+            <th style="width: 12.32%;">到着時刻</th>
+            <th class="last" style="width: 14.16%;">人数</th>
         </tr>
     </thead>
     <tbody>
     @foreach ($lines as $l)
         <tr>
-            <td>{{ $l['date'] }}</td>
-            <td>{!! nl2br(e($l['detail'])) !!}</td>
+            <td style="white-space: nowrap;">{{ $l['date'] }}</td>
+            <td style="padding: 3pt 5pt;">{!! nl2br(e($l['detail'])) !!}</td>
             <td>{{ $l['dep'] }}</td>
             <td>{{ $l['arr'] }}</td>
             <td>{{ $l['pax'] }}</td>
