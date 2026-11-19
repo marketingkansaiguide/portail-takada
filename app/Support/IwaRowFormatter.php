@@ -29,7 +29,9 @@ class IwaRowFormatter
         ];
 
         $mode = $r['fare_ticket_mode'] ?? 'same';
-        if ($mode !== 'none') {
+        // Mode « même trajet » : pas de billet de base JR si le départ ou l'arrivée est un arrêt de bus.
+        $skipBus = $mode === 'same' && (self::isBusStop($dep) || self::isBusStop($arr));
+        if ($mode !== 'none' && ! $skipBus) {
             $from = $dep;
             $to = $arr;
             if ($mode === 'custom' && filled($r['fare_ticket_from'] ?? null) && filled($r['fare_ticket_to'] ?? null)) {
@@ -87,10 +89,14 @@ class IwaRowFormatter
     /** Cache de la requête : nom en minuscules => name_ja choisi (ou null). Évite de répéter les requêtes SQL. */
     protected static array $jaCache = ['train' => [], 'bus' => []];
 
+    /** Existence du nom dans chaque table (même sans name_ja). */
+    protected static array $existsCache = ['train' => [], 'bus' => []];
+
     /** Vide le cache (tests, longs processus). */
     public static function flushJaCache(): void
     {
         static::$jaCache = ['train' => [], 'bus' => []];
+        static::$existsCache = ['train' => [], 'bus' => []];
     }
 
     /**
@@ -143,7 +149,6 @@ class IwaRowFormatter
         try {
             $rows = $model::query()
                 ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(name_en)'), $lowerNames)
-                ->whereNotNull('name_ja')->where('name_ja', '!=', '')
                 ->get();
         } catch (\Throwable $e) {
         }
@@ -151,7 +156,16 @@ class IwaRowFormatter
         $byName = $rows->groupBy(fn ($s) => mb_strtolower((string) $s->name_en));
         foreach ($lowerNames as $n) {
             static::$jaCache[$kind][$n] = isset($byName[$n]) ? static::pickJa($byName[$n]) : null;
+            static::$existsCache[$kind][$n] = isset($byName[$n]);
         }
+    }
+
+    /** Vrai si le nom est un arrêt de bus connu (et pas aussi une gare) ; nécessite loadJaNames() au préalable. */
+    public static function isBusStop(string $nameEn): bool
+    {
+        $key = mb_strtolower($nameEn);
+
+        return (static::$existsCache['bus'][$key] ?? false) && ! (static::$existsCache['train'][$key] ?? false);
     }
 
     /**
@@ -160,7 +174,7 @@ class IwaRowFormatter
      */
     protected static function pickJa($candidates): ?string
     {
-        $best = $candidates->sortBy(fn ($s) => [
+        $best = $candidates->filter(fn ($s) => filled(trim((string) $s->name_ja)))->sortBy(fn ($s) => [
             filled($s->getAttribute('city')) ? 0 : 1,
             -((int) $s->getAttribute('importance_score')),
             (int) $s->getKey(),

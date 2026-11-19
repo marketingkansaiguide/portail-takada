@@ -16,7 +16,7 @@
     .client .name { font-weight: bold; }
 
     table.routes { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 auto; }
-    table.routes th, table.routes td { text-align: center; vertical-align: middle; color: #000; }
+    table.routes th, table.routes td { text-align: center; vertical-align: middle; color: #000; overflow-wrap: break-word; }
     /* En-tête : 12pt gras, fond bleu, bordures haute et latérales épaisses (2,25pt) */
     table.routes th { font-size: 12pt; font-weight: bold; background: #C9DAF8; height: 50pt; padding: 4pt;
         border-top: 2.25pt solid #000; border-bottom: 0.75pt solid #000; border-left: 0.75pt solid #000; border-right: 0.75pt solid #000; }
@@ -25,8 +25,8 @@
     /* Données : 10pt, tout centré, aucun gras, bordures fines 0,75pt, hauteur mini 52pt */
     table.routes td { font-size: 10pt; font-weight: normal; height: 52pt; padding: 3pt 4pt; border: 0.75pt solid #000; }
     table.routes tr { page-break-inside: avoid; }
-    /* Largeurs relatives de l'Excel : 90 / 168 / 70 / 72 / 72 */
-    col.c-date { width: 19%; } col.c-detail { width: 35.6%; } col.c-dep { width: 14.8%; } col.c-arr { width: 15.3%; } col.c-pax { width: 15.3%; }
+    /* Largeurs : 17 / 43 / 13 / 13 / 14 % (colonne détail élargie ; total 100 %) */
+    col.c-date { width: 17%; } col.c-detail { width: 43%; } col.c-dep { width: 13%; } col.c-arr { width: 13%; } col.c-pax { width: 14%; }
 
     .footer { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 8pt; color: #444; text-align: center; }
     .footer .page:after { content: counter(page) " / " counter(pages); }

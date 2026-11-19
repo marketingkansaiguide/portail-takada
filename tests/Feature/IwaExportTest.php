@@ -361,3 +361,76 @@ test('doublons de gares : la ligne avec ville et importance élevée l\'emporte,
     expect(iwaHtml([iwaRow(['departure' => 'Kyoto Station', 'arrival' => 'Osaka Station'])]))
         ->toContain('京都 - 大阪')->not->toContain('公庄');
 });
+
+function iwaBusSchema(): void
+{
+    Schema::create('bus_stations', function (Blueprint $t) {
+        $t->id();
+        $t->string('name_en');
+        $t->string('name_ja')->nullable();
+        $t->timestamps();
+    });
+    \Illuminate\Support\Facades\DB::table('train_stations')->insert(['name_en' => 'Shin-Osaka Station', 'name_ja' => '新大阪駅']);
+    \Illuminate\Support\Facades\DB::table('bus_stations')->insert([
+        ['name_en' => 'Matsumoto Bus Terminal', 'name_ja' => '松本バスターミナル'],
+        ['name_en' => 'Nameless Stop', 'name_ja' => null],
+    ]);
+}
+
+test('arrêt de bus : pas de ligne 乗車券 en mode « même trajet », conservée en mode custom', function () {
+    iwaBusSchema();
+    $row = ['departure' => 'Shin-Osaka Station', 'arrival' => 'Matsumoto Bus Terminal', 'class' => '自由席', 'train_name' => ''];
+
+    $same = iwaHtml([iwaRow($row)]);
+    expect($same)->toContain('新大阪 - 松本バスターミナル')->not->toContain('乗車券新大阪');
+
+    // Arrêt de bus sans name_ja : reste un arrêt de bus.
+    expect(iwaHtml([iwaRow(['arrival' => 'Nameless Stop'] + $row)]))->not->toContain('乗車券新大阪');
+
+    $custom = iwaHtml([iwaRow($row + ['fare_ticket_mode' => 'custom', 'fare_ticket_from' => 'Shin-Osaka Station', 'fare_ticket_to' => 'Matsumoto Bus Terminal'])]);
+    expect($custom)->toContain('乗車券新大阪～松本バスターミナル');
+
+    // Trajet de gare à gare : la ligne reste.
+    expect(iwaHtml([iwaRow()]))->toContain('乗車券Tokyo～Kyoto');
+});
+
+test('le HTML du PDF autorise la coupure des longs textes sans espace (overflow-wrap)', function () {
+    expect(iwaHtml([iwaRow()]))->toContain('overflow-wrap: break-word')->toContain('table-layout: fixed')
+        ->not->toContain("\u{200B}");
+});
+
+test('une longue ligne 乗車券 sans espace ne déborde pas de sa cellule dans le PDF', function () {
+    iwaBusSchema();
+    $html = iwaHtml([iwaRow([
+        'departure' => 'Shin-Osaka Station', 'arrival' => 'Matsumoto Bus Terminal', 'class' => '自由席', 'train_name' => '',
+        'dep_time' => '', 'arr_time' => '', 'fare_ticket_mode' => 'custom',
+        'fare_ticket_from' => 'Shin-Osaka Station', 'fare_ticket_to' => 'Matsumoto Bus Terminal',
+        'specific_requests' => 'Places côte à côte côté fenêtre, voiture 5 si possible, merci de prévoir un siège près de la porte',
+    ])]);
+
+    $dompdf = new \Dompdf\Dompdf(['chroot' => base_path(), 'fontDir' => storage_path('fonts'), 'fontCache' => storage_path('fonts')]);
+    $dompdf->loadHtml($html);
+    $dompdf->setPaper('a4', 'portrait');
+    $texts = 0;
+    $overflows = [];
+    $dompdf->setCallbacks([['event' => 'end_frame', 'f' => function ($f) use (&$texts, &$overflows) {
+        if (! $f instanceof \Dompdf\FrameDecorator\Text) {
+            return;
+        }
+        $p = $f->get_parent();
+        while ($p && ! in_array($p->get_node()->nodeName ?? '', ['td', 'th'])) {
+            $p = $p->get_parent();
+        }
+        if ($p) {
+            $texts++;
+            $cell = $p->get_content_box();
+            $box = $f->get_border_box();
+            if ($box['x'] + $box['w'] > $cell['x'] + $cell['w'] + 0.5) {
+                $overflows[] = trim($f->get_text());
+            }
+        }
+    }]]);
+    $dompdf->render();
+
+    expect($texts)->toBeGreaterThan(5)->and($overflows)->toBe([]);
+});
